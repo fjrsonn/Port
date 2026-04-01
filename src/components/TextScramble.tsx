@@ -8,7 +8,7 @@ type TextScrambleProps = {
   characterSet?: string;
   as?: ElementType;
   className?: string;
-  trigger?: boolean;
+  triggerKey?: number;
   onScrambleComplete?: () => void;
 } & HTMLAttributes<HTMLElement>;
 
@@ -16,12 +16,12 @@ const defaultChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
 
 export function TextScramble({
   children,
-  duration = 0.8,
-  speed = 0.04,
+  duration = 3,
+  speed = 0.045,
   characterSet = defaultChars,
   className,
   as: Component = 'span',
-  trigger = true,
+  triggerKey = 0,
   onScrambleComplete,
   ...props
 }: TextScrambleProps) {
@@ -32,7 +32,7 @@ export function TextScramble({
   }, [children]);
 
   useEffect(() => {
-    if (!trigger) {
+    if (triggerKey === 0) {
       setDisplayText(children);
       return;
     }
@@ -65,7 +65,7 @@ export function TextScramble({
     }, speed * 1000);
 
     return () => window.clearInterval(interval);
-  }, [trigger, children, duration, speed, characterSet, onScrambleComplete]);
+  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
     <Component className={className} {...props}>

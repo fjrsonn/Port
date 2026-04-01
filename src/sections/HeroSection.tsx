@@ -22,7 +22,7 @@ export function HeroSection() {
         onMouseLeave={() => setHovered(false)}
       >
         <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <TextScramble key={scrambleKey} as="span" trigger={hovered} duration={0.65} speed={0.035}>
+          <TextScramble key={scrambleKey} as="span" triggerKey={scrambleKey} duration={3} speed={0.045}>
             FJR.
           </TextScramble>
         </h1>
