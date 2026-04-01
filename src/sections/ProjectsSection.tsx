@@ -27,7 +27,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNavigator, setShowNavigator] = useState(false);
-  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
   const [focusedVideoIndex, setFocusedVideoIndex] = useState<number | null>(null);
 
@@ -97,37 +96,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     return () => ctx.revert();
   }, []);
 
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      const fullscreenElement = document.fullscreenElement as HTMLElement | null;
-
-      if (!fullscreenElement) {
-        setFullscreenIndex(null);
-        onVideoHoverChange?.(false);
-        videoRefs.current.forEach((video) => {
-          if (!video) return;
-          video.controls = false;
-          video.muted = true;
-        });
-        return;
-      }
-
-      const foundIndex = videoRefs.current.findIndex((video) => video === fullscreenElement);
-      if (foundIndex >= 0) {
-        setFullscreenIndex(foundIndex);
-        onVideoHoverChange?.(true);
-        const video = videoRefs.current[foundIndex];
-        if (video) {
-          video.controls = true;
-          video.muted = false;
-        }
-      }
-    };
-
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, [onVideoHoverChange]);
-
   return (
     <section
       id="projetos"
@@ -136,7 +104,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       onMouseEnter={() => setShowNavigator(true)}
       onMouseLeave={() => {
         setShowNavigator(false);
-        if (fullscreenIndex === null) onVideoHoverChange?.(false);
+        onVideoHoverChange?.(false);
       }}
     >
       <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
@@ -155,10 +123,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               }}
               className={`project-video ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
               src={project.videoUrl}
-              muted={fullscreenIndex !== index}
+              muted
               loop
               playsInline
-              controls={fullscreenIndex === index}
+              controls={false}
               preload="auto"
               onMouseEnter={() => {
                 setHoveredVideoIndex(index);
@@ -170,18 +138,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               }}
               onMouseLeave={() => {
                 setHoveredVideoIndex(null);
-                if (fullscreenIndex === null) onVideoHoverChange?.(false);
-              }}
-              onClick={async (event) => {
-                const video = event.currentTarget;
-                if (document.fullscreenElement === video) {
-                  await document.exitFullscreen();
-                  return;
-                }
-
-                if (video.requestFullscreen) {
-                  await video.requestFullscreen();
-                }
+                onVideoHoverChange?.(false);
               }}
             />
             <p className="project-title">{project.title}</p>
