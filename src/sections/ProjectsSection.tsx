@@ -27,13 +27,13 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNavigator, setShowNavigator] = useState(false);
-  const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
-  const [focusedVideoIndex, setFocusedVideoIndex] = useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
   useEffect(() => {
     if (!sectionRef.current || !trackRef.current) return;
+
+    ScrollTrigger.getById('projects-horizontal')?.kill();
 
     const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
@@ -44,6 +44,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           trigger: sectionRef.current,
           pin: true,
           scrub: 1,
+          snap: projects.length > 1 ? 1 / (projects.length - 1) : undefined,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
@@ -120,25 +121,15 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className={`project-video ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
+              className="project-video"
               src={project.videoUrl}
               muted
               loop
               playsInline
               controls={false}
               preload="auto"
-              onMouseEnter={() => {
-                setHoveredVideoIndex(index);
-                onVideoHoverChange?.(true);
-                const card = cardRefs.current[index];
-                if (card) {
-                  gsap.to(card, { opacity: 1, duration: 0.2, overwrite: 'auto' });
-                }
-              }}
-              onMouseLeave={() => {
-                setHoveredVideoIndex(null);
-                onVideoHoverChange?.(false);
-              }}
+              onMouseEnter={() => onVideoHoverChange?.(true)}
+              onMouseLeave={() => onVideoHoverChange?.(false)}
             />
             <p className="project-title">{project.title}</p>
           </div>
@@ -159,11 +150,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               trigger.refresh();
 
               const maxSteps = Math.max(1, projects.length - 1);
-              const ratio = index / maxSteps;
-              const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
-              const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
+              const stepSize = (trigger.end - trigger.start) / maxSteps;
+              const targetY = trigger.start + stepSize * index;
 
-              window.scrollTo({ top: clampedY, behavior: 'smooth' });
+              window.scrollTo({ top: targetY });
             }}
             aria-label={`Ir para ${project.title}`}
           />
