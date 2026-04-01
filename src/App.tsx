@@ -16,13 +16,11 @@ export default function App() {
     <div className="app-shell">
       <IntroSection visible={showIntro} />
 
-      {!showIntro && (
-        <main>
-          <HeroSection />
-          <ProjectsSection />
-          <AboutSection />
-        </main>
-      )}
+      <main className={`main-content ${showIntro ? 'main-hidden' : 'main-visible'}`}>
+        <HeroSection />
+        <ProjectsSection />
+        <AboutSection />
+      </main>
     </div>
   );
 }

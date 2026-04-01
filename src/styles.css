@@ -23,6 +23,19 @@ body {
   overflow-x: hidden;
 }
 
+.main-content {
+  transition: opacity 0.9s ease;
+}
+
+.main-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.main-visible {
+  opacity: 1;
+}
+
 .intro-screen {
   position: fixed;
   inset: 0;
@@ -34,8 +47,8 @@ body {
 }
 
 .intro-title {
-  font-size: clamp(1.2rem, 3.8vw, 2.8rem);
-  letter-spacing: 0.05em;
+  font-size: clamp(0.85rem, 2.6vw, 1.95rem);
+  letter-spacing: 0.04em;
 }
 
 .hero-section {
@@ -52,7 +65,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   pointer-events: auto;
-  z-index: 15;
+  z-index: 40;
 }
 
 .hero-title {
