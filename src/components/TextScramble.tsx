@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ElementType, HTMLAttributes } from 'react';
 
 type TextScrambleProps = {
@@ -26,22 +26,31 @@ export function TextScramble({
   ...props
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
+  const intervalRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const resetToOriginal = useCallback(() => {
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setDisplayText(children);
   }, [children]);
 
   useEffect(() => {
-    if (triggerKey === 0) {
-      setDisplayText(children);
-      return;
-    }
+    resetToOriginal();
+  }, [resetToOriginal]);
 
-    const steps = Math.max(1, Math.floor(duration / speed));
-    let step = 0;
+  useEffect(() => {
+    resetToOriginal();
+    if (triggerKey === 0) return;
 
-    const interval = window.setInterval(() => {
-      const progress = step / steps;
+    const totalMs = Math.max(1, duration * 1000);
+    const tickMs = Math.max(16, speed * 1000);
+    const startAt = performance.now();
+
+    intervalRef.current = window.setInterval(() => {
+      const elapsed = performance.now() - startAt;
+      const progress = Math.min(1, elapsed / totalMs);
       let scrambled = '';
 
       for (let i = 0; i < children.length; i += 1) {
@@ -57,20 +66,15 @@ export function TextScramble({
       }
 
       setDisplayText(scrambled);
-      step += 1;
 
-      if (step > steps) {
-        window.clearInterval(interval);
-        setDisplayText(children);
+      if (progress >= 1) {
+        resetToOriginal();
         onScrambleComplete?.();
       }
-    }, speed * 1000);
+    }, tickMs);
 
-    return () => {
-      window.clearInterval(interval);
-      setDisplayText(children);
-    };
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
+    return () => resetToOriginal();
+  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete, resetToOriginal]);
 
   return (
     <Component className={className} {...props}>
