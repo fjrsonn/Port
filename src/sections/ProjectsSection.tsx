@@ -162,6 +162,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               onMouseEnter={() => {
                 setHoveredVideoIndex(index);
                 onVideoHoverChange?.(true);
+                const card = cardRefs.current[index];
+                if (card) {
+                  gsap.to(card, { opacity: 1, duration: 0.2, overwrite: 'auto' });
+                }
               }}
               onMouseLeave={() => {
                 setHoveredVideoIndex(null);
@@ -193,9 +197,9 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
               if (!trigger) return;
-              const ratio = projects.length === 1 ? 0 : index / (projects.length - 1);
-              const y = trigger.start + (trigger.end - trigger.start) * ratio;
-              window.scrollTo({ top: y, behavior: 'smooth' });
+              const targetY = trigger.start + index * window.innerWidth;
+              const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
+              window.scrollTo({ top: clampedY, behavior: 'smooth' });
             }}
             aria-label={`Ir para ${project.title}`}
           />

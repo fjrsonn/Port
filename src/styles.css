@@ -117,13 +117,15 @@ body {
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.2);
   opacity: 0.72;
-  transition: opacity 0.35s ease;
+  filter: brightness(0.8);
+  transition: opacity 0.35s ease, filter 0.35s ease;
 }
 
 .project-video:hover,
 .project-video.is-hovered,
 .project-card:hover .project-video {
   opacity: 1;
+  filter: brightness(1);
 }
 
 .project-title {
