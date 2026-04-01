@@ -48,6 +48,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           scrub: 1,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
+          snap: projects.length > 1 ? 1 / (projects.length - 1) : 1,
         },
       });
 
@@ -197,9 +198,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
               if (!trigger) return;
-              const targetY = trigger.start + index * window.innerWidth;
+              const ratio = projects.length === 1 ? 0 : index / (projects.length - 1);
+              const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
               const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
-              window.scrollTo({ top: clampedY, behavior: 'smooth' });
+              window.scrollTo({ top: clampedY, behavior: 'auto' });
             }}
             aria-label={`Ir para ${project.title}`}
           />
