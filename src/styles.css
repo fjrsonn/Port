@@ -152,6 +152,23 @@ body {
   transform: translate(-50%, 0);
 }
 
+.project-video-focus {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 35;
+}
+
+.project-video-focus-player {
+  width: min(82vw, 1000px);
+  max-height: 70vh;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 48px rgba(0, 0, 0, 0.48);
+}
+
 .nav-square {
   width: 16px;
   height: 16px;
