@@ -45,10 +45,12 @@ export function TextScramble({
       let scrambled = '';
 
       for (let i = 0; i < children.length; i += 1) {
-        if (children[i] === ' ') {
-          scrambled += ' ';
+        const char = children[i];
+
+        if (!/[A-Za-z0-9]/.test(char)) {
+          scrambled += char;
         } else if (progress * children.length > i) {
-          scrambled += children[i];
+          scrambled += char;
         } else {
           scrambled += characterSet[Math.floor(Math.random() * characterSet.length)];
         }
@@ -64,7 +66,10 @@ export function TextScramble({
       }
     }, speed * 1000);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      setDisplayText(children);
+    };
   }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
