@@ -68,6 +68,11 @@ body {
   z-index: 40;
 }
 
+.hero-title-wrapper-hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 .hero-title {
   font-size: clamp(4rem, 18vw, 13rem);
   margin: 0;
@@ -87,20 +92,6 @@ body {
   position: relative;
   overflow: hidden;
   background: #000;
-}
-
-.projects-header {
-  position: fixed;
-  top: 1.5rem;
-  left: 2rem;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.projects-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
 }
 
 .project-track {
