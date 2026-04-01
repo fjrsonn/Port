@@ -36,8 +36,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
-      const cards = cardRefs.current.filter((card): card is HTMLDivElement => Boolean(card));
-
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
         ease: 'none',
@@ -51,23 +49,16 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         },
       });
 
-      gsap.set(cards, { opacity: 0, xPercent: 110, rotateY: -26, transformOrigin: 'right center' });
+      cardRefs.current.forEach((card, index) => {
+        if (!card) return;
 
-      cards.forEach((card, index) => {
-        gsap.to(card, {
-          opacity: 1,
-          xPercent: 0,
-          rotateY: 0,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: card,
-            start: 'left center',
-            end: 'right center',
-            scrub: true,
-            containerAnimation: horizontalTween,
-            onEnter: () => setActiveIndex(index),
-            onEnterBack: () => setActiveIndex(index),
-          },
+        ScrollTrigger.create({
+          trigger: card,
+          start: 'left center',
+          end: 'right center',
+          containerAnimation: horizontalTween,
+          onEnter: () => setActiveIndex(index),
+          onEnterBack: () => setActiveIndex(index),
         });
       });
 
@@ -80,10 +71,18 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'left center',
           end: 'right center',
           onEnter: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
           onEnterBack: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
