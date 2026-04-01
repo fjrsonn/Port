@@ -34,17 +34,25 @@ body {
 }
 
 .intro-title {
-  font-size: clamp(2rem, 7vw, 7rem);
-  letter-spacing: 0.06em;
+  font-size: clamp(1.2rem, 3.8vw, 2.8rem);
+  letter-spacing: 0.05em;
 }
 
 .hero-section {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  position: sticky;
-  top: 0;
+  position: relative;
   background: #000;
+}
+
+.hero-title-wrapper {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  z-index: 15;
 }
 
 .hero-title {
@@ -52,6 +60,7 @@ body {
   margin: 0;
   font-weight: 700;
   line-height: 0.9;
+  color: #fff;
   transition: text-shadow 0.2s ease, transform 0.2s ease;
 }
 
