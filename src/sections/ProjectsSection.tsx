@@ -196,11 +196,18 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             className={`nav-square ${activeIndex === index ? 'active' : ''}`}
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
-              if (!trigger) return;
+              const track = trackRef.current;
+              const card = cardRefs.current[index];
+              if (!trigger || !track || !card) return;
+
               trigger.refresh();
-              const ratio = projects.length === 1 ? 0 : index / (projects.length - 1);
+
+              const maxHorizontal = Math.max(1, track.scrollWidth - window.innerWidth);
+              const horizontalOffset = Math.max(0, Math.min(maxHorizontal, card.offsetLeft));
+              const ratio = horizontalOffset / maxHorizontal;
               const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
               const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
+
               window.scrollTo({ top: clampedY });
             }}
             aria-label={`Ir para ${project.title}`}
