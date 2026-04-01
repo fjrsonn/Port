@@ -102,7 +102,7 @@ body {
 .project-card {
   width: 100vw;
   height: 100vh;
-  padding: 6rem 8vw 3rem;
+  padding: 4.2rem 6vw 2.2rem;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -120,7 +120,9 @@ body {
   transition: opacity 0.35s ease;
 }
 
-.project-video:hover {
+.project-video:hover,
+.project-video.is-hovered,
+.project-card:hover .project-video {
   opacity: 1;
 }
 

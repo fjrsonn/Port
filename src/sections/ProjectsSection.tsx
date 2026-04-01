@@ -28,6 +28,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNavigator, setShowNavigator] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+  const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -46,7 +47,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           pin: true,
           scrub: 1,
           start: 'top top',
-          end: `+=${window.innerWidth * projects.length * 0.7}`,
+          end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
 
@@ -151,15 +152,19 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className="project-video"
+              className={`project-video ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
               src={project.videoUrl}
               muted={fullscreenIndex !== index}
               loop
               playsInline
               controls={fullscreenIndex === index}
               preload="auto"
-              onMouseEnter={() => onVideoHoverChange?.(true)}
+              onMouseEnter={() => {
+                setHoveredVideoIndex(index);
+                onVideoHoverChange?.(true);
+              }}
               onMouseLeave={() => {
+                setHoveredVideoIndex(null);
                 if (fullscreenIndex === null) onVideoHoverChange?.(false);
               }}
               onClick={async (event) => {
@@ -188,8 +193,8 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
               if (!trigger) return;
-              const progress = index / (projects.length - 1);
-              const y = trigger.start + (trigger.end - trigger.start) * progress;
+              const ratio = projects.length === 1 ? 0 : index / (projects.length - 1);
+              const y = trigger.start + (trigger.end - trigger.start) * ratio;
               window.scrollTo({ top: y, behavior: 'smooth' });
             }}
             aria-label={`Ir para ${project.title}`}
