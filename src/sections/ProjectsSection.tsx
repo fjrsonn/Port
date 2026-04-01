@@ -211,7 +211,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
               const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
 
-              window.scrollTo({ top: clampedY });
+              window.scrollTo({ top: clampedY, behavior: 'smooth' });
             }}
             aria-label={`Ir para ${project.title}`}
           />
