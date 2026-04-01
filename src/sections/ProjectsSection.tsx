@@ -203,7 +203,8 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               trigger.refresh();
 
               const maxHorizontal = Math.max(1, track.scrollWidth - window.innerWidth);
-              const horizontalOffset = Math.max(0, Math.min(maxHorizontal, card.offsetLeft));
+              const centeredOffset = card.offsetLeft + card.offsetWidth / 2 - window.innerWidth / 2;
+              const horizontalOffset = Math.max(0, Math.min(maxHorizontal, centeredOffset));
               const ratio = horizontalOffset / maxHorizontal;
               const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
               const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
