@@ -29,6 +29,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const [showNavigator, setShowNavigator] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
+  const [focusedVideoIndex, setFocusedVideoIndex] = useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -200,6 +201,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               const card = cardRefs.current[index];
               if (!trigger || !track || !card) return;
 
+              setFocusedVideoIndex(index);
               trigger.refresh();
 
               const maxHorizontal = Math.max(1, track.scrollWidth - window.innerWidth);
@@ -215,6 +217,27 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           />
         ))}
       </nav>
+
+      {focusedVideoIndex !== null && (
+        <div
+          className="project-video-focus"
+          role="dialog"
+          aria-modal="false"
+          aria-label={`Prévia centralizada de ${projects[focusedVideoIndex].title}`}
+          onClick={() => setFocusedVideoIndex(null)}
+        >
+          <video
+            className="project-video-focus-player"
+            src={projects[focusedVideoIndex].videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </section>
   );
 }
