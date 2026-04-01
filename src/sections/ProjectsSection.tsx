@@ -46,7 +46,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           pin: true,
           scrub: 1,
           start: 'top top',
-          end: `+=${window.innerWidth * projects.length}`,
+          end: `+=${window.innerWidth * projects.length * 0.7}`,
         },
       });
 

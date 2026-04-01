@@ -66,10 +66,10 @@ body {
   transform: translate(-50%, -50%);
   pointer-events: auto;
   z-index: 40;
+  transition: opacity 0.8s ease, filter 0.8s ease;
 }
 
 .hero-title-wrapper-hidden {
-  opacity: 0 !important;
   pointer-events: none;
 }
 
@@ -116,6 +116,12 @@ body {
   height: min(60vh, 620px);
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  opacity: 0.72;
+  transition: opacity 0.35s ease;
+}
+
+.project-video:hover {
+  opacity: 1;
 }
 
 .project-title {
@@ -127,19 +133,19 @@ body {
 
 .project-nav {
   position: fixed;
-  right: 2rem;
+  left: 50%;
   bottom: 2rem;
+  transform: translate(-50%, 8px);
   display: flex;
   gap: 0.7rem;
   opacity: 0;
-  transform: translateY(8px);
   transition: opacity 0.3s ease, transform 0.3s ease;
   z-index: 21;
 }
 
 .project-nav.visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .nav-square {
