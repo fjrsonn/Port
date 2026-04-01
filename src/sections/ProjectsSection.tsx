@@ -17,7 +17,8 @@ const projects: ProjectItem[] = [
 ];
 
 export function ProjectsSection() {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -26,32 +27,12 @@ export function ProjectsSection() {
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
   useEffect(() => {
-    if (!sectionRef.current) return;
+    if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
-      const cards = cardRefs.current.filter(Boolean);
-      gsap.set(cards, { opacity: 0, xPercent: 120, rotateY: -35, transformOrigin: 'right center' });
+      const cards = cardRefs.current.filter((card): card is HTMLDivElement => Boolean(card));
 
-      cards.forEach((card, index) => {
-        gsap.to(card, {
-          opacity: 1,
-          xPercent: 0,
-          rotateY: 0,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: card,
-            start: 'left center',
-            end: 'right center',
-            scrub: true,
-            horizontal: true,
-            containerAnimation: ScrollTrigger.getById('projects-horizontal'),
-            onEnter: () => setActiveIndex(index),
-            onEnterBack: () => setActiveIndex(index),
-          },
-        });
-      });
-
-      const horizontalTween = gsap.to('.project-track', {
+      const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
         ease: 'none',
         scrollTrigger: {
@@ -64,12 +45,32 @@ export function ProjectsSection() {
         },
       });
 
+      gsap.set(cards, { opacity: 0, xPercent: 110, rotateY: -26, transformOrigin: 'right center' });
+
+      cards.forEach((card, index) => {
+        gsap.to(card, {
+          opacity: 1,
+          xPercent: 0,
+          rotateY: 0,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: card,
+            start: 'left center',
+            end: 'right center',
+            scrub: true,
+            containerAnimation: horizontalTween,
+            onEnter: () => setActiveIndex(index),
+            onEnterBack: () => setActiveIndex(index),
+          },
+        });
+      });
+
       videoRefs.current.forEach((video, idx) => {
         if (!video) return;
 
         ScrollTrigger.create({
           trigger: cardRefs.current[idx],
-          containerAnimation: horizontalTween.scrollTrigger,
+          containerAnimation: horizontalTween,
           start: 'left center',
           end: 'right center',
           onEnter: () => {
@@ -101,7 +102,7 @@ export function ProjectsSection() {
         <h2>Projetos</h2>
       </div>
 
-      <div className="project-track" style={{ width: panelWidth }}>
+      <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
         {projects.map((project, index) => (
           <div
             key={project.id}

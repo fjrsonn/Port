@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ElementType } from 'react';
-import { motion } from 'framer-motion';
-import type { MotionProps } from 'framer-motion';
+import type { ElementType, HTMLAttributes } from 'react';
 
 type TextScrambleProps = {
   children: string;
@@ -12,7 +10,7 @@ type TextScrambleProps = {
   className?: string;
   trigger?: boolean;
   onScrambleComplete?: () => void;
-} & MotionProps;
+} & HTMLAttributes<HTMLElement>;
 
 const defaultChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -22,29 +20,29 @@ export function TextScramble({
   speed = 0.04,
   characterSet = defaultChars,
   className,
-  as: Component = 'p',
+  as: Component = 'span',
   trigger = true,
   onScrambleComplete,
   ...props
 }: TextScrambleProps) {
-  const MotionComponent = motion.create(Component);
   const [displayText, setDisplayText] = useState(children);
-  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     setDisplayText(children);
   }, [children]);
 
   useEffect(() => {
-    if (!trigger || isAnimating) return;
+    if (!trigger) {
+      setDisplayText(children);
+      return;
+    }
 
-    setIsAnimating(true);
-    const steps = duration / speed;
+    const steps = Math.max(1, Math.floor(duration / speed));
     let step = 0;
 
     const interval = window.setInterval(() => {
-      let scrambled = '';
       const progress = step / steps;
+      let scrambled = '';
 
       for (let i = 0; i < children.length; i += 1) {
         if (children[i] === ' ') {
@@ -62,21 +60,16 @@ export function TextScramble({
       if (step > steps) {
         window.clearInterval(interval);
         setDisplayText(children);
-        setIsAnimating(false);
         onScrambleComplete?.();
       }
     }, speed * 1000);
 
-    return () => {
-      window.clearInterval(interval);
-      setIsAnimating(false);
-      setDisplayText(children);
-    };
-  }, [trigger, children, duration, speed, characterSet, onScrambleComplete, isAnimating]);
+    return () => window.clearInterval(interval);
+  }, [trigger, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
-    <MotionComponent className={className} {...props}>
+    <Component className={className} {...props}>
       {displayText}
-    </MotionComponent>
+    </Component>
   );
 }
