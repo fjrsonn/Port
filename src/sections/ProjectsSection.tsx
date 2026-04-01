@@ -27,17 +27,15 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNavigator, setShowNavigator] = useState(false);
-  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
-  const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
   useEffect(() => {
     if (!sectionRef.current || !trackRef.current) return;
 
-    const ctx = gsap.context(() => {
-      const cards = cardRefs.current.filter((card): card is HTMLDivElement => Boolean(card));
+    ScrollTrigger.getById('projects-horizontal')?.kill();
 
+    const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
         ease: 'none',
@@ -46,28 +44,22 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           trigger: sectionRef.current,
           pin: true,
           scrub: 1,
+          snap: projects.length > 1 ? 1 / (projects.length - 1) : undefined,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
 
-      gsap.set(cards, { opacity: 0, xPercent: 110, rotateY: -26, transformOrigin: 'right center' });
+      cardRefs.current.forEach((card, index) => {
+        if (!card) return;
 
-      cards.forEach((card, index) => {
-        gsap.to(card, {
-          opacity: 1,
-          xPercent: 0,
-          rotateY: 0,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: card,
-            start: 'left center',
-            end: 'right center',
-            scrub: true,
-            containerAnimation: horizontalTween,
-            onEnter: () => setActiveIndex(index),
-            onEnterBack: () => setActiveIndex(index),
-          },
+        ScrollTrigger.create({
+          trigger: card,
+          start: 'left center',
+          end: 'right center',
+          containerAnimation: horizontalTween,
+          onEnter: () => setActiveIndex(index),
+          onEnterBack: () => setActiveIndex(index),
         });
       });
 
@@ -80,10 +72,18 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'left center',
           end: 'right center',
           onEnter: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
           onEnterBack: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
@@ -96,37 +96,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     return () => ctx.revert();
   }, []);
 
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      const fullscreenElement = document.fullscreenElement as HTMLElement | null;
-
-      if (!fullscreenElement) {
-        setFullscreenIndex(null);
-        onVideoHoverChange?.(false);
-        videoRefs.current.forEach((video) => {
-          if (!video) return;
-          video.controls = false;
-          video.muted = true;
-        });
-        return;
-      }
-
-      const foundIndex = videoRefs.current.findIndex((video) => video === fullscreenElement);
-      if (foundIndex >= 0) {
-        setFullscreenIndex(foundIndex);
-        onVideoHoverChange?.(true);
-        const video = videoRefs.current[foundIndex];
-        if (video) {
-          video.controls = true;
-          video.muted = false;
-        }
-      }
-    };
-
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, [onVideoHoverChange]);
-
   return (
     <section
       id="projetos"
@@ -135,7 +104,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       onMouseEnter={() => setShowNavigator(true)}
       onMouseLeave={() => {
         setShowNavigator(false);
-        if (fullscreenIndex === null) onVideoHoverChange?.(false);
+        onVideoHoverChange?.(false);
       }}
     >
       <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
@@ -152,36 +121,15 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className={`project-video ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
+              className="project-video"
               src={project.videoUrl}
-              muted={fullscreenIndex !== index}
+              muted
               loop
               playsInline
-              controls={fullscreenIndex === index}
+              controls={false}
               preload="auto"
-              onMouseEnter={() => {
-                setHoveredVideoIndex(index);
-                onVideoHoverChange?.(true);
-                const card = cardRefs.current[index];
-                if (card) {
-                  gsap.to(card, { opacity: 1, duration: 0.2, overwrite: 'auto' });
-                }
-              }}
-              onMouseLeave={() => {
-                setHoveredVideoIndex(null);
-                if (fullscreenIndex === null) onVideoHoverChange?.(false);
-              }}
-              onClick={async (event) => {
-                const video = event.currentTarget;
-                if (document.fullscreenElement === video) {
-                  await document.exitFullscreen();
-                  return;
-                }
-
-                if (video.requestFullscreen) {
-                  await video.requestFullscreen();
-                }
-              }}
+              onMouseEnter={() => onVideoHoverChange?.(true)}
+              onMouseLeave={() => onVideoHoverChange?.(false)}
             />
             <p className="project-title">{project.title}</p>
           </div>
@@ -196,20 +144,15 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             className={`nav-square ${activeIndex === index ? 'active' : ''}`}
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
-              const track = trackRef.current;
-              const card = cardRefs.current[index];
-              if (!trigger || !track || !card) return;
+              if (!trigger) return;
 
               trigger.refresh();
 
-              const maxHorizontal = Math.max(1, track.scrollWidth - window.innerWidth);
-              const centeredOffset = card.offsetLeft + card.offsetWidth / 2 - window.innerWidth / 2;
-              const horizontalOffset = Math.max(0, Math.min(maxHorizontal, centeredOffset));
-              const ratio = horizontalOffset / maxHorizontal;
-              const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
-              const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
+              const maxSteps = Math.max(1, projects.length - 1);
+              const stepSize = (trigger.end - trigger.start) / maxSteps;
+              const targetY = trigger.start + stepSize * index;
 
-              window.scrollTo({ top: clampedY });
+              window.scrollTo({ top: targetY });
             }}
             aria-label={`Ir para ${project.title}`}
           />
