@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ElementType, HTMLAttributes } from 'react';
 
 type TextScrambleProps = {
@@ -28,21 +28,16 @@ export function TextScramble({
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
 
-  const resetToOriginal = useCallback(() => {
+  useEffect(() => {
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setDisplayText(children);
-  }, [children]);
 
-  useEffect(() => {
-    resetToOriginal();
-  }, [resetToOriginal]);
-
-  useEffect(() => {
-    resetToOriginal();
-    if (triggerKey === 0) return;
+    if (triggerKey === 0) {
+      setDisplayText(children);
+      return;
+    }
 
     const totalMs = Math.max(1, duration * 1000);
     const tickMs = Math.max(16, speed * 1000);
@@ -65,16 +60,26 @@ export function TextScramble({
         }
       }
 
-      setDisplayText(scrambled);
-
       if (progress >= 1) {
-        resetToOriginal();
+        if (intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setDisplayText(children);
         onScrambleComplete?.();
+        return;
       }
+
+      setDisplayText(scrambled);
     }, tickMs);
 
-    return () => resetToOriginal();
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete, resetToOriginal]);
+    return () => {
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
     <Component className={className} {...props}>
