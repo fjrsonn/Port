@@ -116,26 +116,16 @@ body {
   height: min(60vh, 620px);
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  opacity: 0.2;
-  filter: brightness(0.55);
-  transform: scale(0.985);
-  transition: opacity 0.45s ease, filter 0.45s ease, transform 0.45s ease;
-}
-
-.project-video.is-active,
-.project-card:hover .project-video {
-  opacity: 1;
+  opacity: 0.8;
   filter: brightness(1);
   transform: scale(1);
+  transition: opacity 0.3s ease;
+  cursor: pointer;
 }
 
-.project-title {
-  margin: 0;
-  font-size: 1rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.project-video.is-hovered {
+  opacity: 1;
 }
-
 
 .about-section {
   min-height: 100vh;

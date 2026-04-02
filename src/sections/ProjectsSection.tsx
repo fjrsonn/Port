@@ -26,12 +26,26 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [hoveredVideoIndex, setHoveredVideoIndex] = React.useState<number | null>(null);
+  const [fullscreenVideoIndex, setFullscreenVideoIndex] = React.useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
   useEffect(() => {
-    if (!sectionRef.current || !trackRef.current) return;
+    const onFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement;
+      const currentIndex = videoRefs.current.findIndex((video) => video === fullscreenElement);
+      setFullscreenVideoIndex(currentIndex >= 0 ? currentIndex : null);
+    };
 
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
@@ -47,17 +61,30 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         },
       });
 
-
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
+
+        gsap.set(card, { x: 140, y: 80, opacity: 0 });
 
         ScrollTrigger.create({
           trigger: card,
           start: 'left center',
           end: 'right center',
           containerAnimation: horizontalTween,
-          onEnter: () => setActiveIndex(index),
-          onEnterBack: () => setActiveIndex(index),
+          onEnter: () => {
+            setActiveIndex(index);
+            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
+          },
+          onEnterBack: () => {
+            setActiveIndex(index);
+            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
+          },
+          onLeave: () => {
+            gsap.to(card, { x: -100, y: 0, opacity: 0.6, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
+          },
+          onLeaveBack: () => {
+            gsap.to(card, { x: 120, y: 60, opacity: 0, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
+          },
         });
       });
 
@@ -96,11 +123,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   }, []);
 
   return (
-    <section
-      id="projetos"
-      className="projects-section"
-      ref={sectionRef}
-    >
+    <section id="projetos" className="projects-section" ref={sectionRef}>
       <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
         {projects.map((project, index) => (
           <div
@@ -115,21 +138,30 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className={`project-video ${activeIndex === index ? 'is-active' : ''}`}
+              className={`project-video ${activeIndex === index ? 'is-active' : ''} ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
               src={project.videoUrl}
-              muted
+              muted={fullscreenVideoIndex !== index}
               loop
               playsInline
-              controls={false}
+              controls={fullscreenVideoIndex === index}
               preload="auto"
-              onMouseEnter={() => onVideoHoverChange?.(true)}
-              onMouseLeave={() => onVideoHoverChange?.(false)}
+              onMouseEnter={() => {
+                setHoveredVideoIndex(index);
+                onVideoHoverChange?.(true);
+              }}
+              onMouseLeave={() => {
+                setHoveredVideoIndex(null);
+                onVideoHoverChange?.(false);
+              }}
+              onClick={async (event) => {
+                const video = event.currentTarget;
+                if (document.fullscreenElement === video) return;
+                await video.requestFullscreen();
+              }}
             />
-            <p className="project-title">{project.title}</p>
           </div>
         ))}
       </div>
-
     </section>
   );
 }
