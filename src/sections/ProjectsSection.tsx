@@ -85,7 +85,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
       };
 
       const horizontalTween = gsap.to(trackRef.current, {
-        xPercent: -100 * (projects.length - 1),
+        x: () => -(trackRef.current!.scrollWidth - window.innerWidth),
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
@@ -95,11 +95,8 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           scrub: true,
           invalidateOnRefresh: true,
           start: 'top top',
-          end: `+=${window.innerWidth * (projects.length - 1)}`,
+          end: () => `+=${trackRef.current!.scrollWidth - window.innerWidth}`,
           onUpdate: () => {
-            if (trackRef.current) {
-              gsap.set(trackRef.current, { y: 0 });
-            }
             updateTitleOverlapProgress();
           },
           onRefresh: updateTitleOverlapProgress,
@@ -169,8 +166,6 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
             }}
             className="project-card"
             aria-label={project.title}
-            onMouseEnter={() => onVideoHoverChange?.(true)}
-            onMouseLeave={() => onVideoHoverChange?.(false)}
           >
             <video
               ref={(el) => {
@@ -185,10 +180,12 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
               preload="auto"
               onMouseEnter={(event) => {
                 setHoveredVideoIndex(index);
+                onVideoHoverChange?.(true);
                 gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
               onMouseLeave={(event) => {
                 setHoveredVideoIndex(null);
+                onVideoHoverChange?.(false);
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
                 gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
