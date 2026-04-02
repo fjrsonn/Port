@@ -41,6 +41,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           trigger: sectionRef.current,
           pin: true,
           scrub: 1,
+          snap: projects.length > 1 ? 1 / (projects.length - 1) : undefined,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
