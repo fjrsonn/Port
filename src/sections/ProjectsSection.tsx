@@ -25,6 +25,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -44,6 +45,20 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
+      });
+
+
+      cardRefs.current.forEach((card, index) => {
+        if (!card) return;
+
+        ScrollTrigger.create({
+          trigger: card,
+          start: 'left center',
+          end: 'right center',
+          containerAnimation: horizontalTween,
+          onEnter: () => setActiveIndex(index),
+          onEnterBack: () => setActiveIndex(index),
+        });
       });
 
       videoRefs.current.forEach((video, idx) => {
@@ -100,7 +115,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className="project-video"
+              className={`project-video ${activeIndex === index ? 'is-active' : ''}`}
               src={project.videoUrl}
               muted
               loop

@@ -116,16 +116,17 @@ body {
   height: min(60vh, 620px);
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  opacity: 0.72;
-  filter: brightness(0.8);
-  transition: opacity 0.35s ease, filter 0.35s ease;
+  opacity: 0.2;
+  filter: brightness(0.55);
+  transform: scale(0.985);
+  transition: opacity 0.45s ease, filter 0.45s ease, transform 0.45s ease;
 }
 
-.project-video:hover,
-.project-video.is-hovered,
+.project-video.is-active,
 .project-card:hover .project-video {
   opacity: 1;
   filter: brightness(1);
+  transform: scale(1);
 }
 
 .project-title {
@@ -135,52 +136,6 @@ body {
   text-transform: uppercase;
 }
 
-.project-nav {
-  position: fixed;
-  left: 50%;
-  bottom: 2rem;
-  transform: translate(-50%, 8px);
-  display: flex;
-  gap: 0.7rem;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  z-index: 21;
-}
-
-.project-nav.visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-.project-video-focus {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 35;
-}
-
-.project-video-focus-player {
-  width: min(82vw, 1000px);
-  max-height: 70vh;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow: 0 0 48px rgba(0, 0, 0, 0.48);
-}
-
-.nav-square {
-  width: 16px;
-  height: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  background: transparent;
-  cursor: pointer;
-}
-
-.nav-square.active,
-.nav-square:hover {
-  background: #fff;
-}
 
 .about-section {
   min-height: 100vh;
