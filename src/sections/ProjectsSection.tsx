@@ -66,8 +66,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return;
 
       const animateVideoOpacity = (currentIndex: number) => {
         videoRefs.current.forEach((video, idx) => {
