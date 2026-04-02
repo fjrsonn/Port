@@ -11,6 +11,7 @@ type ProjectItem = {
 };
 
 type ProjectsSectionProps = {
+  onVideoUnderTitleProgressChange?: (progress: number) => void;
   onVideoHoverChange?: (isHoveringVideo: boolean) => void;
 };
 
@@ -20,7 +21,7 @@ const projects: ProjectItem[] = [
   { id: 'video-3', title: 'Projeto 03', videoUrl: 'https://www.w3schools.com/html/movie.mp4' },
 ];
 
-export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
+export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverChange }: ProjectsSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -53,21 +54,53 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
+      const updateTitleOverlapProgress = () => {
+        const heroTitle = document.querySelector('.hero-title');
+        if (!(heroTitle instanceof HTMLElement)) {
+          onVideoUnderTitleProgressChange?.(0);
+          return;
+        }
+
+        const titleRect = heroTitle.getBoundingClientRect();
+        const titleArea = titleRect.width * titleRect.height;
+        if (titleArea <= 0) {
+          onVideoUnderTitleProgressChange?.(0);
+          return;
+        }
+
+        let maxRatio = 0;
+        videoRefs.current.forEach((video) => {
+          if (!video) return;
+          const videoRect = video.getBoundingClientRect();
+          const overlapWidth = Math.max(0, Math.min(titleRect.right, videoRect.right) - Math.max(titleRect.left, videoRect.left));
+          const overlapHeight = Math.max(0, Math.min(titleRect.bottom, videoRect.bottom) - Math.max(titleRect.top, videoRect.top));
+          const overlapArea = overlapWidth * overlapHeight;
+          const ratio = overlapArea / titleArea;
+          if (ratio > maxRatio) {
+            maxRatio = ratio;
+          }
+        });
+
+        onVideoUnderTitleProgressChange?.(Math.max(0, Math.min(1, maxRatio)));
+      };
+
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
-        y: 0,
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
           trigger: sectionRef.current,
           pin: true,
           scrub: true,
+          invalidateOnRefresh: true,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
+          onUpdate: updateTitleOverlapProgress,
+          onRefresh: updateTitleOverlapProgress,
+          onLeave: () => onVideoUnderTitleProgressChange?.(0),
+          onLeaveBack: () => onVideoUnderTitleProgressChange?.(0),
         },
       });
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return;
 
       const animateVideoOpacity = (currentIndex: number) => {
         videoRefs.current.forEach((video, idx) => {
@@ -109,10 +142,15 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       });
 
       activateVideo(0);
+      updateTitleOverlapProgress();
     }, sectionRef);
 
-    return () => ctx.revert();
-  }, []);
+    return () => {
+      onVideoHoverChange?.(false);
+      onVideoUnderTitleProgressChange?.(0);
+      ctx.revert();
+    };
+  }, [onVideoHoverChange, onVideoUnderTitleProgressChange]);
 
   return (
     <section id="projetos" className="projects-section" ref={sectionRef}>
@@ -125,6 +163,8 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             }}
             className="project-card"
             aria-label={project.title}
+            onMouseEnter={() => onVideoHoverChange?.(true)}
+            onMouseLeave={() => onVideoHoverChange?.(false)}
           >
             <video
               ref={(el) => {
@@ -139,12 +179,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               preload="auto"
               onMouseEnter={(event) => {
                 setHoveredVideoIndex(index);
-                onVideoHoverChange?.(true);
                 gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
               onMouseLeave={(event) => {
                 setHoveredVideoIndex(null);
-                onVideoHoverChange?.(false);
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
                 gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
