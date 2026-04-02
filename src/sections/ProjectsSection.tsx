@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -25,9 +25,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [showNavigator, setShowNavigator] = useState(false);
-  const focusedVideoIndex = activeIndex;
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -48,19 +45,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
-      });
-
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return;
-
-        ScrollTrigger.create({
-          trigger: card,
-          start: 'left center',
-          end: 'right center',
-          containerAnimation: horizontalTween,
-          onEnter: () => setActiveIndex(index),
-          onEnterBack: () => setActiveIndex(index),
-        });
       });
 
       videoRefs.current.forEach((video, idx) => {
@@ -107,11 +91,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       id="projetos"
       className="projects-section"
       ref={sectionRef}
-      onMouseEnter={() => setShowNavigator(true)}
-      onMouseLeave={() => {
-        setShowNavigator(false);
-        onVideoHoverChange?.(false);
-      }}
     >
       <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
         {projects.map((project, index) => (
@@ -142,50 +121,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         ))}
       </div>
 
-      <nav className={`project-nav ${showNavigator ? 'visible' : ''}`}>
-        {projects.map((project, index) => (
-          <button
-            key={project.id}
-            type="button"
-            className={`nav-square ${focusedVideoIndex === index ? 'active' : ''}`}
-            onClick={() => {
-              const trigger = ScrollTrigger.getById('projects-horizontal');
-              if (!trigger) return;
-
-              setFocusedVideoIndex(index);
-              trigger.refresh();
-
-              const maxSteps = Math.max(1, projects.length - 1);
-              const stepSize = (trigger.end - trigger.start) / maxSteps;
-              const targetY = trigger.start + stepSize * index;
-
-              window.scrollTo(0, targetY);
-            }}
-            aria-label={`Ir para ${project.title}`}
-          />
-        ))}
-      </nav>
-
-      {focusedVideoIndex !== null && (
-        <div
-          className="project-video-focus"
-          role="dialog"
-          aria-modal="false"
-          aria-label={`Prévia centralizada de ${projects[focusedVideoIndex].title}`}
-          onClick={() => setFocusedVideoIndex(null)}
-        >
-          <video
-            className="project-video-focus-player"
-            src={projects[focusedVideoIndex].videoUrl}
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            onClick={(event) => event.stopPropagation()}
-          />
-        </div>
-      )}
     </section>
   );
 }
