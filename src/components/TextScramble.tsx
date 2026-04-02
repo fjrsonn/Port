@@ -53,23 +53,6 @@ export function TextScramble({
   };
 
   useEffect(() => {
-    latestTextRef.current = children;
-  }, [children]);
-
-  const finishAnimation = (token?: number, shouldNotify = false) => {
-    if (typeof token === 'number' && token !== animationTokenRef.current) {
-      return;
-    }
-
-    finishAnimation();
-
-    setDisplayText(latestTextRef.current);
-    if (shouldNotify) {
-      onScrambleComplete?.();
-    }
-  };
-
-  useEffect(() => {
     animationTokenRef.current += 1;
     const token = animationTokenRef.current;
 
