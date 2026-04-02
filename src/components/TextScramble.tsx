@@ -29,7 +29,6 @@ export function TextScramble({
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
-  const runIdRef = useRef(0);
 
   useEffect(() => {
     if (intervalRef.current) {
