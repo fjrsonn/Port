@@ -28,7 +28,7 @@ export function TextScramble({
   ...props
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
-  const intervalRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const animationTokenRef = useRef(0);
   const latestTextRef = useRef(children);
 
@@ -41,10 +41,27 @@ export function TextScramble({
       return;
     }
 
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
+
+    setDisplayText(latestTextRef.current);
+    if (shouldNotify) {
+      onScrambleComplete?.();
+    }
+  };
+
+  useEffect(() => {
+    latestTextRef.current = children;
+  }, [children]);
+
+  const finishAnimation = (token?: number, shouldNotify = false) => {
+    if (typeof token === 'number' && token !== animationTokenRef.current) {
+      return;
+    }
+
+    finishAnimation();
 
     setDisplayText(latestTextRef.current);
     if (shouldNotify) {
@@ -69,13 +86,15 @@ export function TextScramble({
 
     const totalMs = Math.max(1, duration * 1000);
     const tickMs = Math.max(16, speed * 1000);
-    const startAt = performance.now();
+    const totalSteps = Math.max(1, Math.ceil(totalMs / tickMs));
+    let step = 0;
 
-    intervalRef.current = window.setInterval(() => {
+    const runStep = () => {
       if (token !== animationTokenRef.current) return;
 
-      const elapsed = performance.now() - startAt;
-      const progress = Math.min(1, elapsed / totalMs);
+      step += 1;
+      const progress = Math.min(1, step / totalSteps);
+      const revealCount = Math.floor(progress * children.length);
       let scrambled = '';
 
       for (let i = 0; i < children.length; i += 1) {
@@ -83,7 +102,7 @@ export function TextScramble({
 
         if (!/[A-Za-z0-9]/.test(char)) {
           scrambled += char;
-        } else if (progress * children.length > i) {
+        } else if (i < revealCount) {
           scrambled += char;
         } else {
           scrambled += characterSet[Math.floor(Math.random() * characterSet.length)] ?? char;
@@ -96,7 +115,10 @@ export function TextScramble({
       }
 
       setDisplayText(scrambled);
-    }, tickMs);
+      timeoutRef.current = window.setTimeout(runStep, tickMs);
+    };
+
+    timeoutRef.current = window.setTimeout(runStep, tickMs);
 
     return () => {
       finishAnimation(token);

@@ -178,12 +178,12 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
               playsInline
               controls={fullscreenVideoIndex === index}
               preload="auto"
-              onMouseEnter={(event) => {
+              onPointerEnter={(event) => {
                 setHoveredVideoIndex(index);
                 onVideoHoverChange?.(true);
                 gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
-              onMouseLeave={(event) => {
+              onPointerLeave={(event) => {
                 setHoveredVideoIndex(null);
                 onVideoHoverChange?.(false);
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
