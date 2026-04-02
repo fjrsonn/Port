@@ -29,12 +29,16 @@ export function TextScramble({
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
-  const runIdRef = useRef(0);
 
   useEffect(() => {
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+
+    if (!isActive) {
+      setDisplayText(children);
+      return;
     }
 
     if (triggerKey === 0) {
@@ -59,7 +63,7 @@ export function TextScramble({
         } else if (progress * children.length > i) {
           scrambled += char;
         } else {
-          scrambled += characterSet[Math.floor(Math.random() * characterSet.length)];
+          scrambled += characterSet[Math.floor(Math.random() * characterSet.length)] ?? char;
         }
       }
 
@@ -82,7 +86,7 @@ export function TextScramble({
         intervalRef.current = null;
       }
     };
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
+  }, [isActive, triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
     <Component className={className} {...props}>
