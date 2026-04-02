@@ -116,6 +116,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           onLeaveBack: () => video.pause(),
         });
       });
+
     }, sectionRef);
 
     return () => ctx.revert();
