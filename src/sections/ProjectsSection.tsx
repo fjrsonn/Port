@@ -43,6 +43,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           trigger: sectionRef.current,
           pin: true,
           scrub: 1,
+          snap: projects.length > 1 ? 1 / (projects.length - 1) : undefined,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
@@ -150,6 +151,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               const trigger = ScrollTrigger.getById('projects-horizontal');
               if (!trigger) return;
 
+              setFocusedVideoIndex(index);
               trigger.refresh();
 
               const maxSteps = Math.max(1, projects.length - 1);
@@ -162,6 +164,27 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           />
         ))}
       </nav>
+
+      {focusedVideoIndex !== null && (
+        <div
+          className="project-video-focus"
+          role="dialog"
+          aria-modal="false"
+          aria-label={`Prévia centralizada de ${projects[focusedVideoIndex].title}`}
+          onClick={() => setFocusedVideoIndex(null)}
+        >
+          <video
+            className="project-video-focus-player"
+            src={projects[focusedVideoIndex].videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </section>
   );
 }
