@@ -29,8 +29,12 @@ export function TextScramble({
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
+  const animationTokenRef = useRef(0);
 
   useEffect(() => {
+    animationTokenRef.current += 1;
+    const token = animationTokenRef.current;
+
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -51,6 +55,8 @@ export function TextScramble({
     const startAt = performance.now();
 
     intervalRef.current = window.setInterval(() => {
+      if (token !== animationTokenRef.current) return;
+
       const elapsed = performance.now() - startAt;
       const progress = Math.min(1, elapsed / totalMs);
       let scrambled = '';

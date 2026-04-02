@@ -91,11 +91,17 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           id: 'projects-horizontal',
           trigger: sectionRef.current,
           pin: true,
+          anticipatePin: 1,
           scrub: true,
           invalidateOnRefresh: true,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
-          onUpdate: updateTitleOverlapProgress,
+          onUpdate: () => {
+            if (trackRef.current) {
+              gsap.set(trackRef.current, { y: 0 });
+            }
+            updateTitleOverlapProgress();
+          },
           onRefresh: updateTitleOverlapProgress,
           onLeave: () => onVideoUnderTitleProgressChange?.(0),
           onLeaveBack: () => onVideoUnderTitleProgressChange?.(0),
