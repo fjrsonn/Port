@@ -27,6 +27,16 @@ export function HeroSection({ hidden = false }: HeroSectionProps) {
     }
   };
 
+  const onLeave = () => {
+    setHovered(false);
+  };
+
+  const onScrambleComplete = () => {
+    if (hovered) {
+      setScrambleKey((prev) => prev + 1);
+    }
+  };
+
   return (
     <section className="hero-section" id="inicio">
       <motion.div
