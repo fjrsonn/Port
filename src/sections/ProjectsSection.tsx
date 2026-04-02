@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -25,19 +25,29 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [showNavigator, setShowNavigator] = useState(false);
-  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
-  const [hoveredVideoIndex, setHoveredVideoIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const [hoveredVideoIndex, setHoveredVideoIndex] = React.useState<number | null>(null);
+  const [fullscreenVideoIndex, setFullscreenVideoIndex] = React.useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement;
+      const currentIndex = videoRefs.current.findIndex((video) => video === fullscreenElement);
+      setFullscreenVideoIndex(currentIndex >= 0 ? currentIndex : null);
+    };
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
-      const cards = cardRefs.current.filter((card): card is HTMLDivElement => Boolean(card));
-
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
         ease: 'none',
@@ -45,28 +55,35 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           id: 'projects-horizontal',
           trigger: sectionRef.current,
           pin: true,
-          scrub: 1,
+          scrub: true,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
 
-      gsap.set(cards, { opacity: 0, xPercent: 110, rotateY: -26, transformOrigin: 'right center' });
+      cardRefs.current.forEach((card, index) => {
+        if (!card) return;
 
-      cards.forEach((card, index) => {
-        gsap.to(card, {
-          opacity: 1,
-          xPercent: 0,
-          rotateY: 0,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: card,
-            start: 'left center',
-            end: 'right center',
-            scrub: true,
-            containerAnimation: horizontalTween,
-            onEnter: () => setActiveIndex(index),
-            onEnterBack: () => setActiveIndex(index),
+        gsap.set(card, { x: 140, y: 0, opacity: 0 });
+
+        ScrollTrigger.create({
+          trigger: card,
+          start: 'left center',
+          end: 'right center',
+          containerAnimation: horizontalTween,
+          onEnter: () => {
+            setActiveIndex(index);
+            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
+          },
+          onEnterBack: () => {
+            setActiveIndex(index);
+            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
+          },
+          onLeave: () => {
+            gsap.to(card, { x: -100, y: 0, opacity: 0.6, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
+          },
+          onLeaveBack: () => {
+            gsap.to(card, { x: 120, y: 0, opacity: 0, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
           },
         });
       });
@@ -80,10 +97,18 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'left center',
           end: 'right center',
           onEnter: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
           onEnterBack: () => {
+            videoRefs.current.forEach((otherVideo, otherIndex) => {
+              if (!otherVideo || otherIndex === idx) return;
+              otherVideo.pause();
+            });
             video.currentTime = 0;
             void video.play();
           },
@@ -96,48 +121,8 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     return () => ctx.revert();
   }, []);
 
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      const fullscreenElement = document.fullscreenElement as HTMLElement | null;
-
-      if (!fullscreenElement) {
-        setFullscreenIndex(null);
-        onVideoHoverChange?.(false);
-        videoRefs.current.forEach((video) => {
-          if (!video) return;
-          video.controls = false;
-          video.muted = true;
-        });
-        return;
-      }
-
-      const foundIndex = videoRefs.current.findIndex((video) => video === fullscreenElement);
-      if (foundIndex >= 0) {
-        setFullscreenIndex(foundIndex);
-        onVideoHoverChange?.(true);
-        const video = videoRefs.current[foundIndex];
-        if (video) {
-          video.controls = true;
-          video.muted = false;
-        }
-      }
-    };
-
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, [onVideoHoverChange]);
-
   return (
-    <section
-      id="projetos"
-      className="projects-section"
-      ref={sectionRef}
-      onMouseEnter={() => setShowNavigator(true)}
-      onMouseLeave={() => {
-        setShowNavigator(false);
-        if (fullscreenIndex === null) onVideoHoverChange?.(false);
-      }}
-    >
+    <section id="projetos" className="projects-section" ref={sectionRef}>
       <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
         {projects.map((project, index) => (
           <div
@@ -152,69 +137,30 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
-              className={`project-video ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
+              className={`project-video ${activeIndex === index ? 'is-active' : ''} ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
               src={project.videoUrl}
-              muted={fullscreenIndex !== index}
+              muted={fullscreenVideoIndex !== index}
               loop
               playsInline
-              controls={fullscreenIndex === index}
+              controls={fullscreenVideoIndex === index}
               preload="auto"
               onMouseEnter={() => {
                 setHoveredVideoIndex(index);
                 onVideoHoverChange?.(true);
-                const card = cardRefs.current[index];
-                if (card) {
-                  gsap.to(card, { opacity: 1, duration: 0.2, overwrite: 'auto' });
-                }
               }}
               onMouseLeave={() => {
                 setHoveredVideoIndex(null);
-                if (fullscreenIndex === null) onVideoHoverChange?.(false);
+                onVideoHoverChange?.(false);
               }}
               onClick={async (event) => {
                 const video = event.currentTarget;
-                if (document.fullscreenElement === video) {
-                  await document.exitFullscreen();
-                  return;
-                }
-
-                if (video.requestFullscreen) {
-                  await video.requestFullscreen();
-                }
+                if (document.fullscreenElement === video) return;
+                await video.requestFullscreen();
               }}
             />
-            <p className="project-title">{project.title}</p>
           </div>
         ))}
       </div>
-
-      <nav className={`project-nav ${showNavigator ? 'visible' : ''}`}>
-        {projects.map((project, index) => (
-          <button
-            key={project.id}
-            type="button"
-            className={`nav-square ${activeIndex === index ? 'active' : ''}`}
-            onClick={() => {
-              const trigger = ScrollTrigger.getById('projects-horizontal');
-              const track = trackRef.current;
-              const card = cardRefs.current[index];
-              if (!trigger || !track || !card) return;
-
-              trigger.refresh();
-
-              const maxHorizontal = Math.max(1, track.scrollWidth - window.innerWidth);
-              const centeredOffset = card.offsetLeft + card.offsetWidth / 2 - window.innerWidth / 2;
-              const horizontalOffset = Math.max(0, Math.min(maxHorizontal, centeredOffset));
-              const ratio = horizontalOffset / maxHorizontal;
-              const targetY = trigger.start + (trigger.end - trigger.start) * ratio;
-              const clampedY = Math.min(trigger.end, Math.max(trigger.start, targetY));
-
-              window.scrollTo({ top: clampedY });
-            }}
-            aria-label={`Ir para ${project.title}`}
-          />
-        ))}
-      </nav>
     </section>
   );
 }
