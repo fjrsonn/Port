@@ -79,7 +79,11 @@ body {
   font-weight: 700;
   line-height: 0.9;
   color: #fff;
-  transition: text-shadow 0.2s ease, transform 0.2s ease;
+  transition: text-shadow 0.2s ease, transform 0.2s ease, color 0.6s ease;
+}
+
+.hero-title.is-video-hovering {
+  color: #000;
 }
 
 .hero-title.is-glow {

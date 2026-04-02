@@ -7,7 +7,7 @@ import { AboutSection } from './sections/AboutSection';
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
-  const [hideHeroOverlay, setHideHeroOverlay] = useState(false);
+  const [isVideoHovering, setIsVideoHovering] = useState(false);
 
   useEffect(() => {
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), 8000);
@@ -24,8 +24,8 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection hidden={hideHeroOverlay} />
-        <ProjectsSection onVideoHoverChange={setHideHeroOverlay} />
+        <HeroSection isVideoHovering={isVideoHovering} />
+        <ProjectsSection onVideoHoverChange={setIsVideoHovering} />
         <AboutSection />
       </main>
     </div>
