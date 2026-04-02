@@ -40,8 +40,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           id: 'projects-horizontal',
           trigger: sectionRef.current,
           pin: true,
-          scrub: 1,
-          snap: projects.length > 1 ? 1 / (projects.length - 1) : undefined,
+          scrub: true,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
@@ -76,11 +75,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         });
       });
 
-      const initialVideo = videoRefs.current[0];
-      if (initialVideo) {
-        initialVideo.currentTime = 0;
-        void initialVideo.play();
-      }
     }, sectionRef);
 
     return () => ctx.revert();
