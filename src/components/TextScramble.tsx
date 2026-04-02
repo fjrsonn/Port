@@ -9,6 +9,7 @@ type TextScrambleProps = {
   as?: ElementType;
   className?: string;
   triggerKey?: number;
+  isActive?: boolean;
   onScrambleComplete?: () => void;
 } & HTMLAttributes<HTMLElement>;
 
@@ -22,6 +23,7 @@ export function TextScramble({
   className,
   as: Component = 'span',
   triggerKey = 0,
+  isActive = true,
   onScrambleComplete,
   ...props
 }: TextScrambleProps) {
@@ -41,6 +43,11 @@ export function TextScramble({
   }, [resetToOriginal]);
 
   useEffect(() => {
+    if (!isActive) {
+      resetToOriginal();
+      return;
+    }
+
     resetToOriginal();
     if (triggerKey === 0) return;
 
@@ -74,7 +81,7 @@ export function TextScramble({
     }, tickMs);
 
     return () => resetToOriginal();
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete, resetToOriginal]);
+  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete, resetToOriginal, isActive]);
 
   return (
     <Component className={className} {...props}>

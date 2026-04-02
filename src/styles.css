@@ -116,53 +116,15 @@ body {
   height: min(60vh, 620px);
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  opacity: 0.72;
-  filter: brightness(0.8);
-  transition: opacity 0.35s ease, filter 0.35s ease;
-}
-
-.project-video:hover,
-.project-video.is-hovered,
-.project-card:hover .project-video {
-  opacity: 1;
+  opacity: 0.8;
   filter: brightness(1);
-}
-
-.project-title {
-  margin: 0;
-  font-size: 1rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.project-nav {
-  position: fixed;
-  left: 50%;
-  bottom: 2rem;
-  transform: translate(-50%, 8px);
-  display: flex;
-  gap: 0.7rem;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  z-index: 21;
-}
-
-.project-nav.visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-.nav-square {
-  width: 16px;
-  height: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  background: transparent;
+  transform: scale(1);
+  transition: opacity 0.3s ease;
   cursor: pointer;
 }
 
-.nav-square.active,
-.nav-square:hover {
-  background: #fff;
+.project-video.is-hovered {
+  opacity: 1;
 }
 
 .about-section {
