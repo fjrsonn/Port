@@ -163,6 +163,8 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
             }}
             className="project-card"
             aria-label={project.title}
+            onMouseEnter={() => onVideoHoverChange?.(true)}
+            onMouseLeave={() => onVideoHoverChange?.(false)}
           >
             <video
               ref={(el) => {
