@@ -85,7 +85,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
       };
 
       const horizontalTween = gsap.to(trackRef.current, {
-        xPercent: -100 * (projects.length - 1),
+        x: () => -(trackRef.current!.scrollWidth - window.innerWidth),
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
@@ -95,11 +95,8 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           scrub: true,
           invalidateOnRefresh: true,
           start: 'top top',
-          end: `+=${window.innerWidth * (projects.length - 1)}`,
+          end: () => `+=${trackRef.current!.scrollWidth - window.innerWidth}`,
           onUpdate: () => {
-            if (trackRef.current) {
-              gsap.set(trackRef.current, { y: 0 });
-            }
             updateTitleOverlapProgress();
           },
           onRefresh: updateTitleOverlapProgress,

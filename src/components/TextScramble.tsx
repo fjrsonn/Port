@@ -30,18 +30,35 @@ export function TextScramble({
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
   const animationTokenRef = useRef(0);
+  const latestTextRef = useRef(children);
 
   useEffect(() => {
-    animationTokenRef.current += 1;
-    const token = animationTokenRef.current;
+    latestTextRef.current = children;
+  }, [children]);
+
+  const finishAnimation = (token?: number, shouldNotify = false) => {
+    if (typeof token === 'number' && token !== animationTokenRef.current) {
+      return;
+    }
 
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
+    setDisplayText(latestTextRef.current);
+    if (shouldNotify) {
+      onScrambleComplete?.();
+    }
+  };
+
+  useEffect(() => {
+    animationTokenRef.current += 1;
+    const token = animationTokenRef.current;
+
+    finishAnimation();
+
     if (!isActive) {
-      setDisplayText(children);
       return;
     }
 
@@ -74,12 +91,7 @@ export function TextScramble({
       }
 
       if (progress >= 1) {
-        if (intervalRef.current) {
-          window.clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        setDisplayText(children);
-        onScrambleComplete?.();
+        finishAnimation(token, true);
         return;
       }
 
@@ -87,10 +99,7 @@ export function TextScramble({
     }, tickMs);
 
     return () => {
-      if (intervalRef.current) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      finishAnimation(token);
     };
   }, [isActive, triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
