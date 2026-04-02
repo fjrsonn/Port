@@ -33,7 +33,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   useEffect(() => {
     if (!sectionRef.current || !trackRef.current) return;
 
-    ScrollTrigger.getById('projects-horizontal')?.kill();
 
     const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
@@ -91,6 +90,12 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           onLeaveBack: () => video.pause(),
         });
       });
+
+      const initialVideo = videoRefs.current[0];
+      if (initialVideo) {
+        initialVideo.currentTime = 0;
+        void initialVideo.play();
+      }
     }, sectionRef);
 
     return () => ctx.revert();
@@ -153,7 +158,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               const stepSize = (trigger.end - trigger.start) / maxSteps;
               const targetY = trigger.start + stepSize * index;
 
-              window.scrollTo({ top: targetY });
+              window.scrollTo(0, targetY);
             }}
             aria-label={`Ir para ${project.title}`}
           />
