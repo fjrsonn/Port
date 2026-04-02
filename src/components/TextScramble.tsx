@@ -31,10 +31,15 @@ export function TextScramble({
   const timeoutRef = useRef<number | null>(null);
   const animationTokenRef = useRef(0);
   const latestTextRef = useRef(children);
+  const onScrambleCompleteRef = useRef(onScrambleComplete);
 
   useEffect(() => {
     latestTextRef.current = children;
   }, [children]);
+
+  useEffect(() => {
+    onScrambleCompleteRef.current = onScrambleComplete;
+  }, [onScrambleComplete]);
 
   const finishAnimation = (token?: number, shouldNotify = false) => {
     if (typeof token === 'number' && token !== animationTokenRef.current) {
@@ -48,7 +53,7 @@ export function TextScramble({
 
     setDisplayText(latestTextRef.current);
     if (shouldNotify) {
-      onScrambleComplete?.();
+      onScrambleCompleteRef.current?.();
     }
   };
 
@@ -106,7 +111,7 @@ export function TextScramble({
     return () => {
       finishAnimation(token);
     };
-  }, [isActive, triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
+  }, [isActive, triggerKey, children, duration, speed, characterSet]);
 
   return (
     <Component className={className} {...props}>
