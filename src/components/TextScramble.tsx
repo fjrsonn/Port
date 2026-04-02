@@ -36,6 +36,11 @@ export function TextScramble({
       intervalRef.current = null;
     }
 
+    if (!isActive) {
+      setDisplayText(children);
+      return;
+    }
+
     if (triggerKey === 0) {
       setDisplayText(children);
       return;
@@ -58,7 +63,7 @@ export function TextScramble({
         } else if (progress * children.length > i) {
           scrambled += char;
         } else {
-          scrambled += characterSet[Math.floor(Math.random() * characterSet.length)];
+          scrambled += characterSet[Math.floor(Math.random() * characterSet.length)] ?? char;
         }
       }
 
@@ -81,7 +86,7 @@ export function TextScramble({
         intervalRef.current = null;
       }
     };
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
+  }, [isActive, triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
     <Component className={className} {...props}>

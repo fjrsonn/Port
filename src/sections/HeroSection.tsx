@@ -38,7 +38,7 @@ export function HeroSection({ hidden = false }: HeroSectionProps) {
         onMouseLeave={handleTitleMouseLeave}
       >
         <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} onScrambleComplete={onScrambleComplete}>
+          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered} onScrambleComplete={onScrambleComplete}>
             FJR.
           </TextScramble>
         </h1>
