@@ -61,6 +61,16 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         },
       });
 
+
+      const firstCard = cardRefs.current[0];
+      if (firstCard) {
+        gsap.fromTo(
+          firstCard,
+          { x: 140, y: 0, opacity: 0 },
+          { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' },
+        );
+      }
+
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
 

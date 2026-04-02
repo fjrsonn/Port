@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ElementType, HTMLAttributes } from 'react';
 
 type TextScrambleProps = {
@@ -31,29 +31,16 @@ export function TextScramble({
   const intervalRef = useRef<number | null>(null);
   const runIdRef = useRef(0);
 
-  const resetToOriginal = useCallback(() => {
+  useEffect(() => {
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setDisplayText(children);
-  }, [children]);
 
-  useEffect(() => {
-    resetToOriginal();
-  }, [resetToOriginal]);
-
-  useEffect(() => {
-    runIdRef.current += 1;
-    const runId = runIdRef.current;
-
-    if (!isActive) {
-      resetToOriginal();
+    if (triggerKey === 0) {
+      setDisplayText(children);
       return;
     }
-
-    resetToOriginal();
-    if (triggerKey === 0) return;
 
     const totalMs = Math.max(1, duration * 1000);
     const tickMs = Math.max(16, speed * 1000);
@@ -76,21 +63,26 @@ export function TextScramble({
         }
       }
 
-      if (runIdRef.current !== runId) return;
+      if (progress >= 1) {
+        if (intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setDisplayText(children);
+        onScrambleComplete?.();
+        return;
+      }
 
       setDisplayText(scrambled);
-
-      if (progress >= 1) {
-        resetToOriginal();
-        onScrambleComplete?.();
-      }
     }, tickMs);
 
     return () => {
-      runIdRef.current += 1;
-      resetToOriginal();
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete, resetToOriginal, isActive]);
+  }, [triggerKey, children, duration, speed, characterSet, onScrambleComplete]);
 
   return (
     <Component className={className} {...props}>
