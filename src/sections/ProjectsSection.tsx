@@ -25,11 +25,16 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [hoveredVideoIndex, setHoveredVideoIndex] = React.useState<number | null>(null);
   const [fullscreenVideoIndex, setFullscreenVideoIndex] = React.useState<number | null>(null);
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -50,6 +55,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
+        y: 0,
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
@@ -63,45 +69,47 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
 
+      const animateVideoOpacity = (currentIndex: number) => {
+        videoRefs.current.forEach((video, idx) => {
+          if (!video) return;
+          const targetOpacity = idx === currentIndex ? 0.7 : 0.14;
+          gsap.to(video, { opacity: targetOpacity, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
+        });
+      };
+
+      const activateVideo = (idx: number) => {
+        setActiveIndex(idx);
+        videoRefs.current.forEach((otherVideo, otherIndex) => {
+          if (!otherVideo || otherIndex === idx) return;
+          otherVideo.pause();
+        });
+
+        const currentVideo = videoRefs.current[idx];
+        if (currentVideo) {
+          currentVideo.currentTime = 0;
+          void currentVideo.play();
+        }
+
+        animateVideoOpacity(idx);
+      };
+
+      animateVideoOpacity(0);
+
+      cardRefs.current.forEach((card, index) => {
+        if (!card) return;
+
         ScrollTrigger.create({
           trigger: card,
           start: 'left center',
           end: 'right center',
           containerAnimation: horizontalTween,
-          onEnter: () => setActiveIndex(index),
-          onEnterBack: () => setActiveIndex(index),
+          onEnter: () => activateVideo(index),
+          onEnterBack: () => activateVideo(index),
         });
       });
 
-      videoRefs.current.forEach((video, idx) => {
-        if (!video) return;
-
-        ScrollTrigger.create({
-          trigger: cardRefs.current[idx],
-          containerAnimation: horizontalTween,
-          start: 'left center',
-          end: 'right center',
-          onEnter: () => {
-            videoRefs.current.forEach((otherVideo, otherIndex) => {
-              if (!otherVideo || otherIndex === idx) return;
-              otherVideo.pause();
-            });
-            video.currentTime = 0;
-            void video.play();
-          },
-          onEnterBack: () => {
-            videoRefs.current.forEach((otherVideo, otherIndex) => {
-              if (!otherVideo || otherIndex === idx) return;
-              otherVideo.pause();
-            });
-            video.currentTime = 0;
-            void video.play();
-          },
-          onLeave: () => video.pause(),
-          onLeaveBack: () => video.pause(),
-        });
-      });
-
+      // garante estado inicial consistente do primeiro vídeo sem deslocamento vertical
+      activateVideo(0);
     }, sectionRef);
 
     return () => ctx.revert();
@@ -130,13 +138,16 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
               playsInline
               controls={fullscreenVideoIndex === index}
               preload="auto"
-              onMouseEnter={() => {
+              onMouseEnter={(event) => {
                 setHoveredVideoIndex(index);
                 onVideoHoverChange?.(true);
+                gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
-              onMouseLeave={() => {
+              onMouseLeave={(event) => {
                 setHoveredVideoIndex(null);
                 onVideoHoverChange?.(false);
+                const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
+                gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
               onClick={async (event) => {
                 const video = event.currentTarget;

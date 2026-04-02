@@ -123,6 +123,10 @@ body {
   cursor: pointer;
 }
 
+.project-video.is-active {
+  opacity: 0.7;
+}
+
 .project-video.is-hovered {
   opacity: 1;
 }
