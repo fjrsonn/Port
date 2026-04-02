@@ -27,6 +27,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showNavigator, setShowNavigator] = useState(false);
+  const focusedVideoIndex = activeIndex;
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -146,7 +147,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           <button
             key={project.id}
             type="button"
-            className={`nav-square ${activeIndex === index ? 'active' : ''}`}
+            className={`nav-square ${focusedVideoIndex === index ? 'active' : ''}`}
             onClick={() => {
               const trigger = ScrollTrigger.getById('projects-horizontal');
               if (!trigger) return;
