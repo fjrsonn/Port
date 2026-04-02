@@ -7,7 +7,7 @@ gsap.registerPlugin(ScrollTrigger);
 type ProjectItem = {
   id: string;
   title: string;
-  videoUrl: string;
+  videoUrls: string[];
 };
 
 type ProjectsSectionProps = {
@@ -16,9 +16,30 @@ type ProjectsSectionProps = {
 };
 
 const projects: ProjectItem[] = [
-  { id: 'video-1', title: 'Projeto 01', videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-  { id: 'video-2', title: 'Projeto 02', videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' },
-  { id: 'video-3', title: 'Projeto 03', videoUrl: 'https://www.w3schools.com/html/movie.mp4' },
+  {
+    id: 'video-1',
+    title: 'Projeto 01',
+    videoUrls: [
+      'https://www.w3schools.com/html/mov_bbb.mp4',
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+    ],
+  },
+  {
+    id: 'video-2',
+    title: 'Projeto 02',
+    videoUrls: [
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      'https://www.w3schools.com/html/movie.mp4',
+    ],
+  },
+  {
+    id: 'video-3',
+    title: 'Projeto 03',
+    videoUrls: [
+      'https://www.w3schools.com/html/movie.mp4',
+      'https://www.w3schools.com/html/mov_bbb.mp4',
+    ],
+  },
 ];
 
 export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverChange }: ProjectsSectionProps) {
@@ -30,6 +51,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [hoveredVideoIndex, setHoveredVideoIndex] = React.useState<number | null>(null);
   const [fullscreenVideoIndex, setFullscreenVideoIndex] = React.useState<number | null>(null);
+  const [videoSourceIndexes, setVideoSourceIndexes] = React.useState<number[]>(() => projects.map(() => 0));
 
   const panelWidth = useMemo(() => `${projects.length * 100}vw`, []);
 
@@ -85,7 +107,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
       };
 
       const horizontalTween = gsap.to(trackRef.current, {
-        xPercent: -100 * (projects.length - 1),
+        x: () => -(trackRef.current!.scrollWidth - window.innerWidth),
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
@@ -95,11 +117,8 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           scrub: true,
           invalidateOnRefresh: true,
           start: 'top top',
-          end: `+=${window.innerWidth * (projects.length - 1)}`,
+          end: () => `+=${trackRef.current!.scrollWidth - window.innerWidth}`,
           onUpdate: () => {
-            if (trackRef.current) {
-              gsap.set(trackRef.current, { y: 0 });
-            }
             updateTitleOverlapProgress();
           },
           onRefresh: updateTitleOverlapProgress,
@@ -169,26 +188,26 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
             }}
             className="project-card"
             aria-label={project.title}
-            onMouseEnter={() => onVideoHoverChange?.(true)}
-            onMouseLeave={() => onVideoHoverChange?.(false)}
           >
             <video
               ref={(el) => {
                 videoRefs.current[index] = el;
               }}
               className={`project-video ${activeIndex === index ? 'is-active' : ''} ${hoveredVideoIndex === index ? 'is-hovered' : ''}`}
-              src={project.videoUrl}
+              src={project.videoUrls[videoSourceIndexes[index]]}
               muted={fullscreenVideoIndex !== index}
               loop
               playsInline
               controls={fullscreenVideoIndex === index}
               preload="auto"
-              onMouseEnter={(event) => {
+              onPointerEnter={(event) => {
                 setHoveredVideoIndex(index);
+                onVideoHoverChange?.(true);
                 gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
-              onMouseLeave={(event) => {
+              onPointerLeave={(event) => {
                 setHoveredVideoIndex(null);
+                onVideoHoverChange?.(false);
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
                 gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
@@ -196,6 +215,16 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
                 const video = event.currentTarget;
                 if (document.fullscreenElement === video) return;
                 void video.requestFullscreen();
+              }}
+              onError={() => {
+                setVideoSourceIndexes((prev) => {
+                  const next = [...prev];
+                  const currentSource = next[index] ?? 0;
+                  if (currentSource < project.videoUrls.length - 1) {
+                    next[index] = currentSource + 1;
+                  }
+                  return next;
+                });
               }}
             />
           </div>
