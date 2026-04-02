@@ -3,12 +3,15 @@ import { motion } from 'framer-motion';
 import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
-  hidden?: boolean;
+  videoUnderTitleProgress?: number;
+  isVideoHovering?: boolean;
 };
 
-export function HeroSection({ hidden = false }: HeroSectionProps) {
+export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = false }: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
   const [scrambleKey, setScrambleKey] = useState(0);
+  const channelValue = Math.round(255 * (1 - Math.max(0, Math.min(1, videoUnderTitleProgress))));
+  const dynamicColor = `rgb(${channelValue}, ${channelValue}, ${channelValue})`;
 
   const handleTitleMouseEnter = () => {
     if (!hovered) {
@@ -30,15 +33,15 @@ export function HeroSection({ hidden = false }: HeroSectionProps) {
   return (
     <section className="hero-section" id="inicio">
       <motion.div
-        className={`hero-title-wrapper ${hidden ? 'hero-title-wrapper-hidden' : ''}`}
+        className="hero-title-wrapper"
         initial={{ opacity: 0, filter: 'blur(6px)' }}
-        animate={{ opacity: hidden ? 0 : 1, filter: hidden ? 'blur(6px)' : 'blur(0px)' }}
+        animate={{ opacity: isVideoHovering ? 0 : 1, filter: isVideoHovering ? 'blur(6px)' : 'blur(0px)' }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         onMouseEnter={handleTitleMouseEnter}
         onMouseLeave={handleTitleMouseLeave}
       >
-        <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} onScrambleComplete={onScrambleComplete}>
+        <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`} style={{ color: dynamicColor }}>
+          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered} onScrambleComplete={onScrambleComplete}>
             FJR.
           </TextScramble>
         </h1>
