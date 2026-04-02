@@ -8,6 +8,7 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
   const [videoUnderTitleProgress, setVideoUnderTitleProgress] = useState(0);
+  const [isVideoHovering, setIsVideoHovering] = useState(false);
 
   useEffect(() => {
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), 8000);
@@ -24,8 +25,8 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection videoUnderTitleProgress={videoUnderTitleProgress} />
-        <ProjectsSection onVideoUnderTitleProgressChange={setVideoUnderTitleProgress} />
+        <HeroSection videoUnderTitleProgress={videoUnderTitleProgress} isVideoHovering={isVideoHovering} />
+        <ProjectsSection onVideoUnderTitleProgressChange={setVideoUnderTitleProgress} onVideoHoverChange={setIsVideoHovering} />
         <AboutSection />
       </main>
     </div>

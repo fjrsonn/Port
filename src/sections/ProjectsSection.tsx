@@ -12,6 +12,7 @@ type ProjectItem = {
 
 type ProjectsSectionProps = {
   onVideoUnderTitleProgressChange?: (progress: number) => void;
+  onVideoHoverChange?: (isHoveringVideo: boolean) => void;
 };
 
 const projects: ProjectItem[] = [
@@ -20,7 +21,7 @@ const projects: ProjectItem[] = [
   { id: 'video-3', title: 'Projeto 03', videoUrl: 'https://www.w3schools.com/html/movie.mp4' },
 ];
 
-export function ProjectsSection({ onVideoUnderTitleProgressChange }: ProjectsSectionProps) {
+export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverChange }: ProjectsSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -145,10 +146,11 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange }: ProjectsSec
     }, sectionRef);
 
     return () => {
+      onVideoHoverChange?.(false);
       onVideoUnderTitleProgressChange?.(0);
       ctx.revert();
     };
-  }, [onVideoUnderTitleProgressChange]);
+  }, [onVideoHoverChange, onVideoUnderTitleProgressChange]);
 
   return (
     <section id="projetos" className="projects-section" ref={sectionRef}>
