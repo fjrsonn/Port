@@ -3,12 +3,14 @@ import { motion } from 'framer-motion';
 import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
-  isVideoHovering?: boolean;
+  videoUnderTitleProgress?: number;
 };
 
-export function HeroSection({ isVideoHovering = false }: HeroSectionProps) {
+export function HeroSection({ videoUnderTitleProgress = 0 }: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
   const [scrambleKey, setScrambleKey] = useState(0);
+  const channelValue = Math.round(255 * (1 - Math.max(0, Math.min(1, videoUnderTitleProgress))));
+  const dynamicColor = `rgb(${channelValue}, ${channelValue}, ${channelValue})`;
 
   const handleTitleMouseEnter = () => {
     if (!hovered) {
@@ -37,7 +39,7 @@ export function HeroSection({ isVideoHovering = false }: HeroSectionProps) {
         onMouseEnter={handleTitleMouseEnter}
         onMouseLeave={handleTitleMouseLeave}
       >
-        <h1 className={`hero-title ${hovered ? 'is-glow' : ''} ${isVideoHovering ? 'is-video-hovering' : ''}`}>
+        <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`} style={{ color: dynamicColor }}>
           <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered} onScrambleComplete={onScrambleComplete}>
             FJR.
           </TextScramble>
