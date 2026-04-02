@@ -108,7 +108,6 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
         });
       });
 
-      // garante estado inicial consistente do primeiro vídeo sem deslocamento vertical
       activateVideo(0);
     }, sectionRef);
 
@@ -149,10 +148,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
                 gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
-              onClick={async (event) => {
+              onClick={(event) => {
                 const video = event.currentTarget;
                 if (document.fullscreenElement === video) return;
-                await video.requestFullscreen();
+                void video.requestFullscreen();
               }}
             />
           </div>
