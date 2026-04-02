@@ -55,19 +55,17 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     const ctx = gsap.context(() => {
       const horizontalTween = gsap.to(trackRef.current, {
         xPercent: -100 * (projects.length - 1),
-        y: 0,
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
           trigger: sectionRef.current,
           pin: true,
           scrub: true,
+          invalidateOnRefresh: true,
           start: 'top top',
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return;
 
       const animateVideoOpacity = (currentIndex: number) => {
         videoRefs.current.forEach((video, idx) => {
