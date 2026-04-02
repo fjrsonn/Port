@@ -24,12 +24,6 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
     setHovered(false);
   };
 
-  const onScrambleComplete = () => {
-    if (hovered) {
-      setScrambleKey((prev) => prev + 1);
-    }
-  };
-
   return (
     <section className="hero-section" id="inicio">
       <motion.div
@@ -42,7 +36,7 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
         onMouseLeave={handleTitleMouseLeave}
       >
         <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`} style={{ color: dynamicColor }}>
-          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered} onScrambleComplete={onScrambleComplete}>
+          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered}>
             FJR.
           </TextScramble>
         </h1>
