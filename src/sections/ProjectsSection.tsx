@@ -60,41 +60,16 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           end: `+=${window.innerWidth * (projects.length - 1)}`,
         },
       });
-
-
-      const firstCard = cardRefs.current[0];
-      if (firstCard) {
-        gsap.fromTo(
-          firstCard,
-          { x: 140, y: 0, opacity: 0 },
-          { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' },
-        );
-      }
-
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
-
-        gsap.set(card, { x: 140, y: 0, opacity: 0 });
 
         ScrollTrigger.create({
           trigger: card,
           start: 'left center',
           end: 'right center',
           containerAnimation: horizontalTween,
-          onEnter: () => {
-            setActiveIndex(index);
-            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
-          },
-          onEnterBack: () => {
-            setActiveIndex(index);
-            gsap.to(card, { x: 0, y: 0, opacity: 1, duration: 0.55, ease: 'power2.out', overwrite: 'auto' });
-          },
-          onLeave: () => {
-            gsap.to(card, { x: -100, y: 0, opacity: 0.6, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
-          },
-          onLeaveBack: () => {
-            gsap.to(card, { x: 120, y: 0, opacity: 0, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
-          },
+          onEnter: () => setActiveIndex(index),
+          onEnterBack: () => setActiveIndex(index),
         });
       });
 
