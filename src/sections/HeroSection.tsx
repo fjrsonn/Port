@@ -19,6 +19,12 @@ export function HeroSection({ hidden = false }: HeroSectionProps) {
     setHovered(false);
   };
 
+  const onScrambleComplete = () => {
+    if (hovered) {
+      setScrambleKey((prev) => prev + 1);
+    }
+  };
+
   return (
     <section className="hero-section" id="inicio">
       <motion.div
@@ -30,7 +36,14 @@ export function HeroSection({ hidden = false }: HeroSectionProps) {
         onMouseLeave={onLeave}
       >
         <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <TextScramble as="span" triggerKey={scrambleKey} duration={3} speed={0.045} isActive={hovered}>
+          <TextScramble
+            as="span"
+            triggerKey={scrambleKey}
+            duration={3}
+            speed={0.045}
+            isActive={hovered}
+            onScrambleComplete={onScrambleComplete}
+          >
             FJR.
           </TextScramble>
         </h1>

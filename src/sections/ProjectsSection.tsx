@@ -64,7 +64,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
 
-        gsap.set(card, { x: 140, y: 80, opacity: 0 });
+        gsap.set(card, { x: 140, y: 0, opacity: 0 });
 
         ScrollTrigger.create({
           trigger: card,
@@ -83,7 +83,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
             gsap.to(card, { x: -100, y: 0, opacity: 0.6, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
           },
           onLeaveBack: () => {
-            gsap.to(card, { x: 120, y: 60, opacity: 0, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
+            gsap.to(card, { x: 120, y: 0, opacity: 0, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
           },
         });
       });
