@@ -9,6 +9,7 @@ type TextScrambleProps = {
   as?: ElementType;
   className?: string;
   triggerKey?: number;
+  isActive?: boolean;
   onScrambleComplete?: () => void;
 } & HTMLAttributes<HTMLElement>;
 
@@ -22,11 +23,13 @@ export function TextScramble({
   className,
   as: Component = 'span',
   triggerKey = 0,
+  isActive = true,
   onScrambleComplete,
   ...props
 }: TextScrambleProps) {
   const [displayText, setDisplayText] = useState(children);
   const intervalRef = useRef<number | null>(null);
+  const runIdRef = useRef(0);
 
   useEffect(() => {
     if (intervalRef.current) {
