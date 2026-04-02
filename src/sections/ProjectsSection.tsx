@@ -177,12 +177,10 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
               preload="auto"
               onMouseEnter={(event) => {
                 setHoveredVideoIndex(index);
-                onVideoHoverChange?.(true);
                 gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' });
               }}
               onMouseLeave={(event) => {
                 setHoveredVideoIndex(null);
-                onVideoHoverChange?.(false);
                 const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14;
                 gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' });
               }}
