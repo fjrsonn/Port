@@ -8,10 +8,16 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
   const [isVideoHovering, setIsVideoHovering] = useState(false);
+  const [isProjectCardVisible, setIsProjectCardVisible] = useState(false);
 
   useEffect(() => {
-    const hideIntroTimer = window.setTimeout(() => setShowIntro(false), 8000);
-    const showMainTimer = window.setTimeout(() => setShowMain(true), 8800);
+    const introTextTimelineMs = 3350;
+    const afterIntroDelayMs = 1000;
+    const hideIntroAt = introTextTimelineMs;
+    const showMainAt = introTextTimelineMs + afterIntroDelayMs;
+
+    const hideIntroTimer = window.setTimeout(() => setShowIntro(false), hideIntroAt);
+    const showMainTimer = window.setTimeout(() => setShowMain(true), showMainAt);
 
     return () => {
       window.clearTimeout(hideIntroTimer);
@@ -24,8 +30,15 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection isVideoHovering={isVideoHovering} isMainVisible={showMain} />
-        <ProjectsSection onVideoHoverChange={setIsVideoHovering} />
+        <HeroSection
+          isVideoHovering={isVideoHovering}
+          isMainVisible={showMain}
+          isProjectCardVisible={isProjectCardVisible}
+        />
+        <ProjectsSection
+          onVideoHoverChange={setIsVideoHovering}
+          onCardInViewChange={setIsProjectCardVisible}
+        />
         <AboutSection />
       </main>
     </div>
