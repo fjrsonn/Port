@@ -100,11 +100,7 @@ body {
   overflow: hidden;
   display: flex;
   justify-content: center;
-}
-
-.hero-subtitle-reveal {
-  margin-top: 1rem;
-  overflow: hidden;
+  min-height: 1.2rem;
 }
 
 .social-icons {
