@@ -10,6 +10,14 @@ type HeroSectionProps = {
   isVideoHovering?: boolean;
 };
 
+type OverlapRect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  area: number;
+};
+
 export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = false }: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
   const isScramblingRef = useRef(false);
@@ -20,11 +28,8 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
   
   // ✅ Refs para mascaramento de texto
   const titleRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLHeadingElement>(null);
   const [clipPath, setClipPath] = useState('');
-
-  const channelValue = Math.round(255 * (1 - Math.max(0, Math.min(1, videoUnderTitleProgress))));
-  const dynamicColor = `rgb(${channelValue}, ${channelValue}, ${channelValue})`;
 
   useEffect(() => {
     return () => {
@@ -42,8 +47,7 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
       const titleRect = titleRef.current.getBoundingClientRect();
       const videos = document.querySelectorAll('.project-video');
 
-      let polygonPoints: string[] = [];
-      let hasOverlap = false;
+      let bestOverlap: OverlapRect | undefined;
 
       videos.forEach((video) => {
         if (!(video instanceof HTMLElement)) return;
@@ -57,24 +61,20 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
 
         // Se houver interseção
         if (x1 < x2 && y1 < y2) {
-          hasOverlap = true;
-
-          // Converte para percentuais
-          const left = ((x1 - titleRect.left) / titleRect.width) * 100;
-          const right = ((x2 - titleRect.left) / titleRect.width) * 100;
-          const top = ((y1 - titleRect.top) / titleRect.height) * 100;
-          const bottom = ((y2 - titleRect.top) / titleRect.height) * 100;
-
-          // Cria os pontos do polígono
-          polygonPoints.push(`${left}% ${top}%`);
-          polygonPoints.push(`${right}% ${top}%`);
-          polygonPoints.push(`${right}% ${bottom}%`);
-          polygonPoints.push(`${left}% ${bottom}%`);
+          const area = (x2 - x1) * (y2 - y1);
+          if (!bestOverlap || area > bestOverlap.area) {
+            bestOverlap = { left: x1, right: x2, top: y1, bottom: y2, area };
+          }
         }
       });
 
-      if (hasOverlap && polygonPoints.length > 0) {
-        setClipPath(`polygon(${polygonPoints.join(', ')})`);
+      const overlap = bestOverlap;
+      if (overlap) {
+        const left = ((overlap.left - titleRect.left) / titleRect.width) * 100;
+        const right = ((overlap.right - titleRect.left) / titleRect.width) * 100;
+        const top = ((overlap.top - titleRect.top) / titleRect.height) * 100;
+        const bottom = ((overlap.bottom - titleRect.top) / titleRect.height) * 100;
+        setClipPath(`inset(${top}% ${100 - right}% ${100 - bottom}% ${left}%)`);
       } else {
         setClipPath('');
       }
@@ -149,7 +149,7 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
           <h1 
             className={`hero-title ${hovered ? 'is-glow' : ''}`} 
             style={{ 
-              color: dynamicColor, 
+              color: '#fff',
               margin: 0,
               position: 'relative',
               zIndex: 1
@@ -168,26 +168,19 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
 
           {/* ✅ Overlay preto com clip-path dinâmico */}
           {clipPath && (
-            <div
+            <h1
               ref={overlayRef}
+              className="hero-title hero-title-overlay"
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                width: '100%',
-                height: '100%',
-                color: '#000',
-                pointerEvents: 'none',
                 margin: 0,
-                padding: 0,
+                color: '#000000',
+                pointerEvents: 'none',
                 clipPath: clipPath,
-                transition: 'clip-path 0.05s linear',
+                transition: videoUnderTitleProgress > 0 ? 'none' : 'clip-path 0.08s linear',
                 zIndex: 2,
-                fontFamily: 'inherit',
-                fontSize: 'inherit',
-                fontWeight: 'inherit',
-                lineHeight: 'inherit',
-                letterSpacing: 'inherit',
               }}
             >
               <TextScramble
@@ -199,7 +192,7 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
               >
                 FJR.
               </TextScramble>
-            </div>
+            </h1>
           )}
         </div>
       </motion.div>

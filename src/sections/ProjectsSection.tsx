@@ -77,7 +77,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
 
     const ctx = gsap.context(() => {
       const updateTitleOverlapProgress = () => {
-        const heroTitle = document.querySelector('.hero-title');
+        const heroTitle = document.querySelector('.hero-title:not(.hero-title-overlay)');
         if (!(heroTitle instanceof HTMLElement)) {
           onVideoUnderTitleProgressChange?.(0);
           return;
@@ -155,6 +155,7 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
 
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
+        const video = videoRefs.current[index];
 
         ScrollTrigger.create({
           trigger: card,
@@ -164,10 +165,38 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           onEnter: () => activateVideo(index),
           onEnterBack: () => activateVideo(index),
         });
+
+        if (video) {
+          gsap.fromTo(
+            video,
+            { yPercent: 38 },
+            {
+              yPercent: 0,
+              ease: 'none',
+              scrollTrigger: {
+                trigger: card,
+                containerAnimation: horizontalTween,
+                start: 'left 85%',
+                end: 'left center',
+                scrub: true,
+                onUpdate: updateTitleOverlapProgress,
+              },
+            },
+          );
+        }
       });
 
       activateVideo(0);
       updateTitleOverlapProgress();
+
+      const ticker = () => updateTitleOverlapProgress();
+      gsap.ticker.add(ticker);
+      ScrollTrigger.addEventListener('refresh', updateTitleOverlapProgress);
+
+      return () => {
+        gsap.ticker.remove(ticker);
+        ScrollTrigger.removeEventListener('refresh', updateTitleOverlapProgress);
+      };
     }, sectionRef);
 
     return () => {
