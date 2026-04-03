@@ -1,97 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
-import { motion } from 'framer-motion';
-import { TextScramble } from '../components/TextScramble';
+import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 
-type HeroSectionProps = {
-  videoUnderTitleProgress?: number;
-  isVideoHovering?: boolean;
-};
-
-export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = false }: HeroSectionProps) {
-  const [hovered, setHovered] = useState(false);
-  const isScramblingRef = useRef(false);
-  const pointerInsideRef = useRef(false);
-  const isScrollLockedRef = useRef(false);
-  const scrollUnlockTimerRef = useRef<number | null>(null);
-  const [scrambleKey, setScrambleKey] = useState(0);
-  const channelValue = Math.round(255 * (1 - Math.max(0, Math.min(1, videoUnderTitleProgress))));
-  const dynamicColor = `rgb(${channelValue}, ${channelValue}, ${channelValue})`;
+const HeroSection = ({ videoUnderTitleProgress }) => {
+  const overlayRef = useRef(null);
+  const titleRef = useRef(null);
 
   useEffect(() => {
-    return () => {
-      if (scrollUnlockTimerRef.current) {
-        window.clearTimeout(scrollUnlockTimerRef.current);
-      }
+    // function to update the clip-path based on the title's position and video progression
+    const updateClipPath = () => {
+      const titleRect = titleRef.current.getBoundingClientRect();
+      const overlay = overlayRef.current;
+
+      // Calculate the clip-path polygon points based on the intersection
+      const offset = window.innerHeight - titleRect.top;
+
+      // Example calculation based on videoUnderTitleProgress
+      const clipPathValue = `polygon(0% 0%, 100% 0%, 100% ${videoUnderTitleProgress * 100}%, 0% ${videoUnderTitleProgress * 100}%`;
+
+      overlay.style.clipPath = clipPathValue;
+
+      // Request the next animation frame
+      requestAnimationFrame(updateClipPath);
     };
-  }, []);
 
-  const startScramble = () => {
-    if (isScramblingRef.current) return;
-    isScramblingRef.current = true;
-    setScrambleKey((prev) => prev + 1);
-  };
-
-  const handleTitlePointerEnter = () => {
-    pointerInsideRef.current = true;
-    setHovered(true);
-  };
-
-  const handleTitlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!pointerInsideRef.current) return;
-    if (event.pointerType !== 'mouse') return;
-    if (isScrollLockedRef.current) return;
-    if (event.movementX === 0 && event.movementY === 0) return;
-    startScramble();
-  };
-
-  const handleTitleWheel = () => {
-    isScrollLockedRef.current = true;
-
-    if (scrollUnlockTimerRef.current) {
-      window.clearTimeout(scrollUnlockTimerRef.current);
-    }
-
-    scrollUnlockTimerRef.current = window.setTimeout(() => {
-      isScrollLockedRef.current = false;
-      scrollUnlockTimerRef.current = null;
-    }, 180);
-  };
-
-  const handleScrambleComplete = useCallback(() => {
-    isScramblingRef.current = false;
-  }, []);
-
-  const handleTitlePointerLeave = () => {
-    pointerInsideRef.current = false;
-    setHovered(false);
-  };
+    requestAnimationFrame(updateClipPath);
+  }, [videoUnderTitleProgress]);
 
   return (
-    <section className="hero-section" id="inicio">
-      <motion.div
-        className="hero-title-wrapper"
-        initial={{ opacity: 0, filter: 'blur(6px)' }}
-        animate={{ opacity: isVideoHovering ? 0 : 1, filter: isVideoHovering ? 'blur(6px)' : 'blur(0px)' }}
-        style={{ pointerEvents: isVideoHovering ? 'none' : 'auto' }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        onPointerEnter={handleTitlePointerEnter}
-        onPointerMove={handleTitlePointerMove}
-        onPointerLeave={handleTitlePointerLeave}
-        onWheel={handleTitleWheel}
-      >
-        <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`} style={{ color: dynamicColor }}>
-          <TextScramble
-            as="span"
-            triggerKey={scrambleKey}
-            duration={3}
-            speed={0.045}
-            onScrambleComplete={handleScrambleComplete}
-          >
-            FJR.
-          </TextScramble>
-        </h1>
-      </motion.div>
-    </section>
+    <div className='hero-section'>
+      <h1 ref={titleRef} className='hero-title'>FJR.</h1>
+      <div ref={overlayRef} className='overlay'>FJR.</div>
+    </div>
   );
-}
+};
+
+export default HeroSection;
