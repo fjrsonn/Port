@@ -11,7 +11,6 @@ type ProjectItem = {
 };
 
 type ProjectsSectionProps = {
-  onVideoUnderTitleProgressChange?: (progress: number) => void;
   onVideoHoverChange?: (isHoveringVideo: boolean) => void;
 };
 
@@ -42,7 +41,7 @@ const projects: ProjectItem[] = [
   },
 ];
 
-export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverChange }: ProjectsSectionProps) {
+export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -76,36 +75,6 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
     if (!sectionRef.current || !trackRef.current) return;
 
     const ctx = gsap.context(() => {
-      const updateTitleOverlapProgress = () => {
-        const heroTitle = document.querySelector('.hero-title:not(.hero-title-overlay)');
-        if (!(heroTitle instanceof HTMLElement)) {
-          onVideoUnderTitleProgressChange?.(0);
-          return;
-        }
-
-        const titleRect = heroTitle.getBoundingClientRect();
-        const titleArea = titleRect.width * titleRect.height;
-        if (titleArea <= 0) {
-          onVideoUnderTitleProgressChange?.(0);
-          return;
-        }
-
-        let maxRatio = 0;
-        videoRefs.current.forEach((video) => {
-          if (!video) return;
-          const videoRect = video.getBoundingClientRect();
-          const overlapWidth = Math.max(0, Math.min(titleRect.right, videoRect.right) - Math.max(titleRect.left, videoRect.left));
-          const overlapHeight = Math.max(0, Math.min(titleRect.bottom, videoRect.bottom) - Math.max(titleRect.top, videoRect.top));
-          const overlapArea = overlapWidth * overlapHeight;
-          const ratio = overlapArea / titleArea;
-          if (ratio > maxRatio) {
-            maxRatio = ratio;
-          }
-        });
-
-        onVideoUnderTitleProgressChange?.(Math.max(0, Math.min(1, maxRatio)));
-      };
-
       const horizontalTween = gsap.to(trackRef.current, {
         x: () => -(trackRef.current!.scrollWidth - window.innerWidth),
         ease: 'none',
@@ -118,12 +87,6 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
           invalidateOnRefresh: true,
           start: 'top top',
           end: () => `+=${trackRef.current!.scrollWidth - window.innerWidth}`,
-          onUpdate: () => {
-            updateTitleOverlapProgress();
-          },
-          onRefresh: updateTitleOverlapProgress,
-          onLeave: () => onVideoUnderTitleProgressChange?.(0),
-          onLeaveBack: () => onVideoUnderTitleProgressChange?.(0),
         },
       });
 
@@ -187,24 +150,13 @@ export function ProjectsSection({ onVideoUnderTitleProgressChange, onVideoHoverC
       });
 
       activateVideo(0);
-      updateTitleOverlapProgress();
-
-      const ticker = () => updateTitleOverlapProgress();
-      gsap.ticker.add(ticker);
-      ScrollTrigger.addEventListener('refresh', updateTitleOverlapProgress);
-
-      return () => {
-        gsap.ticker.remove(ticker);
-        ScrollTrigger.removeEventListener('refresh', updateTitleOverlapProgress);
-      };
     }, sectionRef);
 
     return () => {
       onVideoHoverChange?.(false);
-      onVideoUnderTitleProgressChange?.(0);
       ctx.revert();
     };
-  }, [onVideoHoverChange, onVideoUnderTitleProgressChange]);
+  }, [onVideoHoverChange]);
 
   return (
     <section id="projetos" className="projects-section" ref={sectionRef}>
