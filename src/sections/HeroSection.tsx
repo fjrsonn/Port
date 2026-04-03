@@ -2,22 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
   isMainVisible?: boolean;
+  isProjectCardVisible?: boolean;
 };
 
-export function HeroSection({ isVideoHovering = false, isMainVisible = true }: HeroSectionProps) {
+export function HeroSection({
+  isVideoHovering = false,
+  isMainVisible = true,
+  isProjectCardVisible = false,
+}: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
   const isScramblingRef = useRef(false);
+  const hasCompletedPrimaryScrambleRef = useRef(false);
   const pointerInsideRef = useRef(false);
   const isScrollLockedRef = useRef(false);
   const scrollUnlockTimerRef = useRef<number | null>(null);
   const autoScrambleTimerRef = useRef<number | null>(null);
+  const hideDetailsTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const [scrambleKey, setScrambleKey] = useState(0);
@@ -44,8 +51,27 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
       if (autoScrambleTimerRef.current) {
         window.clearTimeout(autoScrambleTimerRef.current);
       }
+      if (hideDetailsTimerRef.current) {
+        window.clearTimeout(hideDetailsTimerRef.current);
+      }
     };
   }, []);
+
+  const scheduleDetailsAutoHide = useCallback(() => {
+    if (hideDetailsTimerRef.current) {
+      window.clearTimeout(hideDetailsTimerRef.current);
+    }
+    hideDetailsTimerRef.current = window.setTimeout(() => {
+      setShowDetails(false);
+      hideDetailsTimerRef.current = null;
+    }, 5000);
+  }, []);
+
+  const revealDetails = useCallback(() => {
+    if (isProjectCardVisible) return;
+    setShowDetails(true);
+    scheduleDetailsAutoHide();
+  }, [isProjectCardVisible, scheduleDetailsAutoHide]);
 
   const startScramble = () => {
     if (isScramblingRef.current) return;
@@ -63,6 +89,9 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
     if (event.pointerType !== 'mouse') return;
     if (isScrollLockedRef.current) return;
     if (event.movementX === 0 && event.movementY === 0) return;
+    if (hasCompletedPrimaryScrambleRef.current && !showDetails) {
+      revealDetails();
+    }
     startScramble();
   };
 
@@ -79,8 +108,18 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
 
   const handleScrambleComplete = useCallback(() => {
     isScramblingRef.current = false;
-    setShowDetails(true);
-  }, []);
+    hasCompletedPrimaryScrambleRef.current = true;
+    revealDetails();
+  }, [revealDetails]);
+
+  useEffect(() => {
+    if (!isProjectCardVisible) return;
+    setShowDetails(false);
+    if (hideDetailsTimerRef.current) {
+      window.clearTimeout(hideDetailsTimerRef.current);
+      hideDetailsTimerRef.current = null;
+    }
+  }, [isProjectCardVisible]);
 
   const handleTitlePointerLeave = () => {
     pointerInsideRef.current = false;
@@ -113,44 +152,51 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
         </h1>
 
         <div className="hero-subtitle-reveal">
-          {showDetails && (
-            <motion.p
-              className="hero-subtitle"
-              initial={{ y: -22, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            >
-              Machine Learning & Full Stack Dev.
-            </motion.p>
-          )}
+          <AnimatePresence mode="wait">
+            {showDetails && (
+              <motion.p
+                key="hero-subtitle"
+                className="hero-subtitle"
+                initial={{ y: -22, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -22, opacity: 0 }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              >
+                Machine Learning & Full Stack Dev.
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 
-      {showDetails && (
-        <motion.div
-          className="social-icons"
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 1, ease: 'easeInOut' }}
-        >
-          <a
-            href="https://github.com/fjrsonn"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub"
+      <AnimatePresence>
+        {showDetails && (
+          <motion.div
+            className="social-icons"
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 1, ease: 'easeInOut' }}
           >
-            <FaGithub />
-          </a>
-          <a
-            href="https://www.linkedin.com/in/flaviojuniorls"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="LinkedIn"
-          >
-            <FaLinkedin />
-          </a>
-        </motion.div>
-      )}
+            <a
+              href="https://github.com/fjrsonn"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+            >
+              <FaGithub />
+            </a>
+            <a
+              href="https://www.linkedin.com/in/flaviojuniorls"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+            >
+              <FaLinkedin />
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

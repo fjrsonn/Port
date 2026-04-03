@@ -92,6 +92,14 @@ body {
   color: #fff;
   font-size: 0.9rem;
   letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.hero-subtitle-reveal {
+  margin-top: 1rem;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
 }
 
 .hero-subtitle-reveal {
