@@ -128,10 +128,14 @@ export function HeroSection({
 
     const offsetX = (dx / activationRadius) * 14 * intensity;
     const offsetY = (dy / activationRadius) * 10 * intensity;
+    const blobX = (dx / activationRadius) * 54 * intensity;
+    const blobY = (dy / activationRadius) * 42 * intensity;
 
     heroTitleRef.current.style.setProperty('--trace-x', `${offsetX.toFixed(2)}px`);
     heroTitleRef.current.style.setProperty('--trace-y', `${offsetY.toFixed(2)}px`);
     heroTitleRef.current.style.setProperty('--trace-intensity', intensity.toFixed(3));
+    heroTitleRef.current.style.setProperty('--blob-x', `${blobX.toFixed(2)}px`);
+    heroTitleRef.current.style.setProperty('--blob-y', `${blobY.toFixed(2)}px`);
   };
 
   const handleTitlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -215,6 +219,8 @@ export function HeroSection({
       heroTitleRef.current.style.setProperty('--trace-x', '0px');
       heroTitleRef.current.style.setProperty('--trace-y', '0px');
       heroTitleRef.current.style.setProperty('--trace-intensity', '0');
+      heroTitleRef.current.style.setProperty('--blob-x', '0px');
+      heroTitleRef.current.style.setProperty('--blob-y', '0px');
     }
   };
 
@@ -234,7 +240,13 @@ export function HeroSection({
         <h1
           ref={heroTitleRef}
           className={`hero-title ${hovered ? 'is-glow' : ''}`}
-          style={{ '--trace-x': '0px', '--trace-y': '0px', '--trace-intensity': 0 } as CSSProperties}
+          style={{
+            '--trace-x': '0px',
+            '--trace-y': '0px',
+            '--trace-intensity': 0,
+            '--blob-x': '0px',
+            '--blob-y': '0px',
+          } as CSSProperties}
         >
           <span className="hero-title-measure" aria-hidden="true">FJR.</span>
           <span className="hero-title-live">
