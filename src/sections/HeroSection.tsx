@@ -1,7 +1,7 @@
 // src/sections/HeroSection.tsx - VERSÃO FINAL E FUNCIONAL
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
@@ -114,11 +114,32 @@ export function HeroSection({
     setHovered(true);
   };
 
+  const updateTraceTracking = (event: PointerEvent<HTMLDivElement>) => {
+    if (!heroTitleRef.current) return;
+
+    const rect = heroTitleRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = event.clientX - centerX;
+    const dy = event.clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const activationRadius = 240;
+    const intensity = Math.max(0, 1 - distance / activationRadius);
+
+    const offsetX = (dx / activationRadius) * 14 * intensity;
+    const offsetY = (dy / activationRadius) * 10 * intensity;
+
+    heroTitleRef.current.style.setProperty('--trace-x', `${offsetX.toFixed(2)}px`);
+    heroTitleRef.current.style.setProperty('--trace-y', `${offsetY.toFixed(2)}px`);
+    heroTitleRef.current.style.setProperty('--trace-intensity', intensity.toFixed(3));
+  };
+
   const handleTitlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!pointerInsideRef.current) return;
     if (event.pointerType !== 'mouse') return;
     if (isScrollLockedRef.current) return;
     if (event.movementX === 0 && event.movementY === 0) return;
+    updateTraceTracking(event);
     if (hasCompletedPrimaryScrambleRef.current && !showDetails) {
       revealDetails();
     }
@@ -190,6 +211,11 @@ export function HeroSection({
   const handleTitlePointerLeave = () => {
     pointerInsideRef.current = false;
     setHovered(false);
+    if (heroTitleRef.current) {
+      heroTitleRef.current.style.setProperty('--trace-x', '0px');
+      heroTitleRef.current.style.setProperty('--trace-y', '0px');
+      heroTitleRef.current.style.setProperty('--trace-intensity', '0');
+    }
   };
 
   return (
@@ -205,7 +231,11 @@ export function HeroSection({
         onPointerLeave={handleTitlePointerLeave}
         onWheel={handleTitleWheel}
       >
-        <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
+        <h1
+          ref={heroTitleRef}
+          className={`hero-title ${hovered ? 'is-glow' : ''}`}
+          style={{ '--trace-x': '0px', '--trace-y': '0px', '--trace-intensity': 0 } as CSSProperties}
+        >
           <span className="hero-title-measure" aria-hidden="true">FJR.</span>
           <span className="hero-title-live">
             <TextScramble

@@ -79,10 +79,16 @@ body {
   font-weight: 700;
   line-height: 0.9;
   color: #fff;
-  transition: text-shadow 0.2s ease, transform 0.2s ease, color 0.6s ease;
   position: relative;
   display: inline-block;
   white-space: nowrap;
+  letter-spacing: calc(var(--trace-intensity, 0) * 0.06em);
+  text-shadow:
+    0 0 calc(8px + var(--trace-intensity, 0) * 18px) rgba(255, 255, 255, calc(0.2 + var(--trace-intensity, 0) * 0.45)),
+    calc(var(--trace-x, 0px) * -0.8) calc(var(--trace-y, 0px) * -0.8)
+      calc(10px + var(--trace-intensity, 0) * 16px)
+      rgba(120, 190, 255, calc(var(--trace-intensity, 0) * 0.35));
+  transition: letter-spacing 0.18s ease, text-shadow 0.18s ease, transform 0.2s ease, color 0.6s ease;
 }
 
 .hero-title-measure {
@@ -94,6 +100,9 @@ body {
   position: absolute;
   inset: 0;
   display: block;
+  transform: translate(var(--trace-x, 0px), var(--trace-y, 0px));
+  filter: blur(calc(var(--trace-intensity, 0) * 0.35px));
+  transition: transform 0.16s ease, filter 0.2s ease;
 }
 
 .hero-title.is-glow {
@@ -116,7 +125,6 @@ body {
   display: flex;
   justify-content: flex-start;
   min-height: 1.2rem;
-  padding-left: 1.0ch;
 }
 
 .hero-subtitle-caret {
