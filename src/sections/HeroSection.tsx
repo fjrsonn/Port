@@ -52,20 +52,20 @@ export function HeroSection({
     const titleEl = heroTitleRef.current;
     const tl = gsap.timeline();
 
-    tl.set(titleEl, { opacity: 0, scale: 0.92, filter: 'blur(8px)' })
+    tl.set(titleEl, { opacity: 0, scale: 0.96, filter: 'blur(5px)' })
       .to(titleEl, {
         opacity: 1,
         scale: 1,
         filter: 'blur(0px)',
-        duration: 1.1,
+        duration: 0.55,
         ease: 'power3.out',
       })
-      .to({}, { duration: 0.8 })
+      .to({}, { duration: 0.2 })
       .to(titleEl, {
-        opacity: 0.9,
-        scale: 1.02,
-        filter: 'blur(2px)',
-        duration: 0.8,
+        opacity: 1,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 0.35,
         ease: 'power2.inOut',
       });
 
@@ -166,7 +166,7 @@ export function HeroSection({
         initial={{ opacity: 0, filter: 'blur(6px)' }}
         animate={{ opacity: isVideoHovering ? 0 : 1, filter: isVideoHovering ? 'blur(6px)' : 'blur(0px)' }}
         style={{ pointerEvents: isVideoHovering ? 'none' : 'auto' }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         onPointerEnter={handleTitlePointerEnter}
         onPointerMove={handleTitlePointerMove}
         onPointerLeave={handleTitlePointerLeave}
