@@ -128,39 +128,43 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
           </TextScramble>
         </h1>
 
-        <motion.p
-          className="hero-subtitle"
-          initial={{ y: 28, opacity: 0 }}
-          animate={showDetails ? { y: 0, opacity: 1 } : { y: 28, opacity: 0 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        >
-          Machine Learning & Full Stack Dev.
-        </motion.p>
+        {showDetails && (
+          <motion.p
+            className="hero-subtitle"
+            initial={{ y: 28, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Machine Learning & Full Stack Dev.
+          </motion.p>
+        )}
       </motion.div>
 
-      <motion.div
-        className="social-icons"
-        initial={{ y: 100, opacity: 0 }}
-        animate={showDetails ? { y: 0, opacity: 1 } : { y: 100, opacity: 0 }}
-        transition={{ duration: 1, ease: 'easeInOut' }}
-      >
-        <a
-          href="https://github.com/fjrsonn"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="GitHub"
+      {showDetails && (
+        <motion.div
+          className="social-icons"
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 1, ease: 'easeInOut' }}
         >
-          <FaGithub />
-        </a>
-        <a
-          href="https://www.linkedin.com/in/flaviojuniorls"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="LinkedIn"
-        >
-          <FaLinkedin />
-        </a>
-      </motion.div>
+          <a
+            href="https://github.com/fjrsonn"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub"
+          >
+            <FaGithub />
+          </a>
+          <a
+            href="https://www.linkedin.com/in/flaviojuniorls"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="LinkedIn"
+          >
+            <FaLinkedin />
+          </a>
+        </motion.div>
+      )}
     </section>
   );
 }
