@@ -72,21 +72,25 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
   }, []);
 
   useEffect(() => {
-    if (!sectionRef.current || !trackRef.current) return;
+    const sectionEl = sectionRef.current;
+    const trackEl = trackRef.current;
+    if (!sectionEl || !trackEl) return;
 
     const ctx = gsap.context(() => {
-      const horizontalTween = gsap.to(trackRef.current, {
-        x: () => -(trackRef.current!.scrollWidth - window.innerWidth),
+      const getTrackDistance = () => Math.max(0, trackEl.scrollWidth - window.innerWidth);
+
+      const horizontalTween = gsap.to(trackEl, {
+        x: () => -getTrackDistance(),
         ease: 'none',
         scrollTrigger: {
           id: 'projects-horizontal',
-          trigger: sectionRef.current,
+          trigger: sectionEl,
           pin: true,
           anticipatePin: 1,
           scrub: true,
           invalidateOnRefresh: true,
           start: 'top top',
-          end: () => `+=${trackRef.current!.scrollWidth - window.innerWidth}`,
+          end: () => `+=${getTrackDistance()}`,
         },
       });
 
@@ -150,7 +154,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
       });
 
       activateVideo(0);
-    }, sectionRef);
+    }, sectionEl);
 
     return () => {
       onVideoHoverChange?.(false);
