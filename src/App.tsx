@@ -8,6 +8,7 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
   const [isVideoHovering, setIsVideoHovering] = useState(false);
+  const [isProjectCardVisible, setIsProjectCardVisible] = useState(false);
 
   useEffect(() => {
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), 8000);
@@ -24,8 +25,15 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection isVideoHovering={isVideoHovering} isMainVisible={showMain} />
-        <ProjectsSection onVideoHoverChange={setIsVideoHovering} />
+        <HeroSection
+          isVideoHovering={isVideoHovering}
+          isMainVisible={showMain}
+          isProjectCardVisible={isProjectCardVisible}
+        />
+        <ProjectsSection
+          onVideoHoverChange={setIsVideoHovering}
+          onCardInViewChange={setIsProjectCardVisible}
+        />
         <AboutSection />
       </main>
     </div>
