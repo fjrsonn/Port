@@ -52,21 +52,13 @@ export function HeroSection({
     const titleEl = heroTitleRef.current;
     const tl = gsap.timeline();
 
-    tl.set(titleEl, { opacity: 0, scale: 1.18, filter: 'blur(8px)' })
-      .to(titleEl, {
-        opacity: 1,
-        scale: 1.08,
-        filter: 'blur(2px)',
-        duration: 0.35,
-        ease: 'power3.out',
-      })
-      .to(titleEl, {
-        opacity: 1,
-        scale: 1,
-        filter: 'blur(0px)',
-        duration: 0.45,
-        ease: 'power2.inOut',
-      });
+    tl.set(titleEl, { opacity: 0, scale: 1.36, filter: 'blur(10px)' }).to(titleEl, {
+      opacity: 1,
+      scale: 1,
+      filter: 'blur(0px)',
+      duration: 0.8,
+      ease: 'power3.out',
+    });
 
     return () => {
       tl.kill();
