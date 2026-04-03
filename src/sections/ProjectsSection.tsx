@@ -122,6 +122,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
 
       cardRefs.current.forEach((card, index) => {
         if (!card) return;
+        const video = videoRefs.current[index];
 
         ScrollTrigger.create({
           trigger: card,
@@ -131,6 +132,25 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           onEnter: () => activateVideo(index),
           onEnterBack: () => activateVideo(index),
         });
+
+        if (video) {
+          gsap.fromTo(
+            video,
+            { yPercent: 38 },
+            {
+              yPercent: 0,
+              ease: 'none',
+              scrollTrigger: {
+                trigger: card,
+                containerAnimation: horizontalTween,
+                start: 'left 85%',
+                end: 'left center',
+                scrub: true,
+                onUpdate: updateTitleOverlapProgress,
+              },
+            },
+          );
+        }
       });
 
       activateVideo(0);
