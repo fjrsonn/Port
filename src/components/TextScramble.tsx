@@ -113,12 +113,6 @@ export function TextScramble({
     };
   }, [isActive, triggerKey, children, duration, speed, characterSet]);
 
-  useEffect(() => {
-    if (isActive) {
-      setDisplayText(latestTextRef.current + 'FJR.');
-    }
-  }, [isActive]);
-
   return (
     <Component className={className} {...props}>
       {displayText}
