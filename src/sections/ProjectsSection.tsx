@@ -12,6 +12,7 @@ type ProjectItem = {
 
 type ProjectsSectionProps = {
   onVideoHoverChange?: (isHoveringVideo: boolean) => void;
+  onCardInViewChange?: (isCardInView: boolean) => void;
 };
 
 const projects: ProjectItem[] = [
@@ -41,7 +42,7 @@ const projects: ProjectItem[] = [
   },
 ];
 
-export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
+export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: ProjectsSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -77,6 +78,7 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
     if (!sectionEl || !trackEl) return;
 
     ScrollTrigger.getById('projects-horizontal')?.kill();
+    ScrollTrigger.getById('projects-visibility')?.kill();
     cardRefs.current.forEach((_, index) => {
       ScrollTrigger.getById(`projects-card-${index}`)?.kill();
     });
@@ -97,6 +99,17 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
           start: 'top top',
           end: () => `+=${getTrackDistance()}`,
         },
+      });
+
+      ScrollTrigger.create({
+        id: 'projects-visibility',
+        trigger: sectionEl,
+        start: 'top bottom',
+        end: 'bottom top',
+        onEnter: () => onCardInViewChange?.(true),
+        onEnterBack: () => onCardInViewChange?.(true),
+        onLeave: () => onCardInViewChange?.(false),
+        onLeaveBack: () => onCardInViewChange?.(false),
       });
 
       const animateVideoOpacity = (currentIndex: number) => {
@@ -144,9 +157,10 @@ export function ProjectsSection({ onVideoHoverChange }: ProjectsSectionProps) {
 
     return () => {
       onVideoHoverChange?.(false);
+      onCardInViewChange?.(false);
       ctx.revert();
     };
-  }, [onVideoHoverChange]);
+  }, [onCardInViewChange, onVideoHoverChange]);
 
   return (
     <section id="projetos" className="projects-section" ref={sectionRef}>
