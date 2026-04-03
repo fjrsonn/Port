@@ -18,7 +18,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
   const isScrollLockedRef = useRef(false);
   const scrollUnlockTimerRef = useRef<number | null>(null);
   const autoScrambleTimerRef = useRef<number | null>(null);
-  const revealTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const [scrambleKey, setScrambleKey] = useState(0);
@@ -29,10 +28,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
     hasScheduledIntroRef.current = true;
 
     const heroAppearDuration = 800;
-    revealTimerRef.current = window.setTimeout(() => {
-      setShowDetails(true);
-    }, heroAppearDuration + 2000);
-
     autoScrambleTimerRef.current = window.setTimeout(() => {
       if (hasAutoScrambledRef.current) return;
       hasAutoScrambledRef.current = true;
@@ -48,9 +43,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
       }
       if (autoScrambleTimerRef.current) {
         window.clearTimeout(autoScrambleTimerRef.current);
-      }
-      if (revealTimerRef.current) {
-        window.clearTimeout(revealTimerRef.current);
       }
     };
   }, []);
@@ -87,6 +79,7 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
 
   const handleScrambleComplete = useCallback(() => {
     isScramblingRef.current = false;
+    setShowDetails(true);
   }, []);
 
   const handleTitlePointerLeave = () => {
