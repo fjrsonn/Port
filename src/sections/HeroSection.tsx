@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { TextScramble } from '../components/TextScramble';
 
@@ -27,6 +28,8 @@ export function HeroSection({
   const hideDetailsTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
+  const hasPlayedHeroRevealRef = useRef(false);
+  const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -40,6 +43,36 @@ export function HeroSection({
       hasAutoScrambledRef.current = true;
       startScramble();
     }, heroAppearDuration + 150);
+  }, [isMainVisible]);
+
+  useEffect(() => {
+    if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
+    hasPlayedHeroRevealRef.current = true;
+
+    const titleEl = heroTitleRef.current;
+    const tl = gsap.timeline();
+
+    tl.set(titleEl, { opacity: 0, scale: 0.92, filter: 'blur(8px)' })
+      .to(titleEl, {
+        opacity: 1,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1.1,
+        ease: 'power3.out',
+      })
+      .to({}, { duration: 0.8 })
+      .to(titleEl, {
+        opacity: 0.9,
+        scale: 1.02,
+        filter: 'blur(2px)',
+        duration: 0.8,
+        ease: 'power2.inOut',
+      });
+
+    return () => {
+      tl.kill();
+      gsap.set(titleEl, { clearProps: 'opacity,scale,filter' });
+    };
   }, [isMainVisible]);
 
   useEffect(() => {
@@ -139,7 +172,7 @@ export function HeroSection({
         onPointerLeave={handleTitlePointerLeave}
         onWheel={handleTitleWheel}
       >
-        <h1 className={`hero-title ${hovered ? 'is-glow' : ''}`}>
+        <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
           <TextScramble
             as="span"
             triggerKey={scrambleKey}
