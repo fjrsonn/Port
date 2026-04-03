@@ -102,6 +102,11 @@ body {
   justify-content: center;
 }
 
+.hero-subtitle-reveal {
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
 .social-icons {
   position: fixed;
   bottom: 30px;
