@@ -7,7 +7,6 @@ import { AboutSection } from './sections/AboutSection';
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
-  const [videoUnderTitleProgress, setVideoUnderTitleProgress] = useState(0);
   const [isVideoHovering, setIsVideoHovering] = useState(false);
 
   useEffect(() => {
@@ -25,8 +24,8 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection videoUnderTitleProgress={videoUnderTitleProgress} isVideoHovering={isVideoHovering} />
-        <ProjectsSection onVideoUnderTitleProgressChange={setVideoUnderTitleProgress} onVideoHoverChange={setIsVideoHovering} />
+        <HeroSection isVideoHovering={isVideoHovering} />
+        <ProjectsSection onVideoHoverChange={setIsVideoHovering} />
         <AboutSection />
       </main>
     </div>
