@@ -1,6 +1,9 @@
-import React from 'react';
+type MaskedHeroTitleProps = {
+  title: string;
+  textColor: string;
+};
 
-const MaskedHeroTitle = ({ title, textColor }) => {
+const MaskedHeroTitle = ({ title, textColor }: MaskedHeroTitleProps) => {
     const maskedStyle = {
         color: textColor,
         background: `linear-gradient(90deg, transparent 50%, white 50%)`,
