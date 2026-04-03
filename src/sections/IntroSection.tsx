@@ -15,19 +15,25 @@ export function IntroSection({ visible }: IntroSectionProps) {
     const titleEl = introTitleRef.current;
     const tl = gsap.timeline();
 
-    tl.set(titleEl, { opacity: 0, scale: 0.92, filter: 'blur(8px)' })
+    tl.set(titleEl, { opacity: 0, scale: 0.82, filter: 'blur(10px)' })
       .to(titleEl, {
         opacity: 1,
+        scale: 1.06,
+        filter: 'blur(2px)',
+        duration: 0.9,
+        ease: 'power3.out',
+      })
+      .to(titleEl, {
         scale: 1,
         filter: 'blur(0px)',
-        duration: 1.2,
-        ease: 'power3.out',
+        duration: 0.45,
+        ease: 'power2.out',
       })
       .to({}, { duration: 1.1 })
       .to(titleEl, {
         opacity: 0,
-        scale: 1.03,
-        filter: 'blur(4px)',
+        scale: 0.96,
+        filter: 'blur(6px)',
         duration: 0.9,
         ease: 'power2.inOut',
       });
