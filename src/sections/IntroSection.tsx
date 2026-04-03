@@ -18,16 +18,10 @@ export function IntroSection({ visible }: IntroSectionProps) {
     tl.set(titleEl, { opacity: 0, scale: 0.82, filter: 'blur(10px)' })
       .to(titleEl, {
         opacity: 1,
-        scale: 1.06,
-        filter: 'blur(2px)',
-        duration: 0.9,
-        ease: 'power3.out',
-      })
-      .to(titleEl, {
         scale: 1,
         filter: 'blur(0px)',
-        duration: 0.45,
-        ease: 'power2.out',
+        duration: 0.9,
+        ease: 'power3.out',
       })
       .to({}, { duration: 1.1 })
       .to(titleEl, {

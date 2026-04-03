@@ -92,15 +92,31 @@ body {
   color: #fff;
   font-size: 0.9rem;
   letter-spacing: 0.02em;
-  text-align: center;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .hero-subtitle-reveal {
   margin-top: 1rem;
   overflow: hidden;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 1.2rem;
+}
+
+.hero-subtitle-caret {
+  display: inline-block;
+  margin-left: 0.08rem;
+  animation: subtitle-caret-blink 1.1s steps(1) infinite;
+}
+
+@keyframes subtitle-caret-blink {
+  0%, 46% {
+    opacity: 1;
+  }
+  47%, 100% {
+    opacity: 0;
+  }
 }
 
 .social-icons {

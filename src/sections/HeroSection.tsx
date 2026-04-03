@@ -32,6 +32,9 @@ export function HeroSection({
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [typedSubtitle, setTypedSubtitle] = useState('');
+  const subtitleTypingTimerRef = useRef<number | null>(null);
+  const subtitleText = 'Machine Learning & Full Stack Dev.';
 
   useEffect(() => {
     if (!isMainVisible || hasScheduledIntroRef.current) return;
@@ -77,6 +80,9 @@ export function HeroSection({
       }
       if (hideDetailsTimerRef.current) {
         window.clearTimeout(hideDetailsTimerRef.current);
+      }
+      if (subtitleTypingTimerRef.current) {
+        window.clearTimeout(subtitleTypingTimerRef.current);
       }
     };
   }, []);
@@ -145,6 +151,42 @@ export function HeroSection({
     }
   }, [isProjectCardVisible]);
 
+  useEffect(() => {
+    if (subtitleTypingTimerRef.current) {
+      window.clearTimeout(subtitleTypingTimerRef.current);
+      subtitleTypingTimerRef.current = null;
+    }
+
+    if (!showDetails) {
+      setTypedSubtitle('');
+      return;
+    }
+
+    let charIndex = 0;
+    setTypedSubtitle('');
+
+    const typeNext = () => {
+      charIndex += 1;
+      setTypedSubtitle(subtitleText.slice(0, charIndex));
+      if (charIndex >= subtitleText.length) {
+        subtitleTypingTimerRef.current = null;
+        return;
+      }
+
+      const cinematicDelay = 58 + Math.random() * 48;
+      subtitleTypingTimerRef.current = window.setTimeout(typeNext, cinematicDelay);
+    };
+
+    subtitleTypingTimerRef.current = window.setTimeout(typeNext, 260);
+
+    return () => {
+      if (subtitleTypingTimerRef.current) {
+        window.clearTimeout(subtitleTypingTimerRef.current);
+        subtitleTypingTimerRef.current = null;
+      }
+    };
+  }, [showDetails, subtitleText]);
+
   const handleTitlePointerLeave = () => {
     pointerInsideRef.current = false;
     setHovered(false);
@@ -181,12 +223,13 @@ export function HeroSection({
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
-                initial={{ y: -22, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -22, opacity: 0 }}
-                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(6px)' }}
+                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
-                Machine Learning & Full Stack Dev.
+                {typedSubtitle}
+                <span className="hero-subtitle-caret" aria-hidden="true">|</span>
               </motion.p>
             )}
           </AnimatePresence>
