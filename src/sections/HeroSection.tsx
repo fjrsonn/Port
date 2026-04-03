@@ -206,15 +206,18 @@ export function HeroSection({
         onWheel={handleTitleWheel}
       >
         <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <TextScramble
-            as="span"
-            triggerKey={scrambleKey}
-            duration={3}
-            speed={0.045}
-            onScrambleComplete={handleScrambleComplete}
-          >
-            FJR.
-          </TextScramble>
+          <span className="hero-title-measure" aria-hidden="true">FJR.</span>
+          <span className="hero-title-live">
+            <TextScramble
+              as="span"
+              triggerKey={scrambleKey}
+              duration={3}
+              speed={0.045}
+              onScrambleComplete={handleScrambleComplete}
+            >
+              FJR.
+            </TextScramble>
+          </span>
         </h1>
 
         <div className="hero-subtitle-reveal">
