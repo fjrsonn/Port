@@ -41,15 +41,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
   }, [isMainVisible]);
 
   useEffect(() => {
-    autoScrambleTimerRef.current = window.setTimeout(() => {
-      if (hasAutoScrambledRef.current) return;
-      hasAutoScrambledRef.current = true;
-      startScramble();
-    }, 250);
-
-    revealTimerRef.current = window.setTimeout(() => {
-      setShowDetails(true);
-    }, 2000);
 
     return () => {
       if (scrollUnlockTimerRef.current) {
