@@ -24,7 +24,7 @@ export default function App() {
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
-        <HeroSection isVideoHovering={isVideoHovering} />
+        <HeroSection isVideoHovering={isVideoHovering} isMainVisible={showMain} />
         <ProjectsSection onVideoHoverChange={setIsVideoHovering} />
         <AboutSection />
       </main>

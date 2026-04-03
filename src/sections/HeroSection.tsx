@@ -8,9 +8,10 @@ import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
+  isMainVisible?: boolean;
 };
 
-export function HeroSection({ isVideoHovering = false }: HeroSectionProps) {
+export function HeroSection({ isVideoHovering = false, isMainVisible = true }: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
   const isScramblingRef = useRef(false);
   const pointerInsideRef = useRef(false);
@@ -19,8 +20,25 @@ export function HeroSection({ isVideoHovering = false }: HeroSectionProps) {
   const autoScrambleTimerRef = useRef<number | null>(null);
   const revealTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
+  const hasScheduledIntroRef = useRef(false);
   const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    if (!isMainVisible || hasScheduledIntroRef.current) return;
+    hasScheduledIntroRef.current = true;
+
+    const heroAppearDuration = 800;
+    revealTimerRef.current = window.setTimeout(() => {
+      setShowDetails(true);
+    }, heroAppearDuration + 2000);
+
+    autoScrambleTimerRef.current = window.setTimeout(() => {
+      if (hasAutoScrambledRef.current) return;
+      hasAutoScrambledRef.current = true;
+      startScramble();
+    }, heroAppearDuration + 150);
+  }, [isMainVisible]);
 
   useEffect(() => {
     autoScrambleTimerRef.current = window.setTimeout(() => {
