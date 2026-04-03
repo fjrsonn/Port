@@ -18,7 +18,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
   const isScrollLockedRef = useRef(false);
   const scrollUnlockTimerRef = useRef<number | null>(null);
   const autoScrambleTimerRef = useRef<number | null>(null);
-  const revealTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const [scrambleKey, setScrambleKey] = useState(0);
@@ -29,10 +28,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
     hasScheduledIntroRef.current = true;
 
     const heroAppearDuration = 800;
-    revealTimerRef.current = window.setTimeout(() => {
-      setShowDetails(true);
-    }, heroAppearDuration + 2000);
-
     autoScrambleTimerRef.current = window.setTimeout(() => {
       if (hasAutoScrambledRef.current) return;
       hasAutoScrambledRef.current = true;
@@ -41,15 +36,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
   }, [isMainVisible]);
 
   useEffect(() => {
-    autoScrambleTimerRef.current = window.setTimeout(() => {
-      if (hasAutoScrambledRef.current) return;
-      hasAutoScrambledRef.current = true;
-      startScramble();
-    }, 250);
-
-    revealTimerRef.current = window.setTimeout(() => {
-      setShowDetails(true);
-    }, 2000);
 
     return () => {
       if (scrollUnlockTimerRef.current) {
@@ -57,9 +43,6 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
       }
       if (autoScrambleTimerRef.current) {
         window.clearTimeout(autoScrambleTimerRef.current);
-      }
-      if (revealTimerRef.current) {
-        window.clearTimeout(revealTimerRef.current);
       }
     };
   }, []);
@@ -96,6 +79,7 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
 
   const handleScrambleComplete = useCallback(() => {
     isScramblingRef.current = false;
+    setShowDetails(true);
   }, []);
 
   const handleTitlePointerLeave = () => {
@@ -128,16 +112,18 @@ export function HeroSection({ isVideoHovering = false, isMainVisible = true }: H
           </TextScramble>
         </h1>
 
-        {showDetails && (
-          <motion.p
-            className="hero-subtitle"
-            initial={{ y: 28, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            Machine Learning & Full Stack Dev.
-          </motion.p>
-        )}
+        <div className="hero-subtitle-reveal">
+          {showDetails && (
+            <motion.p
+              className="hero-subtitle"
+              initial={{ y: -22, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            >
+              Machine Learning & Full Stack Dev.
+            </motion.p>
+          )}
+        </div>
       </motion.div>
 
       {showDetails && (
