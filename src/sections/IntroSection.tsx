@@ -1,10 +1,42 @@
+import { useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import gsap from 'gsap';
 
 type IntroSectionProps = {
   visible: boolean;
 };
 
 export function IntroSection({ visible }: IntroSectionProps) {
+  const introTitleRef = useRef<HTMLHeadingElement>(null);
+
+  useLayoutEffect(() => {
+    if (!visible || !introTitleRef.current) return;
+
+    const titleEl = introTitleRef.current;
+    const tl = gsap.timeline();
+
+    tl.set(titleEl, { opacity: 0, scale: 0.92, filter: 'blur(8px)' })
+      .to(titleEl, {
+        opacity: 1,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 1.2,
+        ease: 'power3.out',
+      })
+      .to({}, { duration: 1.1 })
+      .to(titleEl, {
+        opacity: 0,
+        scale: 1.03,
+        filter: 'blur(4px)',
+        duration: 0.9,
+        ease: 'power2.inOut',
+      });
+
+    return () => {
+      tl.kill();
+    };
+  }, [visible]);
+
   return (
     <AnimatePresence>
       {visible && (
@@ -15,14 +47,12 @@ export function IntroSection({ visible }: IntroSectionProps) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: 'easeInOut' }}
         >
-          <motion.h1
+          <h1
+            ref={introTitleRef}
             className="intro-title"
-            initial={{ opacity: 0, y: 8, filter: 'blur(6px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 1, delay: 2 }}
           >
             Flavio Junior
-          </motion.h1>
+          </h1>
         </motion.section>
       )}
     </AnimatePresence>
