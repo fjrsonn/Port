@@ -87,6 +87,31 @@ body {
   transform: scale(1.02);
 }
 
+.hero-subtitle {
+  margin: 0.55rem 0 0;
+  color: #fff;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.social-icons {
+  position: fixed;
+  bottom: 30px;
+  right: 40px;
+  display: flex;
+  gap: 14px;
+  color: #fff;
+  font-size: 1.25rem;
+  z-index: 1200;
+}
+
+.social-icons a {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .projects-section {
   min-height: 100vh;
   position: relative;
