@@ -42,8 +42,6 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
       }
 
       const titleRect = heroTitle.getBoundingClientRect();
-      const titleWrapperRect = titleWrapper.getBoundingClientRect();
-      
       // Set canvas size to match title
       canvas.width = titleRect.width;
       canvas.height = titleRect.height;
