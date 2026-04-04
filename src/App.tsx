@@ -3,6 +3,7 @@ import { IntroSection } from './sections/IntroSection';
 import { HeroSection } from './sections/HeroSection';
 import { ProjectsSection } from './sections/ProjectsSection';
 import { AboutSection } from './sections/AboutSection';
+import { CursorTrailCanvas } from './components/CursorTrailCanvas';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -27,6 +28,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <CursorTrailCanvas />
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
