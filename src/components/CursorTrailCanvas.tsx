@@ -9,9 +9,18 @@ type TrailSquare = {
   decay: number;
 };
 
+type Rect = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
 const MAX_SQUARES = 28;
 const BASE_SIZE = 14;
 const MAX_SIZE_BOOST = 10;
+const CURSOR_FRAME_SIZE = 34;
+const TITLE_PROXIMITY_PADDING = 90;
 
 export function CursorTrailCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -41,6 +50,10 @@ export function CursorTrailCanvas() {
     let lastX = window.innerWidth / 2;
     let lastY = window.innerHeight / 2;
     let lastTimestamp = performance.now();
+    let pointerX = lastX;
+    let pointerY = lastY;
+    let cursorFrameAlpha = 0;
+    let shouldShowCursorFrame = false;
     const squares: TrailSquare[] = [];
 
     const setCanvasSize = () => {
@@ -73,10 +86,41 @@ export function CursorTrailCanvas() {
       }
     };
 
+
+    const getHeroTitleRect = (): Rect | null => {
+      const titleNode = document.querySelector('.hero-title-live');
+      if (!titleNode) {
+        return null;
+      }
+
+      const rect = titleNode.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+      };
+    };
+
+    const isPointerNearRect = (x: number, y: number, rect: Rect) => {
+      return (
+        x >= rect.left - TITLE_PROXIMITY_PADDING &&
+        x <= rect.right + TITLE_PROXIMITY_PADDING &&
+        y >= rect.top - TITLE_PROXIMITY_PADDING &&
+        y <= rect.bottom + TITLE_PROXIMITY_PADDING
+      );
+    };
+
     const onPointerMove = (event: PointerEvent) => {
       if (document.visibilityState !== 'visible') {
         return;
       }
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+
+      const heroRect = getHeroTitleRect();
+      shouldShowCursorFrame = heroRect ? isPointerNearRect(pointerX, pointerY, heroRect) : false;
+
       const now = performance.now();
       const deltaTime = Math.max(now - lastTimestamp, 16);
       const dx = event.clientX - lastX;
@@ -112,6 +156,22 @@ export function CursorTrailCanvas() {
       }
 
       context.clearRect(0, 0, width, height);
+
+      const cursorFrameTargetAlpha = shouldShowCursorFrame ? 1 : 0;
+      cursorFrameAlpha += (cursorFrameTargetAlpha - cursorFrameAlpha) * 0.18;
+
+      if (cursorFrameAlpha > 0.02) {
+        context.save();
+        context.strokeStyle = `rgba(255, 255, 255, ${cursorFrameAlpha * 0.9})`;
+        context.lineWidth = 1.2;
+        context.strokeRect(
+          pointerX - CURSOR_FRAME_SIZE / 2,
+          pointerY - CURSOR_FRAME_SIZE / 2,
+          CURSOR_FRAME_SIZE,
+          CURSOR_FRAME_SIZE,
+        );
+        context.restore();
+      }
 
       for (const square of squares) {
         context.save();
