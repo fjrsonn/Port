@@ -10,8 +10,8 @@ type TrailSquare = {
 };
 
 const MAX_SQUARES = 28;
-const BASE_SIZE = 18;
-const MAX_SIZE_BOOST = 34;
+const BASE_SIZE = 14;
+const MAX_SIZE_BOOST = 10;
 
 export function CursorTrailCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -56,7 +56,7 @@ export function CursorTrailCanvas() {
     };
 
     const spawnSquare = (x: number, y: number, velocity: number) => {
-      const normalizedVelocity = Math.min(velocity / 1600, 1);
+      const normalizedVelocity = Math.min(velocity / 2600, 1);
       const size = BASE_SIZE + normalizedVelocity * MAX_SIZE_BOOST;
 
       squares.push({
@@ -64,8 +64,8 @@ export function CursorTrailCanvas() {
         y,
         size,
         rotation: Math.random() * Math.PI,
-        alpha: 0.55 + normalizedVelocity * 0.35,
-        decay: 0.025 + Math.random() * 0.022,
+        alpha: 0.52 + normalizedVelocity * 0.22,
+        decay: 0.032 + Math.random() * 0.014,
       });
 
       if (squares.length > MAX_SQUARES) {
@@ -84,11 +84,17 @@ export function CursorTrailCanvas() {
       const distance = Math.hypot(dx, dy);
       const velocity = (distance / deltaTime) * 1000;
 
-      const spawnCount = velocity > 1100 ? 2 : 1;
+      const spawnCount = velocity > 1300 ? 2 : 1;
+      const directionX = distance > 0 ? dx / distance : 0;
+      const directionY = distance > 0 ? dy / distance : 0;
+      const cappedTrailDistance = Math.min(distance * 0.12, 8);
+
       for (let i = 0; i < spawnCount; i += 1) {
+        const trailingOffset = i * cappedTrailDistance;
+
         spawnSquare(
-          event.clientX - dx * (i * 0.26),
-          event.clientY - dy * (i * 0.26),
+          event.clientX - directionX * trailingOffset,
+          event.clientY - directionY * trailingOffset,
           velocity,
         );
       }
@@ -117,7 +123,7 @@ export function CursorTrailCanvas() {
         context.restore();
 
         square.alpha -= square.decay;
-        square.size += 0.22;
+        square.size += 0.14;
       }
 
       while (squares.length && squares[0].alpha <= 0) {
