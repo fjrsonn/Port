@@ -238,8 +238,6 @@ export function HeroSection({
       >
         <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
           <span className="hero-title-measure" aria-hidden="true">FJR.</span>
-          <span className="hero-title-glitch hero-title-glitch-red" aria-hidden="true">FJR.</span>
-          <span className="hero-title-glitch hero-title-glitch-blue" aria-hidden="true">FJR.</span>
           <span className="hero-title-live">
             <TextScramble
               as="span"
