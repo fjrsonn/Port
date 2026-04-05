@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { TextScramble } from '../components/TextScramble';
+import { CanvasGlitch } from '../components/CanvasGlitch';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -40,12 +41,12 @@ export function HeroSection({
   const [glitchStrength, setGlitchStrength] = useState(1);
   const subtitleTypingTimerRef = useRef<number | null>(null);
   const subtitleText = 'Machine Learning & Full Stack Dev.';
-  const glitchDelayMinMs = 1200;
-  const glitchDelayRangeMs = 3200;
-  const glitchBurstMinMs = 340;
+  const glitchDelayMinMs = 900;
+  const glitchDelayRangeMs = 1600;
+  const glitchBurstMinMs = 560;
   const glitchBurstRangeMs = 320;
-  const glitchStrengthMin = 0.72;
-  const glitchStrengthRange = 0.5;
+  const glitchStrengthMin = 0.85;
+  const glitchStrengthRange = 0.45;
 
   const startPostHideGlitchLoop = useCallback(() => {
     const scheduleNextBurst = () => {
@@ -238,6 +239,7 @@ export function HeroSection({
       id="inicio"
       style={{ '--glitch-strength': glitchStrength } as CSSProperties}
     >
+      <CanvasGlitch />
       <div className="hero-glitch-overlay" aria-hidden="true" />
       <motion.div
         className="hero-title-wrapper"
