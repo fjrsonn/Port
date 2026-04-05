@@ -341,10 +341,11 @@ body {
   left: -20%;
   object-fit: cover;
   will-change: transform;
+  z-index: 2;
 }
 
 .projects-section.is-webgl-ready .slide img {
-  display: none;
+  display: block;
 }
 
 .projects-section:not(.is-webgl-ready) .dom-gl {
