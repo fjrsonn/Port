@@ -70,6 +70,16 @@ body {
   mix-blend-mode: screen;
 }
 
+.hero-glitch-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 35;
+  mix-blend-mode: screen;
+}
+
 .hero-title-wrapper {
   position: fixed;
   top: 50%;
