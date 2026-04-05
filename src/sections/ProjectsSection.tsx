@@ -135,9 +135,9 @@ void main() {
 
 let gl: Gl | null = null;
 
-const THREE = (window as any).THREE;
-const loader = new THREE.TextureLoader();
-loader.crossOrigin = 'anonymous';
+const THREE = (window as any).THREE ?? null;
+const loader = THREE ? new THREE.TextureLoader() : null;
+if (loader) loader.crossOrigin = 'anonymous';
 
 class Gl {
   scene: any;
@@ -255,7 +255,7 @@ class Plane extends GlObject {
 
     this.img = this.el.querySelector('img') as HTMLImageElement;
 
-    loader.load(this.img.src, (texture: any) => {
+    loader?.load(this.img.src, (texture: any) => {
       texture.minFilter = THREE.LinearFilter;
       texture.generateMipmaps = false;
 
@@ -549,11 +549,35 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
     const section = sectionRef.current;
     if (!section) return;
 
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onCardInViewChange?.(entry.isIntersecting);
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(section);
+
+    if (!THREE || !loader) {
+      return () => {
+        onCardInViewChange?.(false);
+        observer.disconnect();
+      };
+    }
+
     const store = createStore();
     gl = new Gl(store, section);
+    section.classList.add('is-webgl-ready');
 
     const sliderEl = section.querySelector('.js-slider');
-    if (!sliderEl) return;
+    if (!sliderEl) {
+      return () => {
+        onCardInViewChange?.(false);
+        observer.disconnect();
+        section.classList.remove('is-webgl-ready');
+        gl?.destroy();
+        gl = null;
+      };
+    }
 
     const slider = new Slider(sliderEl, store);
     const tick = () => {
@@ -572,16 +596,9 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
 
     window.addEventListener('resize', onResize);
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        onCardInViewChange?.(entry.isIntersecting);
-      },
-      { threshold: 0.2 },
-    );
-    observer.observe(section);
-
     return () => {
       onCardInViewChange?.(false);
+      section.classList.remove('is-webgl-ready');
       window.removeEventListener('resize', onResize);
       observer.disconnect();
       gsap.ticker.remove(tick);

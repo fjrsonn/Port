@@ -333,6 +333,21 @@ body {
 }
 
 .slide img {
+  display: block;
+  height: 100%;
+  width: 140%;
+  position: absolute;
+  top: 0;
+  left: -20%;
+  object-fit: cover;
+  will-change: transform;
+}
+
+.projects-section.is-webgl-ready .slide img {
+  display: none;
+}
+
+.projects-section:not(.is-webgl-ready) .dom-gl {
   display: none;
 }
 
