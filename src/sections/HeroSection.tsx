@@ -163,8 +163,9 @@ export function HeroSection({
   const handleScrambleComplete = useCallback(() => {
     isScramblingRef.current = false;
     hasCompletedPrimaryScrambleRef.current = true;
+    triggerGlitchWindow();
     revealDetails();
-  }, [revealDetails]);
+  }, [revealDetails, triggerGlitchWindow]);
 
   useEffect(() => {
     if (!isProjectCardVisible) return;
