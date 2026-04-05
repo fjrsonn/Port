@@ -13,9 +13,9 @@ export default function App() {
 
   useEffect(() => {
     const introTextTimelineMs = 3350;
-    const afterIntroDelayMs = 1000;
+    const introExitDurationMs = 800;
     const hideIntroAt = introTextTimelineMs;
-    const showMainAt = introTextTimelineMs + afterIntroDelayMs;
+    const showMainAt = hideIntroAt + introExitDurationMs;
 
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), hideIntroAt);
     const showMainTimer = window.setTimeout(() => setShowMain(true), showMainAt);
