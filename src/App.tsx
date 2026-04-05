@@ -3,7 +3,6 @@ import { IntroSection } from './sections/IntroSection';
 import { HeroSection } from './sections/HeroSection';
 import { ProjectsSection } from './sections/ProjectsSection';
 import { AboutSection } from './sections/AboutSection';
-import { CursorTrailCanvas } from './components/CursorTrailCanvas';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -12,10 +11,9 @@ export default function App() {
   const [isProjectCardVisible, setIsProjectCardVisible] = useState(false);
 
   useEffect(() => {
-    const introTextTimelineMs = 3350;
-    const afterIntroDelayMs = 1000;
+    const introTextTimelineMs = 2900;
     const hideIntroAt = introTextTimelineMs;
-    const showMainAt = introTextTimelineMs + afterIntroDelayMs;
+    const showMainAt = hideIntroAt;
 
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), hideIntroAt);
     const showMainTimer = window.setTimeout(() => setShowMain(true), showMainAt);
@@ -28,7 +26,6 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <CursorTrailCanvas />
       <IntroSection visible={showIntro} />
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
