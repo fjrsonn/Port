@@ -168,11 +168,11 @@ body {
 
 .hero-section.is-glitching .hero-glitch-overlay {
   opacity: calc(0.16 * var(--glitch-strength));
-  animation: hero-bg-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hero-bg-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .hero-section.is-glitching .hero-title-live {
-  animation: hero-main-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hero-main-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .hero-section.is-glitching .hero-title-glitch {
@@ -180,11 +180,11 @@ body {
 }
 
 .hero-section.is-glitching .hero-title-glitch-red {
-  animation: hero-red-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hero-red-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 .hero-section.is-glitching .hero-title-glitch-blue {
-  animation: hero-blue-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hero-blue-glitch 0.64s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 @keyframes hero-red-glitch {
