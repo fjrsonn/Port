@@ -65,60 +65,6 @@ export function HeroSection({
     scheduleNextBurst();
   }, [glitchBurstMinMs, glitchBurstRangeMs, glitchDelayMinMs, glitchDelayRangeMs, glitchStrengthMin, glitchStrengthRange]);
 
-  const startPostHideGlitchLoop = useCallback(() => {
-    const scheduleNextBurst = () => {
-      const randomDelay = 1200 + Math.random() * 3200;
-      glitchLoopTimerRef.current = window.setTimeout(() => {
-        const burstDuration = 340 + Math.random() * 320;
-        setGlitchStrength(0.72 + Math.random() * 0.5);
-        setIsGlitching(true);
-        glitchBurstTimerRef.current = window.setTimeout(() => {
-          setIsGlitching(false);
-          glitchBurstTimerRef.current = null;
-          scheduleNextBurst();
-        }, burstDuration);
-      }, randomDelay);
-    };
-
-    scheduleNextBurst();
-  }, []);
-
-  const startPostHideGlitchLoop = useCallback(() => {
-    const scheduleNextBurst = () => {
-      const randomDelay = 1200 + Math.random() * 3200;
-      glitchLoopTimerRef.current = window.setTimeout(() => {
-        const burstDuration = 340 + Math.random() * 320;
-        setGlitchStrength(0.72 + Math.random() * 0.5);
-        setIsGlitching(true);
-        glitchBurstTimerRef.current = window.setTimeout(() => {
-          setIsGlitching(false);
-          glitchBurstTimerRef.current = null;
-          scheduleNextBurst();
-        }, burstDuration);
-      }, randomDelay);
-    };
-
-    scheduleNextBurst();
-  }, []);
-
-  const runPostHideGlitchLoop = useCallback(() => {
-    const scheduleNextBurst = () => {
-      const randomDelay = 1200 + Math.random() * 3200;
-      glitchLoopTimerRef.current = window.setTimeout(() => {
-        const burstDuration = 340 + Math.random() * 320;
-        setGlitchStrength(0.72 + Math.random() * 0.5);
-        setIsGlitching(true);
-        glitchBurstTimerRef.current = window.setTimeout(() => {
-          setIsGlitching(false);
-          glitchBurstTimerRef.current = null;
-          scheduleNextBurst();
-        }, burstDuration);
-      }, randomDelay);
-    };
-
-    scheduleNextBurst();
-  }, []);
-
   useEffect(() => {
     if (!isMainVisible || hasScheduledIntroRef.current) return;
     hasScheduledIntroRef.current = true;
@@ -186,10 +132,10 @@ export function HeroSection({
       hideDetailsTimerRef.current = null;
       if (!hasStartedPostHideGlitchRef.current) {
         hasStartedPostHideGlitchRef.current = true;
-        runPostHideGlitchLoop();
+        startPostHideGlitchLoop();
       }
     }, 5000);
-  }, [runPostHideGlitchLoop]);
+  }, [startPostHideGlitchLoop]);
 
   const revealDetails = useCallback(() => {
     if (isProjectCardVisible) return;
