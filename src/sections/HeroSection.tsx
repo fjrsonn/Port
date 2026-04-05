@@ -129,6 +129,7 @@ export function HeroSection({
   const startScramble = () => {
     if (isScramblingRef.current) return;
     isScramblingRef.current = true;
+    triggerGlitchWindow();
     setScrambleKey((prev) => prev + 1);
   };
 
