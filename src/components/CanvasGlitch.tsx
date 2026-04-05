@@ -7,11 +7,18 @@ export function CanvasGlitch() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', {
+      willReadFrequently: true,
+      alpha: false,
+      desynchronized: true,
+    });
     if (!ctx) return;
 
     let currentFrame = 0;
     const totalFrame = 10;
+    const targetFps = 45;
+    const frameInterval = 1000 / targetFps;
+    let lastFrameTime = 0;
     let offsetRatio = 0.01;
     let width = 0;
     let height = 0;
@@ -108,7 +115,20 @@ export function CanvasGlitch() {
       offsetRatio = 0.01;
     };
 
-    const glitchAnimation = () => {
+    const glitchAnimation = (timestamp: number) => {
+      if (document.hidden) {
+        lastFrameTime = timestamp;
+        rafId = window.requestAnimationFrame(glitchAnimation);
+        return;
+      }
+
+      if (timestamp - lastFrameTime < frameInterval) {
+        rafId = window.requestAnimationFrame(glitchAnimation);
+        return;
+      }
+
+      lastFrameTime = timestamp;
+
       if (currentFrame % totalFrame === 0 || currentFrame > totalFrame || !imgData) {
         clearCanvas();
         imgData = ctx.getImageData(0, 0, width, height);
@@ -135,11 +155,13 @@ export function CanvasGlitch() {
     };
 
     handleResize();
-    glitchAnimation();
+    rafId = window.requestAnimationFrame(glitchAnimation);
     window.addEventListener('resize', handleResize);
+    document.addEventListener('visibilitychange', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleResize);
       window.cancelAnimationFrame(rafId);
     };
   }, []);
