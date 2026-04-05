@@ -150,55 +150,65 @@ body {
 }
 
 @keyframes hero-red-glitch {
-  0% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
-  16% { transform: translate(calc(-4px * var(--glitch-strength)), -1px); clip-path: inset(10% 0 60% 0); opacity: 0.8; }
-  40% { transform: translate(calc(6px * var(--glitch-strength)), 1px); clip-path: inset(44% 0 24% 0); opacity: 0.72; }
-  72% { transform: translate(calc(-2px * var(--glitch-strength)), 0); clip-path: inset(70% 0 8% 0); opacity: 0.3; }
-  100% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+  0% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); opacity: 0; filter: blur(0px); }
+  18% { transform: translate3d(calc(-1.8px * var(--glitch-strength)), -0.3px, 0); clip-path: inset(12% 0 63% 0); opacity: 0.24; filter: blur(0.45px); }
+  36% { transform: translate3d(calc(2.4px * var(--glitch-strength)), 0.2px, 0); clip-path: inset(36% 0 30% 0); opacity: 0.3; filter: blur(0.35px); }
+  62% { transform: translate3d(calc(-1.4px * var(--glitch-strength)), 0, 0); clip-path: inset(58% 0 14% 0); opacity: 0.2; filter: blur(0.2px); }
+  100% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); opacity: 0; filter: blur(0px); }
 }
 
 @keyframes hero-blue-glitch {
-  0% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
-  20% { transform: translate(calc(5px * var(--glitch-strength)), 1px); clip-path: inset(8% 0 68% 0); opacity: 0.86; }
-  52% { transform: translate(calc(-7px * var(--glitch-strength)), -1px); clip-path: inset(56% 0 16% 0); opacity: 0.68; }
-  84% { transform: translate(calc(2px * var(--glitch-strength)), 0); clip-path: inset(22% 0 48% 0); opacity: 0.22; }
-  100% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+  0% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); opacity: 0; filter: blur(0px); }
+  22% { transform: translate3d(calc(2.1px * var(--glitch-strength)), 0.25px, 0); clip-path: inset(8% 0 70% 0); opacity: 0.28; filter: blur(0.48px); }
+  48% { transform: translate3d(calc(-2.8px * var(--glitch-strength)), -0.35px, 0); clip-path: inset(48% 0 21% 0); opacity: 0.32; filter: blur(0.4px); }
+  74% { transform: translate3d(calc(1.2px * var(--glitch-strength)), 0, 0); clip-path: inset(26% 0 44% 0); opacity: 0.18; filter: blur(0.2px); }
+  100% { transform: translate3d(0, 0, 0); clip-path: inset(0 0 0 0); opacity: 0; filter: blur(0px); }
 }
 
 @keyframes hero-main-glitch {
-  0% { filter: blur(0px); transform: translateX(0); }
-  28% { filter: blur(calc(0.9px * var(--glitch-strength))); transform: translateX(calc(-1px * var(--glitch-strength))); }
-  56% { filter: blur(calc(0.5px * var(--glitch-strength))); transform: translateX(calc(2px * var(--glitch-strength))); }
-  100% { filter: blur(0px); transform: translateX(0); }
+  0% { filter: blur(0px) brightness(1); transform: translate3d(0, 0, 0) skewX(0deg); }
+  24% { filter: blur(calc(0.42px * var(--glitch-strength))) brightness(1.03); transform: translate3d(calc(-0.7px * var(--glitch-strength)), 0, 0) skewX(-0.12deg); }
+  52% { filter: blur(calc(0.34px * var(--glitch-strength))) brightness(1.05); transform: translate3d(calc(1px * var(--glitch-strength)), 0, 0) skewX(0.18deg); }
+  80% { filter: blur(calc(0.18px * var(--glitch-strength))) brightness(1.01); transform: translate3d(calc(-0.5px * var(--glitch-strength)), 0, 0) skewX(-0.08deg); }
+  100% { filter: blur(0px) brightness(1); transform: translate3d(0, 0, 0) skewX(0deg); }
 }
 
 @keyframes hero-bg-glitch {
   0% {
-    opacity: calc(0.06 * var(--glitch-strength));
+    opacity: calc(0.04 * var(--glitch-strength));
+    transform: translate3d(0, 0, 0);
     background:
-      linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 7px);
+      linear-gradient(rgba(0, 0, 0, 0.56), rgba(0, 0, 0, 0.56)),
+      radial-gradient(circle at 68% 14%, rgba(107, 177, 255, 0.055), transparent 42%),
+      radial-gradient(circle at 20% 84%, rgba(255, 104, 104, 0.06), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 6px);
   }
-  32% {
-    opacity: calc(0.1 * var(--glitch-strength));
-    transform: translateX(calc(-3px * var(--glitch-strength)));
+  34% {
+    opacity: calc(0.072 * var(--glitch-strength));
+    transform: translate3d(calc(-1.8px * var(--glitch-strength)), 0, 0);
     background:
-      linear-gradient(rgba(0, 0, 0, 0.64), rgba(0, 0, 0, 0.64)),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 8px);
+      linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.62)),
+      radial-gradient(circle at 75% 18%, rgba(107, 177, 255, 0.072), transparent 44%),
+      radial-gradient(circle at 18% 82%, rgba(255, 104, 104, 0.078), transparent 48%),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 8px);
   }
-  64% {
-    opacity: calc(0.09 * var(--glitch-strength));
-    transform: translateX(calc(2px * var(--glitch-strength)));
+  68% {
+    opacity: calc(0.064 * var(--glitch-strength));
+    transform: translate3d(calc(1.2px * var(--glitch-strength)), 0, 0);
     background:
-      linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 6px);
+      linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)),
+      radial-gradient(circle at 70% 12%, rgba(107, 177, 255, 0.06), transparent 40%),
+      radial-gradient(circle at 24% 86%, rgba(255, 104, 104, 0.067), transparent 46%),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 7px);
   }
   100% {
     opacity: 0;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
     background:
-      linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 7px);
+      linear-gradient(rgba(0, 0, 0, 0.56), rgba(0, 0, 0, 0.56)),
+      radial-gradient(circle at 68% 14%, rgba(107, 177, 255, 0.055), transparent 42%),
+      radial-gradient(circle at 20% 84%, rgba(255, 104, 104, 0.06), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 6px);
   }
 }
 
