@@ -23,16 +23,6 @@ body {
   overflow-x: hidden;
 }
 
-
-.cursor-trail-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1300;
-}
-
 .main-content {
   transition: opacity 0.9s ease;
 }
@@ -67,6 +57,17 @@ body {
   place-items: center;
   position: relative;
   background: #000;
+  --glitch-strength: 1;
+}
+
+.hero-glitch-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 35;
+  mix-blend-mode: screen;
 }
 
 .hero-title-wrapper {
@@ -89,7 +90,7 @@ body {
   font-weight: 700;
   line-height: 0.9;
   color: #fff;
-  transition: text-shadow 0.2s ease, transform 0.2s ease, color 0.6s ease;
+  transition: text-shadow 0.2s ease, color 0.6s ease;
   position: relative;
   display: inline-block;
   white-space: nowrap;
@@ -106,9 +107,99 @@ body {
   display: block;
 }
 
+.hero-title-glitch {
+  position: absolute;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hero-title-glitch-red {
+  color: rgba(255, 64, 64, 0.85);
+}
+
+.hero-title-glitch-blue {
+  color: rgba(76, 171, 255, 0.85);
+}
+
 .hero-title.is-glow {
   text-shadow: 0 0 4px rgba(255, 255, 255, 0.24), 0 0 12px rgba(255, 255, 255, 0.13);
   transform: scale(1.02);
+}
+
+.hero-section.is-glitching .hero-glitch-overlay {
+  opacity: calc(0.08 * var(--glitch-strength));
+  animation: hero-bg-glitch 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-section.is-glitching .hero-title-live {
+  animation: hero-main-glitch 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-section.is-glitching .hero-title-glitch {
+  opacity: 1;
+}
+
+.hero-section.is-glitching .hero-title-glitch-red {
+  animation: hero-red-glitch 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-section.is-glitching .hero-title-glitch-blue {
+  animation: hero-blue-glitch 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-red-glitch {
+  0% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+  16% { transform: translate(calc(-4px * var(--glitch-strength)), -1px); clip-path: inset(10% 0 60% 0); opacity: 0.8; }
+  40% { transform: translate(calc(6px * var(--glitch-strength)), 1px); clip-path: inset(44% 0 24% 0); opacity: 0.72; }
+  72% { transform: translate(calc(-2px * var(--glitch-strength)), 0); clip-path: inset(70% 0 8% 0); opacity: 0.3; }
+  100% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+}
+
+@keyframes hero-blue-glitch {
+  0% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+  20% { transform: translate(calc(5px * var(--glitch-strength)), 1px); clip-path: inset(8% 0 68% 0); opacity: 0.86; }
+  52% { transform: translate(calc(-7px * var(--glitch-strength)), -1px); clip-path: inset(56% 0 16% 0); opacity: 0.68; }
+  84% { transform: translate(calc(2px * var(--glitch-strength)), 0); clip-path: inset(22% 0 48% 0); opacity: 0.22; }
+  100% { transform: translate(0, 0); clip-path: inset(0 0 0 0); opacity: 0; }
+}
+
+@keyframes hero-main-glitch {
+  0% { filter: blur(0px); transform: translateX(0); }
+  28% { filter: blur(calc(0.9px * var(--glitch-strength))); transform: translateX(calc(-1px * var(--glitch-strength))); }
+  56% { filter: blur(calc(0.5px * var(--glitch-strength))); transform: translateX(calc(2px * var(--glitch-strength))); }
+  100% { filter: blur(0px); transform: translateX(0); }
+}
+
+@keyframes hero-bg-glitch {
+  0% {
+    opacity: calc(0.06 * var(--glitch-strength));
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 7px);
+  }
+  32% {
+    opacity: calc(0.1 * var(--glitch-strength));
+    transform: translateX(calc(-3px * var(--glitch-strength)));
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.64), rgba(0, 0, 0, 0.64)),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 8px);
+  }
+  64% {
+    opacity: calc(0.09 * var(--glitch-strength));
+    transform: translateX(calc(2px * var(--glitch-strength)));
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 6px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(0);
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 7px);
+  }
 }
 
 .hero-subtitle {
