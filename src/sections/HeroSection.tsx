@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { TextScramble } from '../components/TextScramble';
+import { CanvasGlitch } from '../components/CanvasGlitch';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -238,6 +239,7 @@ export function HeroSection({
       id="inicio"
       style={{ '--glitch-strength': glitchStrength } as CSSProperties}
     >
+      <CanvasGlitch />
       <div className="hero-glitch-overlay" aria-hidden="true" />
       <motion.div
         className="hero-title-wrapper"

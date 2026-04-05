@@ -60,6 +60,43 @@ body {
   --glitch-strength: 1;
 }
 
+
+.glitch-image {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  pointer-events: none;
+  opacity: 0.26;
+  mix-blend-mode: screen;
+  animation: flick 80ms linear infinite;
+}
+
+.glitch-image #canvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  transform-origin: center top;
+  transform: rotateX(90deg);
+  filter: brightness(2.4);
+  animation: turnOn 420ms ease-in 220ms forwards;
+}
+
+@keyframes flick {
+  0% { opacity: 0.78; }
+  100% { opacity: 0.9; }
+}
+
+@keyframes turnOn {
+  0% {
+    transform: rotateX(90deg);
+    filter: brightness(5);
+  }
+  100% {
+    transform: rotateX(0deg);
+    filter: brightness(1.08);
+  }
+}
+
 .hero-glitch-overlay {
   position: fixed;
   inset: 0;
