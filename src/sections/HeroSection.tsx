@@ -1,6 +1,6 @@
 // src/sections/HeroSection.tsx - VERSÃO FINAL E FUNCIONAL
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
@@ -48,24 +48,25 @@ export function HeroSection({
     }, heroAppearDuration + 150);
   }, [isMainVisible]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
     hasPlayedHeroRevealRef.current = true;
 
     const titleEl = heroTitleRef.current;
     const tl = gsap.timeline();
 
-    tl.set(titleEl, { opacity: 0, scale: 1.36, filter: 'blur(10px)' }).to(titleEl, {
+    tl.set(titleEl, { opacity: 0, scale: 1.62, y: 34, filter: 'blur(18px)' }).to(titleEl, {
       opacity: 1,
       scale: 1,
+      y: 0,
       filter: 'blur(0px)',
-      duration: 0.8,
+      duration: 0.9,
       ease: 'power3.out',
     });
 
     return () => {
       tl.kill();
-      gsap.set(titleEl, { clearProps: 'opacity,scale,filter' });
+      gsap.set(titleEl, { clearProps: 'opacity,scale,y,filter' });
     };
   }, [isMainVisible]);
 
