@@ -26,15 +26,35 @@ export function HeroSection({
   const scrollUnlockTimerRef = useRef<number | null>(null);
   const autoScrambleTimerRef = useRef<number | null>(null);
   const hideDetailsTimerRef = useRef<number | null>(null);
+  const glitchLoopTimerRef = useRef<number | null>(null);
+  const glitchBurstTimerRef = useRef<number | null>(null);
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
+  const hasStartedPostHideGlitchRef = useRef(false);
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
+  const [isGlitching, setIsGlitching] = useState(false);
   const subtitleTypingTimerRef = useRef<number | null>(null);
   const subtitleText = 'Machine Learning & Full Stack Dev.';
+
+  const startPostHideGlitchLoop = useCallback(() => {
+    const scheduleNextBurst = () => {
+      const randomDelay = Math.random() * 3000;
+      glitchLoopTimerRef.current = window.setTimeout(() => {
+        setIsGlitching(true);
+        glitchBurstTimerRef.current = window.setTimeout(() => {
+          setIsGlitching(false);
+          glitchBurstTimerRef.current = null;
+          scheduleNextBurst();
+        }, 420);
+      }, randomDelay);
+    };
+
+    scheduleNextBurst();
+  }, []);
 
   useEffect(() => {
     if (!isMainVisible || hasScheduledIntroRef.current) return;
@@ -82,6 +102,12 @@ export function HeroSection({
       if (hideDetailsTimerRef.current) {
         window.clearTimeout(hideDetailsTimerRef.current);
       }
+      if (glitchLoopTimerRef.current) {
+        window.clearTimeout(glitchLoopTimerRef.current);
+      }
+      if (glitchBurstTimerRef.current) {
+        window.clearTimeout(glitchBurstTimerRef.current);
+      }
       if (subtitleTypingTimerRef.current) {
         window.clearTimeout(subtitleTypingTimerRef.current);
       }
@@ -95,8 +121,12 @@ export function HeroSection({
     hideDetailsTimerRef.current = window.setTimeout(() => {
       setShowDetails(false);
       hideDetailsTimerRef.current = null;
+      if (!hasStartedPostHideGlitchRef.current) {
+        hasStartedPostHideGlitchRef.current = true;
+        startPostHideGlitchLoop();
+      }
     }, 5000);
-  }, []);
+  }, [startPostHideGlitchLoop]);
 
   const revealDetails = useCallback(() => {
     if (isProjectCardVisible) return;
@@ -194,7 +224,8 @@ export function HeroSection({
   };
 
   return (
-    <section className="hero-section" id="inicio">
+    <section className={`hero-section ${isGlitching ? 'is-glitching' : ''}`} id="inicio">
+      <div className="hero-glitch-overlay" aria-hidden="true" />
       <motion.div
         className="hero-title-wrapper"
         initial={{ opacity: 0, filter: 'blur(6px)' }}
@@ -208,6 +239,8 @@ export function HeroSection({
       >
         <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
           <span className="hero-title-measure" aria-hidden="true">FJR.</span>
+          <span className="hero-title-glitch hero-title-glitch-red" aria-hidden="true">FJR.</span>
+          <span className="hero-title-glitch hero-title-glitch-blue" aria-hidden="true">FJR.</span>
           <span className="hero-title-live">
             <TextScramble
               as="span"
