@@ -15,8 +15,8 @@ export function CanvasGlitch() {
     if (!ctx) return;
 
     let currentFrame = 0;
-    const totalFrame = 5;
-    const targetFps = 30;
+    const totalFrame = 10;
+    const targetFps = 45;
     const frameInterval = 1000 / targetFps;
     let lastFrameTime = 0;
     let offsetRatio = 0.01;
