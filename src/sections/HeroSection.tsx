@@ -1,6 +1,6 @@
 // src/sections/HeroSection.tsx - VERSÃO FINAL E FUNCIONAL
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
@@ -48,7 +48,7 @@ export function HeroSection({
     }, heroAppearDuration + 150);
   }, [isMainVisible]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
     hasPlayedHeroRevealRef.current = true;
 
