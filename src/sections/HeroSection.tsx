@@ -41,12 +41,12 @@ export function HeroSection({
   const [glitchStrength, setGlitchStrength] = useState(1);
   const subtitleTypingTimerRef = useRef<number | null>(null);
   const subtitleText = 'Machine Learning & Full Stack Dev.';
-  const glitchDelayMinMs = 1300;
-  const glitchDelayRangeMs = 2400;
-  const glitchBurstMinMs = 460;
-  const glitchBurstRangeMs = 260;
-  const glitchStrengthMin = 0.68;
-  const glitchStrengthRange = 0.4;
+  const glitchDelayMinMs = 900;
+  const glitchDelayRangeMs = 1600;
+  const glitchBurstMinMs = 560;
+  const glitchBurstRangeMs = 320;
+  const glitchStrengthMin = 0.85;
+  const glitchStrengthRange = 0.45;
 
   const startPostHideGlitchLoop = useCallback(() => {
     const scheduleNextBurst = () => {
