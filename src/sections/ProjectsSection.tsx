@@ -12,22 +12,34 @@ type SliderOptions = {
   ease: number;
 };
 
+type SliderEvents = {
+  move: 'touchmove' | 'mousemove';
+  up: 'touchend' | 'mouseup';
+  down: 'touchstart' | 'mousedown';
+};
+
+type SliderItem = {
+  el: HTMLElement;
+  img: HTMLImageElement | null;
+  left: number;
+  right: number;
+  width: number;
+  min: number;
+  max: number;
+  out: boolean;
+};
+
 type SliderState = {
   target: number;
   current: number;
   currentRounded: number;
+  diff: number;
   on: { x: number; y: number };
   off: number;
   progress: number;
   max: number;
   min: number;
-  flags: { dragging: boolean };
-};
-
-type SliderEvents = {
-  move: 'touchmove' | 'mousemove';
-  up: 'touchend' | 'mouseup';
-  down: 'touchstart' | 'mousedown';
+  flags: { dragging: boolean; resize?: boolean };
 };
 
 const sliderData = [
@@ -43,15 +55,15 @@ const sliderData = [
 
 class Slider {
   root: HTMLElement;
-  el: Element;
+  el: HTMLElement;
   opts: SliderOptions;
   state: SliderState;
-  items: HTMLElement[];
+  items: SliderItem[];
   titles: HTMLElement[];
-  progressLines: HTMLElement[];
   events: SliderEvents;
+  tl?: gsap.core.Timeline;
 
-  constructor(root: HTMLElement, el: Element, opts: Partial<SliderOptions> = {}) {
+  constructor(root: HTMLElement, el: HTMLElement, opts: Partial<SliderOptions> = {}) {
     this.root = root;
     this.el = el;
     this.opts = Object.assign({ speed: 2, threshold: 50, ease: 0.075 }, opts);
@@ -60,6 +72,7 @@ class Slider {
       target: 0,
       current: 0,
       currentRounded: 0,
+      diff: 0,
       on: { x: 0, y: 0 },
       off: 0,
       progress: 0,
@@ -68,9 +81,8 @@ class Slider {
       flags: { dragging: false },
     };
 
-    this.items = Array.from(this.el.querySelectorAll('.js-slide')) as HTMLElement[];
+    this.items = [];
     this.titles = Array.from(this.root.querySelectorAll('.js-title')) as HTMLElement[];
-    this.progressLines = Array.from(this.root.querySelectorAll('.js-progress-line')) as HTMLElement[];
 
     const isDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(navigator.userAgent);
     this.events = {
@@ -92,10 +104,36 @@ class Slider {
   }
 
   setup(): void {
-    const wrapRect = this.el.getBoundingClientRect();
-    const lastRect = this.items[this.items.length - 1].getBoundingClientRect();
-    this.state.max = -(lastRect.right - wrapRect.width - wrapRect.left);
+    const slideEls = Array.from(this.el.querySelectorAll('.js-slide')) as HTMLElement[];
+    if (!slideEls.length) return;
+
+    this.items = [];
+
+    const ww = this.root.clientWidth;
+    const { width: wrapWidth, left: wrapDiff } = this.el.getBoundingClientRect();
+    this.state.max = -(slideEls[slideEls.length - 1].getBoundingClientRect().right - wrapWidth - wrapDiff);
     this.state.min = 0;
+
+    this.tl?.kill();
+    this.tl = gsap
+      .timeline({ paused: true, defaults: { duration: 1, ease: 'linear' } })
+      .fromTo(this.root.querySelector('.js-progress-line-2'), { scaleX: 1 }, { scaleX: 0, duration: 0.5, ease: 'power3' }, 0)
+      .fromTo(this.root.querySelector('.js-titles'), { yPercent: 0 }, { yPercent: -(100 - 100 / this.titles.length) }, 0)
+      .fromTo(this.root.querySelectorAll('.js-progress-line'), { scaleX: 0 }, { scaleX: 1 }, 0);
+
+    slideEls.forEach((slide) => {
+      const { left, right, width } = slide.getBoundingClientRect();
+      this.items.push({
+        el: slide,
+        img: slide.querySelector('img'),
+        left,
+        right,
+        width,
+        min: left < ww ? ww * 0.775 : -(ww * 0.225 - wrapWidth * 0.2),
+        max: left > ww ? this.state.max - ww * 0.775 : this.state.max + (ww * 0.225 - wrapWidth * 0.2),
+        out: false,
+      });
+    });
   }
 
   on(): void {
@@ -115,7 +153,9 @@ class Slider {
   }
 
   onResize(): void {
+    this.state.flags.resize = true;
     this.setup();
+    this.state.flags.resize = false;
   }
 
   getPos(e: TouchEvent | MouseEvent): { x: number; y: number } {
@@ -160,31 +200,61 @@ class Slider {
     this.state.target = gsap.utils.clamp(this.state.max, 0, this.state.off + moveX * this.opts.speed);
   }
 
-  render(): void {
+  calc(): void {
     const state = this.state;
     state.current += (state.target - state.current) * this.opts.ease;
     state.currentRounded = Math.round(state.current * 100) / 100;
+    state.diff = (state.target - state.current) * 0.0005;
+    state.progress = gsap.utils.wrap(0, 1, state.currentRounded / (state.max || -1));
 
-    gsap.set(this.items, { x: state.currentRounded });
+    this.tl?.progress(state.progress);
+  }
 
-    const normalized = Math.abs(state.currentRounded / (state.max || 1));
-    state.progress = gsap.utils.clamp(0, 1, normalized);
+  isVisible(item: SliderItem): { translate: number; isVisible: boolean; progress: number } {
+    const ww = this.root.clientWidth;
+    const translate = gsap.utils.wrap(item.min, item.max, this.state.currentRounded);
+    const start = item.left + translate;
+    const end = item.right + translate;
+    const isVisible = start < this.opts.threshold + ww && end > -this.opts.threshold;
+    const progress = gsap.utils.clamp(0, 1, 1 - (translate + item.left + item.width) / (ww + item.width));
 
-    const titlesWrap = this.root.querySelector('.js-titles');
-    if (titlesWrap) {
-      gsap.set(titlesWrap, { yPercent: -(100 - 100 / this.titles.length) * state.progress });
-    }
+    return { translate, isVisible, progress };
+  }
 
-    if (this.progressLines[0]) {
-      gsap.set(this.progressLines[0], { scaleX: state.progress, transformOrigin: 'left center' });
-    }
-    if (this.progressLines[1]) {
-      gsap.set(this.progressLines[1], { scaleX: 1 - state.progress, transformOrigin: 'right center' });
-    }
+  transformItems(): void {
+    this.items.forEach((item) => {
+      const { translate, isVisible, progress } = this.isVisible(item);
+      gsap.set(item.el, { x: translate });
+
+      if (item.img) {
+        const velocity = this.state.diff * 17000;
+        const scale = 0.9 + progress * 0.1;
+        const blur = Math.min(2.2, Math.abs(this.state.diff) * 1500);
+
+        gsap.set(item.img, {
+          xPercent: velocity,
+          scale,
+          filter: `blur(${blur}px) saturate(${1 + progress * 0.2})`,
+          transformOrigin: 'center center',
+        });
+      }
+
+      if (isVisible || this.state.flags.resize) {
+        item.out = false;
+      } else if (!item.out) {
+        item.out = true;
+      }
+    });
+  }
+
+  render(): void {
+    this.calc();
+    this.transformItems();
   }
 
   destroy(): void {
     this.off();
+    this.tl?.kill();
   }
 }
 
@@ -203,6 +273,10 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
     const sliderEl = sliderRef.current;
     if (!sectionEl || !sliderEl) return;
 
+    const tick = () => {
+      sliderInstanceRef.current?.render();
+    };
+
     const startSlider = () => {
       if (sliderInstanceRef.current) return;
       sliderInstanceRef.current = new Slider(sectionEl, sliderEl);
@@ -210,17 +284,11 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
       setHasStarted(true);
     };
 
-    const tick = () => {
-      sliderInstanceRef.current?.render();
-    };
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         const isVisible = entry.isIntersecting && entry.intersectionRatio > 0.25;
         onCardInViewChange?.(isVisible);
-        if (isVisible) {
-          startSlider();
-        }
+        if (isVisible) startSlider();
       },
       { threshold: [0, 0.25, 0.5, 1] },
     );
