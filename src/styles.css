@@ -67,7 +67,7 @@ body {
   inset: 0;
   z-index: 26;
   pointer-events: none;
-  opacity: 0.26;
+  opacity: 0.14;
   mix-blend-mode: screen;
   animation: flick 80ms linear infinite;
 }
@@ -213,40 +213,24 @@ body {
 
 @keyframes hero-bg-glitch {
   0% {
-    opacity: calc(0.06 * var(--glitch-strength));
+    opacity: calc(0.05 * var(--glitch-strength));
     transform: translate3d(0, 0, 0);
-    background:
-      linear-gradient(rgba(0, 0, 0, 0.56), rgba(0, 0, 0, 0.56)),
-      radial-gradient(circle at 68% 14%, rgba(107, 177, 255, 0.08), transparent 42%),
-      radial-gradient(circle at 20% 84%, rgba(255, 104, 104, 0.085), transparent 45%),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 6px);
+    background: rgba(0, 0, 0, 0.85);
   }
   34% {
-    opacity: calc(0.1 * var(--glitch-strength));
-    transform: translate3d(calc(-2.4px * var(--glitch-strength)), 0, 0);
-    background:
-      linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.62)),
-      radial-gradient(circle at 75% 18%, rgba(107, 177, 255, 0.098), transparent 44%),
-      radial-gradient(circle at 18% 82%, rgba(255, 104, 104, 0.106), transparent 48%),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.042) 0 1px, transparent 1px 8px);
+    opacity: calc(0.08 * var(--glitch-strength));
+    transform: translate3d(calc(-1.6px * var(--glitch-strength)), 0, 0);
+    background: rgba(0, 0, 0, 0.9);
   }
   68% {
-    opacity: calc(0.086 * var(--glitch-strength));
-    transform: translate3d(calc(1.8px * var(--glitch-strength)), 0, 0);
-    background:
-      linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58)),
-      radial-gradient(circle at 70% 12%, rgba(107, 177, 255, 0.086), transparent 40%),
-      radial-gradient(circle at 24% 86%, rgba(255, 104, 104, 0.092), transparent 46%),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.036) 0 1px, transparent 1px 7px);
+    opacity: calc(0.07 * var(--glitch-strength));
+    transform: translate3d(calc(1.2px * var(--glitch-strength)), 0, 0);
+    background: rgba(0, 0, 0, 0.88);
   }
   100% {
     opacity: 0;
     transform: translate3d(0, 0, 0);
-    background:
-      linear-gradient(rgba(0, 0, 0, 0.56), rgba(0, 0, 0, 0.56)),
-      radial-gradient(circle at 68% 14%, rgba(107, 177, 255, 0.08), transparent 42%),
-      radial-gradient(circle at 20% 84%, rgba(255, 104, 104, 0.085), transparent 45%),
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 6px);
+    background: rgba(0, 0, 0, 0.85);
   }
 }
 

@@ -43,9 +43,10 @@ export function CanvasGlitch() {
     };
 
     const pixelCooler = (i: number, data: Uint8ClampedArray) => {
-      data[i] = Math.min(255, data[i] + randInt(0, 2));
-      data[i + 1] = Math.min(255, data[i + 1] + randInt(1, 4));
-      data[i + 2] = Math.min(255, data[i + 2] + randInt(2, 8));
+      const gray = randInt(0, 12);
+      data[i] = gray;
+      data[i + 1] = gray;
+      data[i + 2] = gray;
     };
 
     const clearCanvas = () => {
