@@ -63,6 +63,7 @@ body {
 
 .glitch-image {
   position: fixed;
+  background: #000;
   inset: 0;
   z-index: 26;
   pointer-events: none;

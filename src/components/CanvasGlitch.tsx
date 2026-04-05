@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-type CanvasGlitchProps = {
-  imageSrc?: string;
-};
-
-export function CanvasGlitch({ imageSrc = 'https://zupra.github.io/test/filter.jpg' }: CanvasGlitchProps) {
+export function CanvasGlitch() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -22,12 +18,13 @@ export function CanvasGlitch({ imageSrc = 'https://zupra.github.io/test/filter.j
     let imgData: ImageData | null = null;
     let rafId = 0;
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
     const randInt = (a: number, b: number) => Math.floor(Math.random() * (b - a) + a);
 
-    const pixelProcessor = (imageData: ImageData, step: number, callback: (i: number, data: Uint8ClampedArray) => void) => {
+    const pixelProcessor = (
+      imageData: ImageData,
+      step: number,
+      callback: (i: number, data: Uint8ClampedArray) => void,
+    ) => {
       const data = imageData.data;
       const jump = Math.max(1, step) * 4;
 
@@ -46,13 +43,15 @@ export function CanvasGlitch({ imageSrc = 'https://zupra.github.io/test/filter.j
     };
 
     const pixelCooler = (i: number, data: Uint8ClampedArray) => {
-      data[i] = 1;
-      data[i + 1] = Math.min(255, data[i + 1] + randInt(2, 6));
-      data[i + 2] = Math.min(255, data[i + 2] * (randInt(1, 4) + 8));
+      data[i] = Math.min(255, data[i] + randInt(0, 2));
+      data[i + 1] = Math.min(255, data[i + 1] + randInt(1, 4));
+      data[i + 2] = Math.min(255, data[i + 2] + randInt(2, 8));
     };
 
     const clearCanvas = () => {
       ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
     };
 
     const glitchBlock = (i: number, x: number, y: number) => {
@@ -109,23 +108,8 @@ export function CanvasGlitch({ imageSrc = 'https://zupra.github.io/test/filter.j
     };
 
     const glitchAnimation = () => {
-      const safeOffset = Math.max(1, Math.floor(width * offsetRatio));
-
       if (currentFrame % totalFrame === 0 || currentFrame > totalFrame || !imgData) {
         clearCanvas();
-
-        ctx.drawImage(
-          img,
-          0,
-          0,
-          img.width,
-          img.height,
-          safeOffset,
-          0,
-          width - safeOffset * 2,
-          height,
-        );
-
         imgData = ctx.getImageData(0, 0, width, height);
         imgData = pixelProcessor(imgData, 4, pixelCooler);
         ctx.putImageData(imgData, 0, 0);
@@ -149,21 +133,15 @@ export function CanvasGlitch({ imageSrc = 'https://zupra.github.io/test/filter.j
       imgData = null;
     };
 
-    setupCanvas();
-
-    img.onload = () => {
-      handleResize();
-      glitchAnimation();
-    };
-
-    img.src = imageSrc;
+    handleResize();
+    glitchAnimation();
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.cancelAnimationFrame(rafId);
     };
-  }, [imageSrc]);
+  }, []);
 
   return (
     <div className="glitch-image" aria-hidden="true">
