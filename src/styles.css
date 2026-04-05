@@ -233,44 +233,161 @@ body {
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  background: #000;
+  background: #111;
 }
 
-.project-track {
+.projects-section .head {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
   display: flex;
-  height: 100vh;
+  justify-content: space-between;
+  padding: 2vw 2.5vw;
+  pointer-events: none;
+  z-index: 1000;
 }
 
-.project-card {
-  width: 100vw;
-  height: 100vh;
-  padding: 4.2rem 6vw 2.2rem;
-  flex-shrink: 0;
+.projects-section .head > div {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+}
+
+.projects-section .head a {
+  position: relative;
+  color: #fff;
+  text-decoration: none;
+  font-size: 1rem;
+  pointer-events: all;
+  overflow: hidden;
+}
+
+.projects-section .head a:nth-child(2) {
+  margin-left: 2vw;
+}
+
+.projects-section .head a div,
+.projects-section .head a::after {
+  transition: transform 0.85s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.projects-section .head a::after {
+  content: attr(data-txt);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: pink;
+}
+
+.projects-section .head a:hover div,
+.projects-section .head a:hover::after {
+  transform: translateY(-100%);
+}
+
+.slider {
+  position: relative;
+  padding: 0 22.5vw;
+  display: flex;
   align-items: center;
-  gap: 1.5rem;
+  height: 100vh;
+  user-select: none;
+  cursor: grab;
+  z-index: 2;
 }
 
-.project-video {
-  width: min(85vw, 1100px);
-  height: min(60vh, 620px);
+.slider__inner {
+  display: flex;
+  position: relative;
+}
+
+.slide {
+  overflow: hidden;
+}
+
+.slide:first-child {
+  position: relative;
+}
+
+.slide:not(:first-child) {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.slide__inner {
+  position: relative;
+  overflow: hidden;
+  width: 55vw;
+  padding-top: 56.5%;
+}
+
+.slide img {
+  height: 100%;
+  width: 140%;
+  position: absolute;
+  top: 0;
+  left: -20%;
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  opacity: 0.7;
-  filter: brightness(1);
-  transform: scale(1);
-  transition: opacity 0.3s ease;
-  cursor: pointer;
+  will-change: transform;
 }
 
-.project-video.is-active {
-  opacity: 0.7;
+.titles {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
 }
 
-.project-video.is-hovered {
-  opacity: 1;
+.titles__list {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.titles__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2.2rem, 6vw, 6rem);
+  font-weight: 700;
+  letter-spacing: -0.1vw;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.titles__title--proxy {
+  visibility: hidden;
+}
+
+.progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0.25rem;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.progress__line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  background-color: #fff;
+}
+
+.progress__line:nth-child(2) {
+  transform: scaleX(1);
+  transform-origin: right;
 }
 
 .about-section {
