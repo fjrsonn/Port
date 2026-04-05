@@ -11,10 +11,9 @@ export default function App() {
   const [isProjectCardVisible, setIsProjectCardVisible] = useState(false);
 
   useEffect(() => {
-    const introTextTimelineMs = 3350;
-    const introExitDurationMs = 800;
+    const introTextTimelineMs = 2900;
     const hideIntroAt = introTextTimelineMs;
-    const showMainAt = hideIntroAt + introExitDurationMs;
+    const showMainAt = hideIntroAt;
 
     const hideIntroTimer = window.setTimeout(() => setShowIntro(false), hideIntroAt);
     const showMainTimer = window.setTimeout(() => setShowMain(true), showMainAt);
