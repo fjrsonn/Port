@@ -55,7 +55,7 @@ export function HeroSection({
     const titleEl = heroTitleRef.current;
     const tl = gsap.timeline();
 
-    tl.set(titleEl, { opacity: 0, scale: 1.34, y: 26, filter: 'blur(14px)' }).to(titleEl, {
+    tl.set(titleEl, { opacity: 0, scale: 1.46, y: 30, filter: 'blur(16px)' }).to(titleEl, {
       opacity: 1,
       scale: 1,
       y: 0,
