@@ -1,221 +1,546 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
-
-type ProjectItem = {
-  id: string
-  title: string
-  videoUrls: string[]
-}
 
 type ProjectsSectionProps = {
   onVideoHoverChange?: (isHoveringVideo: boolean) => void
   onCardInViewChange?: (isCardInView: boolean) => void
 }
 
-const projects: ProjectItem[] = [
-  {
-    id: 'video-1',
-    title: 'Projeto 01',
-    videoUrls: [
-      'https://www.w3schools.com/html/mov_bbb.mp4',
-      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-    ],
-  },
-  {
-    id: 'video-2',
-    title: 'Projeto 02',
-    videoUrls: [
-      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      'https://www.w3schools.com/html/movie.mp4',
-    ],
-  },
-  {
-    id: 'video-3',
-    title: 'Projeto 03',
-    videoUrls: [
-      'https://www.w3schools.com/html/movie.mp4',
-      'https://www.w3schools.com/html/mov_bbb.mp4',
-    ],
-  },
-]
+const store = {
+  ww: window.innerWidth,
+  wh: window.innerHeight,
+  isDevice:
+    navigator.userAgent.match(/Android/i) ||
+    navigator.userAgent.match(/webOS/i) ||
+    navigator.userAgent.match(/iPhone/i) ||
+    navigator.userAgent.match(/iPad/i) ||
+    navigator.userAgent.match(/iPod/i) ||
+    navigator.userAgent.match(/BlackBerry/i) ||
+    navigator.userAgent.match(/Windows Phone/i),
+}
+
+type SliderOptions = {
+  speed: number
+  threshold: number
+  ease: number
+}
+
+type SliderItem = {
+  el: HTMLElement
+  plane: any | null
+  left: number
+  right: number
+  width: number
+  min: number
+  max: number
+  tl: gsap.core.Timeline
+  out: boolean
+}
+
+type SliderState = {
+  target: number
+  current: number
+  currentRounded: number
+  y: number
+  on: { x: number; y: number }
+  off: number
+  progress: number
+  diff: number
+  max: number
+  min: number
+  snap: { points: number[] }
+  flags: {
+    dragging: boolean
+    resize?: boolean
+  }
+}
+
+let gl: any = null
+
+class Slider {
+  el: HTMLElement
+  opts: SliderOptions
+  hasWebgl: boolean
+  PlaneClass?: new () => any
+  ui: {
+    items: NodeListOf<HTMLElement>
+    titles: NodeListOf<HTMLElement>
+    lines: NodeListOf<HTMLElement>
+  }
+  state: SliderState
+  items: SliderItem[]
+  events: {
+    move: 'touchmove' | 'mousemove'
+    up: 'touchend' | 'mouseup'
+    down: 'touchstart' | 'mousedown'
+  }
+  tl?: gsap.core.Timeline
+
+  constructor(el: HTMLElement, PlaneClass?: new () => any, opts: Partial<SliderOptions> = {}) {
+    this.onDown = this.onDown.bind(this)
+    this.onMove = this.onMove.bind(this)
+    this.onUp = this.onUp.bind(this)
+
+    this.el = el
+    this.PlaneClass = PlaneClass
+    this.hasWebgl = Boolean(PlaneClass)
+
+    this.opts = Object.assign(
+      {
+        speed: 2,
+        threshold: 50,
+        ease: 0.075,
+      },
+      opts
+    )
+
+    this.ui = {
+      items: this.el.querySelectorAll<HTMLElement>('.js-slide'),
+      titles: document.querySelectorAll<HTMLElement>('.js-title'),
+      lines: document.querySelectorAll<HTMLElement>('.js-progress-line'),
+    }
+
+    this.state = {
+      target: 0,
+      current: 0,
+      currentRounded: 0,
+      y: 0,
+      on: { x: 0, y: 0 },
+      off: 0,
+      progress: 0,
+      diff: 0,
+      max: 0,
+      min: 0,
+      snap: { points: [] },
+      flags: { dragging: false },
+    }
+
+    this.items = []
+
+    this.events = {
+      move: store.isDevice ? 'touchmove' : 'mousemove',
+      up: store.isDevice ? 'touchend' : 'mouseup',
+      down: store.isDevice ? 'touchstart' : 'mousedown',
+    }
+
+    this.init()
+  }
+
+  init(): void {
+    this.setup()
+    this.on()
+  }
+
+  destroy(): void {
+    this.off()
+  }
+
+  on(): void {
+    const { move, up, down } = this.events
+    window.addEventListener(down, this.onDown as EventListener)
+    window.addEventListener(move, this.onMove as EventListener, { passive: false })
+    window.addEventListener(up, this.onUp as EventListener)
+  }
+
+  off(): void {
+    const { move, up, down } = this.events
+    window.removeEventListener(down, this.onDown as EventListener)
+    window.removeEventListener(move, this.onMove as EventListener)
+    window.removeEventListener(up, this.onUp as EventListener)
+  }
+
+  setup(): void {
+    const { ww } = store
+    const state = this.state
+    const { items, titles } = this.ui
+
+    const { width: wrapWidth, left: wrapDiff } = this.el.getBoundingClientRect()
+
+    state.max = -(items[items.length - 1].getBoundingClientRect().right - wrapWidth - wrapDiff)
+    state.min = 0
+
+    this.tl = gsap
+      .timeline({ paused: true, defaults: { duration: 1, ease: 'linear' } })
+      .fromTo('.js-progress-line-2', { scaleX: 1 }, { scaleX: 0, duration: 0.5, ease: 'power3' }, 0)
+      .fromTo('.js-titles', { yPercent: 0 }, { yPercent: -(100 - 100 / titles.length) }, 0)
+      .fromTo('.js-progress-line', { scaleX: 0 }, { scaleX: 1 }, 0)
+
+    for (let i = 0; i < items.length; i++) {
+      const el = items[i]
+      const { left, right, width } = el.getBoundingClientRect()
+
+      const slideInner = el.querySelector<HTMLElement>('.js-slide__inner')
+      const image = el.querySelector<HTMLElement>('img')
+
+      let plane: any | null = null
+      let tl: gsap.core.Timeline
+
+      if (this.PlaneClass) {
+        plane = new this.PlaneClass()
+        plane.init(el)
+
+        tl = gsap.timeline({ paused: true }).fromTo(
+          plane.mat.uniforms.uScale,
+          { value: 0.65 },
+          { value: 1, duration: 1, ease: 'linear' }
+        )
+      } else {
+        tl = gsap
+          .timeline({ paused: true })
+          .fromTo(slideInner, { scale: 0.92 }, { scale: 1, duration: 1, ease: 'power2.out' }, 0)
+          .fromTo(image, { opacity: 0.45, filter: 'brightness(0.6)' }, { opacity: 1, filter: 'brightness(1)' }, 0)
+      }
+
+      this.items.push({
+        el,
+        plane,
+        left,
+        right,
+        width,
+        min: left < ww ? ww * 0.775 : -(ww * 0.225 - wrapWidth * 0.2),
+        max: left > ww ? state.max - ww * 0.775 : state.max + (ww * 0.225 - wrapWidth * 0.2),
+        tl,
+        out: false,
+      })
+    }
+  }
+
+  calc(): void {
+    const state = this.state
+    if (!this.hasWebgl) {
+      state.target = gsap.utils.clamp(state.max, state.min, state.target)
+    }
+    state.current += (state.target - state.current) * this.opts.ease
+    state.currentRounded = Math.round(state.current * 100) / 100
+    if (!this.hasWebgl) {
+      state.currentRounded = gsap.utils.clamp(state.max, state.min, state.currentRounded)
+    }
+    state.diff = (state.target - state.current) * 0.0005
+    state.progress = gsap.utils.wrap(0, 1, state.currentRounded / state.max)
+    this.tl?.progress(state.progress)
+  }
+
+  render(): void {
+    this.calc()
+    if (!this.hasWebgl) {
+      gsap.set(this.el, { x: this.state.currentRounded })
+    }
+    for (const item of this.items) {
+      const { translate, isVisible, progress } = this.isVisible(item)
+      if (item.plane) {
+        item.plane.updateX(translate)
+        item.plane.mat.uniforms.uVelo.value = this.state.diff
+      }
+      if (!item.out) item.tl.progress(progress)
+      item.out = !(isVisible || this.state.flags.resize)
+    }
+  }
+
+  isVisible({ left, right, width, min, max }: { left: number; right: number; width: number; min: number; max: number }) {
+    const { ww } = store
+    const { currentRounded } = this.state
+    const translate = gsap.utils.wrap(min, max, currentRounded)
+    const threshold = this.opts.threshold
+    const start = left + translate
+    const end = right + translate
+    const isVisible = start < threshold + ww && end > -threshold
+    const progress = gsap.utils.clamp(0, 1, 1 - (translate + left + width) / (ww + width))
+    return { translate, isVisible, progress }
+  }
+
+  getPos(e: TouchEvent | MouseEvent) {
+    const touch = 'changedTouches' in e ? e.changedTouches?.[0] : null
+    return {
+      x: touch ? touch.clientX : (e as MouseEvent).clientX,
+      y: touch ? touch.clientY : (e as MouseEvent).clientY,
+    }
+  }
+
+  onDown(e: TouchEvent | MouseEvent): void {
+    const { x, y } = this.getPos(e)
+    this.state.flags.dragging = true
+    this.state.on.x = x
+    this.state.on.y = y
+  }
+
+  onUp(): void {
+    this.state.flags.dragging = false
+    this.state.off = this.state.target
+  }
+
+  onMove(e: TouchEvent | MouseEvent): void {
+    if (!this.state.flags.dragging) return
+    const { x, y } = this.getPos(e)
+    const moveX = x - this.state.on.x
+    const moveY = y - this.state.on.y
+    if (Math.abs(moveX) > Math.abs(moveY) && e.cancelable) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    const nextTarget = this.state.off + moveX * this.opts.speed
+    this.state.target = this.hasWebgl ? nextTarget : gsap.utils.clamp(this.state.max, this.state.min, nextTarget)
+  }
+}
+
+const backgroundCoverUv = `
+vec2 backgroundCoverUv(vec2 screenSize, vec2 imageSize, vec2 uv) {
+  float screenRatio = screenSize.x / screenSize.y;
+  float imageRatio = imageSize.x / imageSize.y;
+  vec2 newSize = screenRatio < imageRatio
+      ? vec2(imageSize.x * screenSize.y / imageSize.y, screenSize.y)
+      : vec2(screenSize.x, imageSize.y * screenSize.x / imageSize.x);
+  vec2 newOffset = (screenRatio < imageRatio
+      ? vec2((newSize.x - screenSize.x) / 2.0, 0.0)
+      : vec2(0.0, (newSize.y - screenSize.y) / 2.0)) / newSize;
+  return uv * screenSize / newSize + newOffset;
+}
+`
+
+const vertexShader = `
+precision mediump float;
+uniform float uVelo;
+varying vec2 vUv;
+#define M_PI 3.1415926535897932384626433832795
+void main(){
+  vec3 pos = position;
+  pos.x = pos.x + ((sin(uv.y * M_PI) * uVelo) * 0.125);
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.);
+}
+`
+
+const fragmentShader = `
+precision mediump float;
+${backgroundCoverUv}
+uniform sampler2D uTexture;
+uniform vec2 uMeshSize;
+uniform vec2 uImageSize;
+uniform float uVelo;
+uniform float uScale;
+varying vec2 vUv;
+void main() {
+  vec2 uv = vUv;
+  vec2 texCenter = vec2(0.5);
+  vec2 texUv = backgroundCoverUv(uMeshSize, uImageSize, uv);
+  vec2 texScale = (texUv - texCenter) * uScale + texCenter;
+  vec4 texture = texture2D(uTexture, texScale);
+  texScale.x += 0.15 * uVelo;
+  if(uv.x < 1.) texture.g = texture2D(uTexture, texScale).g;
+  texScale.x += 0.10 * uVelo;
+  if(uv.x < 1.) texture.b = texture2D(uTexture, texScale).b;
+  gl_FragColor = texture;
+}
+`
+
+async function importThreeSafely(): Promise<any | null> {
+  try {
+    const dynamicImport = new Function('moduleName', 'return import(moduleName)') as (moduleName: string) => Promise<any>
+    return await dynamicImport('three')
+  } catch {
+    return null
+  }
+}
 
 export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: ProjectsSectionProps) {
-  const sectionRef = useRef<HTMLElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
-  const activeIndexRef = useRef(0)
-  const [activeIndex, setActiveIndex] = React.useState(0)
-  const [hoveredVideoIndex, setHoveredVideoIndex] = React.useState<number | null>(null)
-  const [fullscreenVideoIndex, setFullscreenVideoIndex] = React.useState<number | null>(null)
-  const [videoSourceIndexes, setVideoSourceIndexes] = React.useState<number[]>(() => projects.map(() => 0))
-
-  const panelWidth = useMemo(() => `${projects.length * 100}vw`, [])
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const sliderRef = useRef<HTMLDivElement | null>(null)
+  const glHostRef = useRef<HTMLDivElement | null>(null)
+  const [isWebglReady, setIsWebglReady] = useState(false)
 
   useEffect(() => {
-    activeIndexRef.current = activeIndex
-  }, [activeIndex])
-
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      const fullscreenElement = document.fullscreenElement
-      const currentIndex = videoRefs.current.findIndex((video) => video === fullscreenElement)
-      setFullscreenVideoIndex(currentIndex >= 0 ? currentIndex : null)
-    }
-
-    document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => {
-      document.removeEventListener('fullscreenchange', onFullscreenChange)
-    }
-  }, [])
-
-  useEffect(() => {
+    const sliderEl = sliderRef.current
+    const glHostEl = glHostRef.current
     const sectionEl = sectionRef.current
-    const trackEl = trackRef.current
-    if (!sectionEl || !trackEl) return
+    if (!sliderEl || !glHostEl || !sectionEl) return
 
-    ScrollTrigger.getById('projects-horizontal')?.kill()
-    ScrollTrigger.getById('projects-visibility')?.kill()
-    cardRefs.current.forEach((_, index) => {
-      ScrollTrigger.getById(`projects-card-${index}`)?.kill()
-    })
+    onCardInViewChange?.(true)
+    onVideoHoverChange?.(false)
 
-    const ctx = gsap.context(() => {
-      const getTrackDistance = () => Math.max(0, trackEl.scrollWidth - window.innerWidth)
+    let slider: Slider | null = null
+    let tick: (() => void) | null = null
+    let cancelled = false
 
-      const horizontalTween = gsap.to(trackEl, {
-        x: () => -getTrackDistance(),
-        ease: 'none',
-        scrollTrigger: {
-          id: 'projects-horizontal',
-          trigger: sectionEl,
-          pin: true,
-          anticipatePin: 1,
-          scrub: true,
-          invalidateOnRefresh: true,
-          start: 'top top',
-          end: () => `+=${getTrackDistance()}`,
-        },
-      })
-
-      ScrollTrigger.create({
-        id: 'projects-visibility',
-        trigger: sectionEl,
-        start: 'top bottom',
-        end: 'bottom top',
-        onEnter: () => onCardInViewChange?.(true),
-        onEnterBack: () => onCardInViewChange?.(true),
-        onLeave: () => onCardInViewChange?.(false),
-        onLeaveBack: () => onCardInViewChange?.(false),
-      })
-
-      const animateVideoOpacity = (currentIndex: number) => {
-        videoRefs.current.forEach((video, idx) => {
-          if (!video) return
-          const targetOpacity = idx === currentIndex ? 0.7 : 0.14
-          gsap.to(video, { opacity: targetOpacity, duration: 0.35, ease: 'power1.out', overwrite: 'auto' })
-        })
+    ;(async () => {
+      const THREE = await importThreeSafely()
+      if (!THREE || cancelled) {
+        glHostEl.innerHTML = ''
+        setIsWebglReady(false)
+        slider = new Slider(sliderEl)
+        tick = () => {
+          slider?.render()
+        }
+        gsap.ticker.add(tick)
+        return
       }
 
-      const activateVideo = (idx: number) => {
-        setActiveIndex(idx)
-        videoRefs.current.forEach((otherVideo, otherIndex) => {
-          if (!otherVideo || otherIndex === idx) return
-          otherVideo.pause()
-        })
+      const loader = new THREE.TextureLoader()
+      loader.crossOrigin = 'anonymous'
 
-        const currentVideo = videoRefs.current[idx]
-        if (currentVideo) {
-          currentVideo.currentTime = 0
-          void currentVideo.play()
+      class Gl {
+        scene: any
+        camera: any
+        renderer: any
+
+        constructor(container: HTMLElement) {
+          this.scene = new THREE.Scene()
+          this.camera = new THREE.OrthographicCamera(store.ww / -2, store.ww / 2, store.wh / 2, store.wh / -2, 1, 10)
+          this.camera.lookAt(this.scene.position)
+          this.camera.position.z = 1
+          this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+          this.renderer.setPixelRatio(1.5)
+          this.renderer.setSize(store.ww, store.wh)
+          this.renderer.setClearColor(0xffffff, 0)
+          const domEl = this.renderer.domElement
+          domEl.classList.add('dom-gl')
+          container.appendChild(domEl)
         }
 
-        animateVideoOpacity(idx)
+        render(): void {
+          this.renderer.render(this.scene, this.camera)
+        }
+
+        destroy(): void {
+          this.renderer.dispose()
+        }
       }
 
-      animateVideoOpacity(0)
+      class GlObject extends THREE.Object3D {
+        el!: HTMLElement
+        rect!: DOMRect
+        pos!: { x: number; y: number }
 
-      cardRefs.current.forEach((card, index) => {
-        if (!card) return
+        init(el: HTMLElement): void {
+          this.el = el
+          this.rect = this.el.getBoundingClientRect()
+          const { left, top, width, height } = this.rect
+          this.pos = {
+            x: left + width / 2 - store.ww / 2,
+            y: top + height / 2 - store.wh / 2,
+          }
+          this.position.y = this.pos.y
+          this.position.x = this.pos.x
+        }
 
-        ScrollTrigger.create({
-          id: `projects-card-${index}`,
-          trigger: card,
-          start: 'left center',
-          end: 'right center',
-          containerAnimation: horizontalTween,
-          onEnter: () => activateVideo(index),
-          onEnterBack: () => activateVideo(index),
-        })
-      })
+        updateX(current?: number): void {
+          if (typeof current === 'number') this.position.x = current + this.pos.x
+        }
+      }
 
-      activateVideo(0)
-    }, sectionEl)
+      const planeGeo = new THREE.PlaneGeometry(1, 1, 32, 32)
+      const planeMat = new THREE.ShaderMaterial({ transparent: true, fragmentShader, vertexShader })
+
+      class Plane extends GlObject {
+        mat: any
+
+        init(el: HTMLElement): void {
+          super.init(el)
+
+          this.mat = planeMat.clone()
+          this.mat.uniforms = {
+            uTime: { value: 0 },
+            uTexture: { value: 0 },
+            uMeshSize: { value: new THREE.Vector2(this.rect.width, this.rect.height) },
+            uImageSize: { value: new THREE.Vector2(0, 0) },
+            uScale: { value: 0.75 },
+            uVelo: { value: 0 },
+          }
+
+          const img = this.el.querySelector('img') as HTMLImageElement
+          loader.load(img.src, (texture: any) => {
+            texture.minFilter = THREE.LinearFilter
+            texture.generateMipmaps = false
+            this.mat.uniforms.uTexture.value = texture
+            this.mat.uniforms.uImageSize.value = new THREE.Vector2(img.naturalWidth, img.naturalHeight)
+          })
+
+          const mesh = new THREE.Mesh(planeGeo, this.mat)
+          mesh.scale.set(this.rect.width, this.rect.height, 1)
+          this.add(mesh)
+          gl?.scene.add(this)
+        }
+      }
+
+      gl = new Gl(glHostEl)
+      slider = new Slider(sliderEl, Plane)
+      setIsWebglReady(true)
+
+      tick = () => {
+        gl?.render()
+        slider?.render()
+      }
+      gsap.ticker.add(tick)
+    })()
 
     return () => {
-      onVideoHoverChange?.(false)
+      cancelled = true
+      if (tick) gsap.ticker.remove(tick)
+      slider?.destroy()
+      gl?.destroy()
+      glHostEl.innerHTML = ''
+      gl = null
+      setIsWebglReady(false)
       onCardInViewChange?.(false)
-      ctx.revert()
+      onVideoHoverChange?.(false)
     }
   }, [onCardInViewChange, onVideoHoverChange])
 
   return (
-    <section id="projetos" className="projects-section" ref={sectionRef}>
-      <div ref={trackRef} className="project-track" style={{ width: panelWidth }}>
-        {projects.map((project, index) => (
-          <div
-            key={project.id}
-            ref={(el) => {
-              cardRefs.current[index] = el
-            }}
-            className="project-card"
-            aria-label={project.title}
-          >
-            <video
-              ref={(el) => {
-                videoRefs.current[index] = el
-              }}
-              className={`project-video ${activeIndex === index ? 'is-active' : ''} ${
-                hoveredVideoIndex === index ? 'is-hovered' : ''
-              }`}
-              src={project.videoUrls[videoSourceIndexes[index]]}
-              muted={fullscreenVideoIndex !== index}
-              loop
-              playsInline
-              controls={fullscreenVideoIndex === index}
-              preload="auto"
-              onPointerEnter={(event) => {
-                setHoveredVideoIndex(index)
-                onVideoHoverChange?.(true)
-                gsap.to(event.currentTarget, { opacity: 1, duration: 0.2, overwrite: 'auto' })
-              }}
-              onPointerLeave={(event) => {
-                setHoveredVideoIndex(null)
-                onVideoHoverChange?.(false)
-                const targetOpacity = activeIndexRef.current === index ? 0.7 : 0.14
-                gsap.to(event.currentTarget, { opacity: targetOpacity, duration: 0.2, overwrite: 'auto' })
-              }}
-              onClick={(event) => {
-                const video = event.currentTarget
-                if (document.fullscreenElement === video) return
-                void video.requestFullscreen()
-              }}
-              onError={() => {
-                setVideoSourceIndexes((prev) => {
-                  const next = [...prev]
-                  const currentSource = next[index] ?? 0
-                  if (currentSource < project.videoUrls.length - 1) {
-                    next[index] = currentSource + 1
-                  }
-                  return next
-                })
-              }}
-            />
-          </div>
-        ))}
+    <section
+      ref={sectionRef}
+      className={`projects-section projects-webgl-section ${isWebglReady ? 'is-webgl-ready' : 'is-webgl-fallback'}`}
+    >
+      <div ref={glHostRef} className="projects-gl-host" />
+
+      <header className="head">
+        <a href="https://codepen.io/ReGGae/live/povjKxV" target="_blank" rel="noreferrer" data-txt="fullscreen is best">
+          <div>fullscreen is best</div>
+        </a>
+
+        <div>
+          <a href="https://twitter.com/Jesper_Landberg" target="_blank" rel="noreferrer" data-txt="about">
+            <div>about</div>
+          </a>
+
+          <a href="https://twitter.com/Jesper_Landberg" target="_blank" rel="noreferrer" data-txt="contact">
+            <div>contact</div>
+          </a>
+        </div>
+      </header>
+
+      <div className="slider js-drag-area">
+        <div ref={sliderRef} className="slider__inner js-slider">
+          {['tex1', 'tex2', 'tex1', 'tex2', 'tex1', 'tex2', 'tex1', 'tex2'].map((img, index) => (
+            <div key={`${img}-${index}`} className="slide js-slide" style={index === 0 ? undefined : { left: `${index * 120}%` }}>
+              <div className="slide__inner js-slide__inner">
+                <img
+                  className="js-slide__img"
+                  src={`https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/${img}.jpg`}
+                  alt=""
+                  crossOrigin="anonymous"
+                  draggable={false}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="titles">
+        <div className="titles__title titles__title--proxy">Lorem ipsum</div>
+        <div className="titles__list js-titles">
+          {['Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket'].map(
+            (title, index) => (
+              <div key={`${title}-${index}`} className="titles__title js-title">
+                {title}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="progress">
+        <div className="progress__line js-progress-line"></div>
+        <div className="progress__line js-progress-line-2"></div>
       </div>
     </section>
   )
