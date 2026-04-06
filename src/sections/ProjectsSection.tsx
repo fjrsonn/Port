@@ -121,9 +121,10 @@ class Slider {
   }
 
   bindAll(): void {
-    this.onDown = this.onDown.bind(this)
-    this.onMove = this.onMove.bind(this)
-    this.onUp = this.onUp.bind(this)
+    const bound = this as unknown as Record<'onDown' | 'onMove' | 'onUp', (...args: unknown[]) => void>
+    ;(['onDown', 'onMove', 'onUp'] as const).forEach((fn) => {
+      bound[fn] = bound[fn].bind(this)
+    })
   }
 
   init(): void {
