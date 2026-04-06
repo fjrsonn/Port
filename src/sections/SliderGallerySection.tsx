@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import * as THREE from 'three';
 import './slider-gallery.css';
@@ -716,32 +716,46 @@ const slides = [
 export function SliderGallerySection() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+  const [webglEnabled, setWebglEnabled] = useState(true);
 
   useEffect(() => {
     if (!wrapperRef.current || !sliderRef.current) return;
 
     updateStoreSize();
 
-    const gl = new Gl(wrapperRef.current);
-    const slider = new Slider(sliderRef.current, gl);
+    let gl: Gl | null = null;
+    let slider: Slider | null = null;
+
+    try {
+      gl = new Gl(wrapperRef.current);
+      slider = new Slider(sliderRef.current, gl);
+      setWebglEnabled(true);
+    } catch (error) {
+      console.warn('WebGL indisponível para SliderGallerySection. Exibindo fallback estático.', error);
+      setWebglEnabled(false);
+      return;
+    }
 
     const tick = () => {
-      gl.render();
-      slider.render();
+      gl?.render();
+      slider?.render();
     };
 
     gsap.ticker.add(tick);
 
     return () => {
       gsap.ticker.remove(tick);
-      slider.destroy();
-      gl.destroy();
+      slider?.destroy();
+      gl?.destroy();
     };
   }, []);
 
   return (
     <section className="slider-gallery-section" id="slider-gallery">
-      <div ref={wrapperRef} className="slider-gallery-root">
+      <div
+        ref={wrapperRef}
+        className={`slider-gallery-root ${webglEnabled ? '' : 'no-webgl'}`.trim()}
+      >
         <header className="head">
           <a
             href="https://codepen.io/ReGGae/live/povjKxV"

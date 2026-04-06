@@ -178,3 +178,25 @@
 .progress__line:nth-child(2) {
   transform-origin: right;
 }
+
+.slider-gallery-root.no-webgl .dom-gl {
+  display: none;
+}
+
+.slider-gallery-root.no-webgl .slider {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.slider-gallery-root.no-webgl .slide {
+  position: relative !important;
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+}
+
+.slider-gallery-root.no-webgl .slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
