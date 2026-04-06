@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
-import * as THREE from 'three'
 
 type ProjectsSectionProps = {
   onVideoHoverChange?: (isHoveringVideo: boolean) => void
@@ -28,7 +27,7 @@ type SliderOptions = {
 
 type SliderItem = {
   el: HTMLElement
-  plane: Plane
+  plane: any
   left: number
   right: number
   width: number
@@ -56,11 +55,12 @@ type SliderState = {
   }
 }
 
-let gl: Gl | null = null
+let gl: any = null
 
 class Slider {
   el: HTMLElement
   opts: SliderOptions
+  PlaneClass: new () => any
   ui: {
     items: NodeListOf<HTMLElement>
     titles: NodeListOf<HTMLElement>
@@ -75,9 +75,13 @@ class Slider {
   }
   tl?: gsap.core.Timeline
 
-  constructor(el: HTMLElement, opts: Partial<SliderOptions> = {}) {
-    this.bindAll()
+  constructor(el: HTMLElement, PlaneClass: new () => any, opts: Partial<SliderOptions> = {}) {
+    this.onDown = this.onDown.bind(this)
+    this.onMove = this.onMove.bind(this)
+    this.onUp = this.onUp.bind(this)
+
     this.el = el
+    this.PlaneClass = PlaneClass
 
     this.opts = Object.assign(
       {
@@ -120,12 +124,6 @@ class Slider {
     this.init()
   }
 
-  bindAll(): void {
-    ;(['onDown', 'onMove', 'onUp'] as const).forEach((fn) => {
-      this[fn] = this[fn].bind(this)
-    })
-  }
-
   init(): void {
     this.setup()
     this.on()
@@ -160,41 +158,23 @@ class Slider {
     state.min = 0
 
     this.tl = gsap
-      .timeline({
-        paused: true,
-        defaults: {
-          duration: 1,
-          ease: 'linear',
-        },
-      })
-      .fromTo(
-        '.js-progress-line-2',
-        { scaleX: 1 },
-        { scaleX: 0, duration: 0.5, ease: 'power3' },
-        0
-      )
-      .fromTo(
-        '.js-titles',
-        { yPercent: 0 },
-        { yPercent: -(100 - 100 / titles.length) },
-        0
-      )
+      .timeline({ paused: true, defaults: { duration: 1, ease: 'linear' } })
+      .fromTo('.js-progress-line-2', { scaleX: 1 }, { scaleX: 0, duration: 0.5, ease: 'power3' }, 0)
+      .fromTo('.js-titles', { yPercent: 0 }, { yPercent: -(100 - 100 / titles.length) }, 0)
       .fromTo('.js-progress-line', { scaleX: 0 }, { scaleX: 1 }, 0)
 
     for (let i = 0; i < items.length; i++) {
       const el = items[i]
       const { left, right, width } = el.getBoundingClientRect()
 
-      const plane = new Plane()
+      const plane = new this.PlaneClass()
       plane.init(el)
 
-      const tl = gsap
-        .timeline({ paused: true })
-        .fromTo(
-          plane.mat.uniforms.uScale,
-          { value: 0.65 },
-          { value: 1, duration: 1, ease: 'linear' }
-        )
+      const tl = gsap.timeline({ paused: true }).fromTo(
+        plane.mat.uniforms.uScale,
+        { value: 0.65 },
+        { value: 1, duration: 1, ease: 'linear' }
+      )
 
       this.items.push({
         el,
@@ -203,10 +183,7 @@ class Slider {
         right,
         width,
         min: left < ww ? ww * 0.775 : -(ww * 0.225 - wrapWidth * 0.2),
-        max:
-          left > ww
-            ? state.max - ww * 0.775
-            : state.max + (ww * 0.225 - wrapWidth * 0.2),
+        max: left > ww ? state.max - ww * 0.775 : state.max + (ww * 0.225 - wrapWidth * 0.2),
         tl,
         out: false,
       })
@@ -219,50 +196,21 @@ class Slider {
     state.currentRounded = Math.round(state.current * 100) / 100
     state.diff = (state.target - state.current) * 0.0005
     state.progress = gsap.utils.wrap(0, 1, state.currentRounded / state.max)
-
     this.tl?.progress(state.progress)
   }
 
   render(): void {
     this.calc()
-    this.transformItems()
-  }
-
-  transformItems(): void {
-    const { flags } = this.state
-
-    for (let i = 0; i < this.items.length; i++) {
-      const item = this.items[i]
+    for (const item of this.items) {
       const { translate, isVisible, progress } = this.isVisible(item)
-
       item.plane.updateX(translate)
       item.plane.mat.uniforms.uVelo.value = this.state.diff
-
-      if (!item.out && item.tl) {
-        item.tl.progress(progress)
-      }
-
-      if (isVisible || flags.resize) {
-        item.out = false
-      } else if (!item.out) {
-        item.out = true
-      }
+      if (!item.out) item.tl.progress(progress)
+      item.out = !(isVisible || this.state.flags.resize)
     }
   }
 
-  isVisible({
-    left,
-    right,
-    width,
-    min,
-    max,
-  }: {
-    left: number
-    right: number
-    width: number
-    min: number
-    max: number
-  }) {
+  isVisible({ left, right, width, min, max }: { left: number; right: number; width: number; min: number; max: number }) {
     const { ww } = store
     const { currentRounded } = this.state
     const translate = gsap.utils.wrap(min, max, currentRounded)
@@ -271,49 +219,39 @@ class Slider {
     const end = right + translate
     const isVisible = start < threshold + ww && end > -threshold
     const progress = gsap.utils.clamp(0, 1, 1 - (translate + left + width) / (ww + width))
-
     return { translate, isVisible, progress }
   }
 
   getPos(e: TouchEvent | MouseEvent) {
     const touch = 'changedTouches' in e ? e.changedTouches?.[0] : null
-    const x = touch ? touch.clientX : (e as MouseEvent).clientX
-    const y = touch ? touch.clientY : (e as MouseEvent).clientY
-
-    return { x, y }
+    return {
+      x: touch ? touch.clientX : (e as MouseEvent).clientX,
+      y: touch ? touch.clientY : (e as MouseEvent).clientY,
+    }
   }
 
   onDown(e: TouchEvent | MouseEvent): void {
     const { x, y } = this.getPos(e)
-    const { flags, on } = this.state
-
-    flags.dragging = true
-    on.x = x
-    on.y = y
+    this.state.flags.dragging = true
+    this.state.on.x = x
+    this.state.on.y = y
   }
 
   onUp(): void {
-    const state = this.state
-    state.flags.dragging = false
-    state.off = state.target
+    this.state.flags.dragging = false
+    this.state.off = this.state.target
   }
 
   onMove(e: TouchEvent | MouseEvent): void {
+    if (!this.state.flags.dragging) return
     const { x, y } = this.getPos(e)
-    const state = this.state
-
-    if (!state.flags.dragging) return
-
-    const { off, on } = state
-    const moveX = x - on.x
-    const moveY = y - on.y
-
+    const moveX = x - this.state.on.x
+    const moveY = y - this.state.on.y
     if (Math.abs(moveX) > Math.abs(moveY) && e.cancelable) {
       e.preventDefault()
       e.stopPropagation()
     }
-
-    state.target = off + moveX * this.opts.speed
+    this.state.target = this.state.off + moveX * this.opts.speed
   }
 }
 
@@ -321,32 +259,24 @@ const backgroundCoverUv = `
 vec2 backgroundCoverUv(vec2 screenSize, vec2 imageSize, vec2 uv) {
   float screenRatio = screenSize.x / screenSize.y;
   float imageRatio = imageSize.x / imageSize.y;
-
   vec2 newSize = screenRatio < imageRatio
       ? vec2(imageSize.x * screenSize.y / imageSize.y, screenSize.y)
       : vec2(screenSize.x, imageSize.y * screenSize.x / imageSize.x);
-
   vec2 newOffset = (screenRatio < imageRatio
       ? vec2((newSize.x - screenSize.x) / 2.0, 0.0)
       : vec2(0.0, (newSize.y - screenSize.y) / 2.0)) / newSize;
-
   return uv * screenSize / newSize + newOffset;
 }
 `
 
 const vertexShader = `
 precision mediump float;
-
 uniform float uVelo;
-
 varying vec2 vUv;
-
 #define M_PI 3.1415926535897932384626433832795
-
 void main(){
   vec3 pos = position;
   pos.x = pos.x + ((sin(uv.y * M_PI) * uVelo) * 0.125);
-
   vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.);
 }
@@ -354,168 +284,37 @@ void main(){
 
 const fragmentShader = `
 precision mediump float;
-
 ${backgroundCoverUv}
-
 uniform sampler2D uTexture;
 uniform vec2 uMeshSize;
 uniform vec2 uImageSize;
 uniform float uVelo;
 uniform float uScale;
-
 varying vec2 vUv;
-
 void main() {
   vec2 uv = vUv;
-
   vec2 texCenter = vec2(0.5);
   vec2 texUv = backgroundCoverUv(uMeshSize, uImageSize, uv);
   vec2 texScale = (texUv - texCenter) * uScale + texCenter;
   vec4 texture = texture2D(uTexture, texScale);
-
   texScale.x += 0.15 * uVelo;
   if(uv.x < 1.) texture.g = texture2D(uTexture, texScale).g;
-
   texScale.x += 0.10 * uVelo;
   if(uv.x < 1.) texture.b = texture2D(uTexture, texScale).b;
-
   gl_FragColor = texture;
 }
 `
 
-const loader = new THREE.TextureLoader()
-loader.crossOrigin = 'anonymous'
-
-class Gl {
-  scene: THREE.Scene
-  camera: THREE.OrthographicCamera
-  renderer: THREE.WebGLRenderer
-
-  constructor(container: HTMLElement) {
-    this.scene = new THREE.Scene()
-
-    this.camera = new THREE.OrthographicCamera(
-      store.ww / -2,
-      store.ww / 2,
-      store.wh / 2,
-      store.wh / -2,
-      1,
-      10
-    )
-    this.camera.lookAt(this.scene.position)
-    this.camera.position.z = 1
-
-    this.renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-    })
-    this.renderer.setPixelRatio(1.5)
-    this.renderer.setSize(store.ww, store.wh)
-    this.renderer.setClearColor(0xffffff, 0)
-
-    this.init(container)
-  }
-
-  render(): void {
-    this.renderer.render(this.scene, this.camera)
-  }
-
-  init(container: HTMLElement): void {
-    const domEl = this.renderer.domElement
-    domEl.classList.add('dom-gl')
-    container.appendChild(domEl)
-  }
-
-  destroy(): void {
-    this.renderer.dispose()
+async function importThreeSafely(): Promise<any | null> {
+  try {
+    const dynamicImport = new Function('moduleName', 'return import(moduleName)') as (moduleName: string) => Promise<any>
+    return await dynamicImport('three')
+  } catch {
+    return null
   }
 }
 
-class GlObject extends THREE.Object3D {
-  el!: HTMLElement
-  rect!: DOMRect
-  pos!: { x: number; y: number }
-
-  init(el: HTMLElement): void {
-    this.el = el
-    this.resize()
-  }
-
-  resize(): void {
-    this.rect = this.el.getBoundingClientRect()
-    const { left, top, width, height } = this.rect
-
-    this.pos = {
-      x: left + width / 2 - store.ww / 2,
-      y: top + height / 2 - store.wh / 2,
-    }
-
-    this.position.y = this.pos.y
-    this.position.x = this.pos.x
-    this.updateX()
-  }
-
-  updateX(current?: number): void {
-    if (typeof current === 'number') {
-      this.position.x = current + this.pos.x
-    }
-  }
-}
-
-const planeGeo = new THREE.PlaneGeometry(1, 1, 32, 32)
-const planeMat = new THREE.ShaderMaterial({
-  transparent: true,
-  fragmentShader,
-  vertexShader,
-})
-
-class Plane extends GlObject {
-  geo!: THREE.PlaneGeometry
-  mat!: THREE.ShaderMaterial
-  img!: HTMLImageElement
-  texture!: THREE.Texture
-  mesh!: THREE.Mesh
-
-  init(el: HTMLElement): void {
-    super.init(el)
-
-    this.geo = planeGeo
-    this.mat = planeMat.clone()
-
-    this.mat.uniforms = {
-      uTime: { value: 0 },
-      uTexture: { value: 0 },
-      uMeshSize: { value: new THREE.Vector2(this.rect.width, this.rect.height) },
-      uImageSize: { value: new THREE.Vector2(0, 0) },
-      uScale: { value: 0.75 },
-      uVelo: { value: 0 },
-    }
-
-    this.img = this.el.querySelector('img') as HTMLImageElement
-
-    this.texture = loader.load(this.img.src, (texture) => {
-      texture.minFilter = THREE.LinearFilter
-      texture.generateMipmaps = false
-
-      this.mat.uniforms.uTexture.value = texture
-      this.mat.uniforms.uImageSize.value = new THREE.Vector2(
-        this.img.naturalWidth,
-        this.img.naturalHeight
-      )
-    })
-
-    this.mesh = new THREE.Mesh(this.geo, this.mat)
-    this.mesh.scale.set(this.rect.width, this.rect.height, 1)
-    this.add(this.mesh)
-
-    gl?.scene.add(this)
-  }
-}
-
-export function ProjectsSection({
-  onVideoHoverChange,
-  onCardInViewChange,
-}: ProjectsSectionProps) {
+export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: ProjectsSectionProps) {
   const sectionRef = useRef<HTMLElement | null>(null)
   const sliderRef = useRef<HTMLDivElement | null>(null)
   const glHostRef = useRef<HTMLDivElement | null>(null)
@@ -524,25 +323,123 @@ export function ProjectsSection({
     const sliderEl = sliderRef.current
     const glHostEl = glHostRef.current
     const sectionEl = sectionRef.current
-
     if (!sliderEl || !glHostEl || !sectionEl) return
 
     onCardInViewChange?.(true)
     onVideoHoverChange?.(false)
 
-    gl = new Gl(glHostEl)
-    const slider = new Slider(sliderEl)
+    let slider: Slider | null = null
+    let tick: (() => void) | null = null
+    let cancelled = false
 
-    const tick = () => {
-      gl?.render()
-      slider.render()
-    }
+    ;(async () => {
+      const THREE = await importThreeSafely()
+      if (!THREE || cancelled) {
+        glHostEl.innerHTML = ''
+        return
+      }
 
-    gsap.ticker.add(tick)
+      const loader = new THREE.TextureLoader()
+      loader.crossOrigin = 'anonymous'
+
+      class Gl {
+        scene: any
+        camera: any
+        renderer: any
+
+        constructor(container: HTMLElement) {
+          this.scene = new THREE.Scene()
+          this.camera = new THREE.OrthographicCamera(store.ww / -2, store.ww / 2, store.wh / 2, store.wh / -2, 1, 10)
+          this.camera.lookAt(this.scene.position)
+          this.camera.position.z = 1
+          this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+          this.renderer.setPixelRatio(1.5)
+          this.renderer.setSize(store.ww, store.wh)
+          this.renderer.setClearColor(0xffffff, 0)
+          const domEl = this.renderer.domElement
+          domEl.classList.add('dom-gl')
+          container.appendChild(domEl)
+        }
+
+        render(): void {
+          this.renderer.render(this.scene, this.camera)
+        }
+
+        destroy(): void {
+          this.renderer.dispose()
+        }
+      }
+
+      class GlObject extends THREE.Object3D {
+        el!: HTMLElement
+        rect!: DOMRect
+        pos!: { x: number; y: number }
+
+        init(el: HTMLElement): void {
+          this.el = el
+          this.rect = this.el.getBoundingClientRect()
+          const { left, top, width, height } = this.rect
+          this.pos = {
+            x: left + width / 2 - store.ww / 2,
+            y: top + height / 2 - store.wh / 2,
+          }
+          this.position.y = this.pos.y
+          this.position.x = this.pos.x
+        }
+
+        updateX(current?: number): void {
+          if (typeof current === 'number') this.position.x = current + this.pos.x
+        }
+      }
+
+      const planeGeo = new THREE.PlaneGeometry(1, 1, 32, 32)
+      const planeMat = new THREE.ShaderMaterial({ transparent: true, fragmentShader, vertexShader })
+
+      class Plane extends GlObject {
+        mat: any
+
+        init(el: HTMLElement): void {
+          super.init(el)
+
+          this.mat = planeMat.clone()
+          this.mat.uniforms = {
+            uTime: { value: 0 },
+            uTexture: { value: 0 },
+            uMeshSize: { value: new THREE.Vector2(this.rect.width, this.rect.height) },
+            uImageSize: { value: new THREE.Vector2(0, 0) },
+            uScale: { value: 0.75 },
+            uVelo: { value: 0 },
+          }
+
+          const img = this.el.querySelector('img') as HTMLImageElement
+          loader.load(img.src, (texture: any) => {
+            texture.minFilter = THREE.LinearFilter
+            texture.generateMipmaps = false
+            this.mat.uniforms.uTexture.value = texture
+            this.mat.uniforms.uImageSize.value = new THREE.Vector2(img.naturalWidth, img.naturalHeight)
+          })
+
+          const mesh = new THREE.Mesh(planeGeo, this.mat)
+          mesh.scale.set(this.rect.width, this.rect.height, 1)
+          this.add(mesh)
+          gl?.scene.add(this)
+        }
+      }
+
+      gl = new Gl(glHostEl)
+      slider = new Slider(sliderEl, Plane)
+
+      tick = () => {
+        gl?.render()
+        slider?.render()
+      }
+      gsap.ticker.add(tick)
+    })()
 
     return () => {
-      gsap.ticker.remove(tick)
-      slider.destroy()
+      cancelled = true
+      if (tick) gsap.ticker.remove(tick)
+      slider?.destroy()
       gl?.destroy()
       glHostEl.innerHTML = ''
       gl = null
@@ -556,31 +453,16 @@ export function ProjectsSection({
       <div ref={glHostRef} className="projects-gl-host" />
 
       <header className="head">
-        <a
-          href="https://codepen.io/ReGGae/live/povjKxV"
-          target="_blank"
-          rel="noreferrer"
-          data-txt="fullscreen is best"
-        >
+        <a href="https://codepen.io/ReGGae/live/povjKxV" target="_blank" rel="noreferrer" data-txt="fullscreen is best">
           <div>fullscreen is best</div>
         </a>
 
         <div>
-          <a
-            href="https://twitter.com/Jesper_Landberg"
-            target="_blank"
-            rel="noreferrer"
-            data-txt="about"
-          >
+          <a href="https://twitter.com/Jesper_Landberg" target="_blank" rel="noreferrer" data-txt="about">
             <div>about</div>
           </a>
 
-          <a
-            href="https://twitter.com/Jesper_Landberg"
-            target="_blank"
-            rel="noreferrer"
-            data-txt="contact"
-          >
+          <a href="https://twitter.com/Jesper_Landberg" target="_blank" rel="noreferrer" data-txt="contact">
             <div>contact</div>
           </a>
         </div>
@@ -588,117 +470,32 @@ export function ProjectsSection({
 
       <div className="slider js-drag-area">
         <div ref={sliderRef} className="slider__inner js-slider">
-          <div className="slide js-slide">
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
+          {['tex1', 'tex2', 'tex1', 'tex2', 'tex1', 'tex2', 'tex1', 'tex2'].map((img, index) => (
+            <div key={`${img}-${index}`} className="slide js-slide" style={index === 0 ? undefined : { left: `${index * 120}%` }}>
+              <div className="slide__inner js-slide__inner">
+                <img
+                  className="js-slide__img"
+                  src={`https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/${img}.jpg`}
+                  alt=""
+                  crossOrigin="anonymous"
+                  draggable={false}
+                />
+              </div>
             </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '120%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '240%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '360%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '480%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '600%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="http://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '720%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
-
-          <div className="slide js-slide" style={{ left: '840%' }}>
-            <div className="slide__inner js-slide__inner">
-              <img
-                className="js-slide__img"
-                src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg"
-                alt=""
-                crossOrigin="anonymous"
-                draggable={false}
-              />
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
       <div className="titles">
         <div className="titles__title titles__title--proxy">Lorem ipsum</div>
-
         <div className="titles__list js-titles">
-          <div className="titles__title js-title">Moonrocket</div>
-          <div className="titles__title js-title">Spaceman</div>
-          <div className="titles__title js-title">Moonrocket</div>
-          <div className="titles__title js-title">Spaceman</div>
-          <div className="titles__title js-title">Moonrocket</div>
-          <div className="titles__title js-title">Spaceman</div>
-          <div className="titles__title js-title">Moonrocket</div>
-          <div className="titles__title js-title">Spaceman</div>
-          <div className="titles__title js-title">Moonrocket</div>
+          {['Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket', 'Spaceman', 'Moonrocket'].map(
+            (title, index) => (
+              <div key={`${title}-${index}`} className="titles__title js-title">
+                {title}
+              </div>
+            )
+          )}
         </div>
       </div>
 
