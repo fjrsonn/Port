@@ -60,7 +60,7 @@ let gl: any = null
 class Slider {
   el: HTMLElement
   opts: SliderOptions
-  PlaneClass: new () => any
+  PlaneClass?: new () => any
   ui: {
     items: NodeListOf<HTMLElement>
     titles: NodeListOf<HTMLElement>
@@ -75,7 +75,7 @@ class Slider {
   }
   tl?: gsap.core.Timeline
 
-  constructor(el: HTMLElement, PlaneClass: new () => any, opts: Partial<SliderOptions> = {}) {
+  constructor(el: HTMLElement, PlaneClass?: new () => any, opts: Partial<SliderOptions> = {}) {
     this.onDown = this.onDown.bind(this)
     this.onMove = this.onMove.bind(this)
     this.onUp = this.onUp.bind(this)
@@ -167,6 +167,8 @@ class Slider {
       const el = items[i]
       const { left, right, width } = el.getBoundingClientRect()
 
+      if (!this.PlaneClass) continue
+
       const plane = new this.PlaneClass()
       plane.init(el)
 
@@ -192,8 +194,14 @@ class Slider {
 
   calc(): void {
     const state = this.state
+    if (!this.items.length) {
+      state.target = gsap.utils.clamp(state.max, state.min, state.target)
+    }
     state.current += (state.target - state.current) * this.opts.ease
     state.currentRounded = Math.round(state.current * 100) / 100
+    if (!this.items.length) {
+      state.currentRounded = gsap.utils.clamp(state.max, state.min, state.currentRounded)
+    }
     state.diff = (state.target - state.current) * 0.0005
     state.progress = gsap.utils.wrap(0, 1, state.currentRounded / state.max)
     this.tl?.progress(state.progress)
@@ -201,6 +209,10 @@ class Slider {
 
   render(): void {
     this.calc()
+    if (!this.items.length) {
+      gsap.set(this.el, { x: this.state.currentRounded })
+      return
+    }
     for (const item of this.items) {
       const { translate, isVisible, progress } = this.isVisible(item)
       item.plane.updateX(translate)
@@ -251,7 +263,8 @@ class Slider {
       e.preventDefault()
       e.stopPropagation()
     }
-    this.state.target = this.state.off + moveX * this.opts.speed
+    const nextTarget = this.state.off + moveX * this.opts.speed
+    this.state.target = this.items.length ? nextTarget : gsap.utils.clamp(this.state.max, this.state.min, nextTarget)
   }
 }
 
@@ -338,6 +351,11 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
       if (!THREE || cancelled) {
         glHostEl.innerHTML = ''
         setIsWebglReady(false)
+        slider = new Slider(sliderEl)
+        tick = () => {
+          slider?.render()
+        }
+        gsap.ticker.add(tick)
         return
       }
 
