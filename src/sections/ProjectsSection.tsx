@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 
 type ProjectsSectionProps = {
@@ -318,6 +318,7 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
   const sectionRef = useRef<HTMLElement | null>(null)
   const sliderRef = useRef<HTMLDivElement | null>(null)
   const glHostRef = useRef<HTMLDivElement | null>(null)
+  const [isWebglReady, setIsWebglReady] = useState(false)
 
   useEffect(() => {
     const sliderEl = sliderRef.current
@@ -336,6 +337,7 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
       const THREE = await importThreeSafely()
       if (!THREE || cancelled) {
         glHostEl.innerHTML = ''
+        setIsWebglReady(false)
         return
       }
 
@@ -428,6 +430,7 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
 
       gl = new Gl(glHostEl)
       slider = new Slider(sliderEl, Plane)
+      setIsWebglReady(true)
 
       tick = () => {
         gl?.render()
@@ -443,13 +446,17 @@ export function ProjectsSection({ onVideoHoverChange, onCardInViewChange }: Proj
       gl?.destroy()
       glHostEl.innerHTML = ''
       gl = null
+      setIsWebglReady(false)
       onCardInViewChange?.(false)
       onVideoHoverChange?.(false)
     }
   }, [onCardInViewChange, onVideoHoverChange])
 
   return (
-    <section ref={sectionRef} className="projects-section projects-webgl-section">
+    <section
+      ref={sectionRef}
+      className={`projects-section projects-webgl-section ${isWebglReady ? 'is-webgl-ready' : 'is-webgl-fallback'}`}
+    >
       <div ref={glHostRef} className="projects-gl-host" />
 
       <header className="head">
