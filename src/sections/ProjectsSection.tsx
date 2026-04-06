@@ -7,17 +7,24 @@ type ProjectsSectionProps = {
   onCardInViewChange?: (isCardInView: boolean) => void
 }
 
-const store = {
-  ww: window.innerWidth,
-  wh: window.innerHeight,
-  isDevice:
+const getIsDevice = () => {
+  if (typeof navigator === 'undefined') return false
+
+  return Boolean(
     navigator.userAgent.match(/Android/i) ||
-    navigator.userAgent.match(/webOS/i) ||
-    navigator.userAgent.match(/iPhone/i) ||
-    navigator.userAgent.match(/iPad/i) ||
-    navigator.userAgent.match(/iPod/i) ||
-    navigator.userAgent.match(/BlackBerry/i) ||
-    navigator.userAgent.match(/Windows Phone/i),
+      navigator.userAgent.match(/webOS/i) ||
+      navigator.userAgent.match(/iPhone/i) ||
+      navigator.userAgent.match(/iPad/i) ||
+      navigator.userAgent.match(/iPod/i) ||
+      navigator.userAgent.match(/BlackBerry/i) ||
+      navigator.userAgent.match(/Windows Phone/i)
+  )
+}
+
+const store = {
+  ww: typeof window === 'undefined' ? 0 : window.innerWidth,
+  wh: typeof window === 'undefined' ? 0 : window.innerHeight,
+  isDevice: getIsDevice(),
 }
 
 type SliderOptions = {
@@ -553,6 +560,10 @@ export function ProjectsSection({
     const sectionEl = sectionRef.current
 
     if (!sliderEl || !glHostEl || !sectionEl) return
+
+    store.ww = window.innerWidth
+    store.wh = window.innerHeight
+    store.isDevice = getIsDevice()
 
     onCardInViewChange?.(true)
     onVideoHoverChange?.(false)
