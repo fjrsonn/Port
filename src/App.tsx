@@ -3,6 +3,7 @@ import { IntroSection } from './sections/IntroSection';
 import { HeroSection } from './sections/HeroSection';
 import { ProjectsSection } from './sections/ProjectsSection';
 import { AboutSection } from './sections/AboutSection';
+import { SliderGallerySection } from './sections/SliderGallerySection';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -39,6 +40,7 @@ export default function App() {
           onCardInViewChange={setIsProjectCardVisible}
         />
         <AboutSection />
+        <SliderGallerySection />
       </main>
     </div>
   );
