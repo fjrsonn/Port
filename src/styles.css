@@ -370,6 +370,70 @@ body {
   transform-origin: right;
 }
 
+/* ─── Projects Section – Static fallback ─────────────────────────────────── */
+
+.projects-section.projects-static-section {
+  min-height: 100vh;
+  background-color: #111;
+  padding: 4rem 0;
+}
+
+.projects-static-section .slider {
+  overflow-x: auto;
+  padding: 0 8vw 1rem;
+  cursor: default;
+}
+
+.projects-static-section .slider__inner {
+  display: flex;
+  gap: 2rem;
+  width: max-content;
+}
+
+.projects-static-section .slide {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.projects-static-section .slide__inner {
+  position: relative;
+  width: min(72vw, 720px);
+  max-width: 720px;
+  border-radius: 12px;
+  overflow: hidden;
+  padding-top: 56.5%;
+}
+
+.projects-static-section .slide img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.projects-static-section .titles {
+  margin: 1.5rem 8vw 0;
+  color: #fff;
+}
+
+.projects-static-section .titles__title--proxy,
+.projects-static-section .progress {
+  display: none;
+}
+
+.projects-static-section .titles__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.projects-static-section .titles__title {
+  font-size: clamp(1rem, 2.2vw, 1.5rem);
+  line-height: 1.2;
+}
+
 .about-section {
   min-height: 100vh;
   display: grid;
