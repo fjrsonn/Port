@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react';
 import { IntroSection } from './sections/IntroSection';
 import { HeroSection } from './sections/HeroSection';
-import { ProjectsSection } from './sections/ProjectsSection';
+import { ProjectsSliderSection } from './sections/ProjectsSliderSection';
 import { AboutSection } from './sections/AboutSection';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
-  const [isVideoHovering, setIsVideoHovering] = useState(false);
-  const [isProjectCardVisible, setIsProjectCardVisible] = useState(false);
+
+  // Mantidos para compatibilidade com a HeroSection nova
+  const [isVideoHovering] = useState(false);
+  const [isProjectCardVisible] = useState(false);
 
   useEffect(() => {
     const introTextTimelineMs = 2900;
-    const hideIntroAt = introTextTimelineMs;
-    const showMainAt = hideIntroAt;
 
-    const hideIntroTimer = window.setTimeout(() => setShowIntro(false), hideIntroAt);
-    const showMainTimer = window.setTimeout(() => setShowMain(true), showMainAt);
+    const hideIntroTimer = window.setTimeout(() => {
+      setShowIntro(false);
+    }, introTextTimelineMs);
+
+    const showMainTimer = window.setTimeout(() => {
+      setShowMain(true);
+    }, introTextTimelineMs);
 
     return () => {
       window.clearTimeout(hideIntroTimer);
@@ -25,8 +30,8 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
-      <IntroSection visible={showIntro} />
+    <>
+      {showIntro && <IntroSection visible={showIntro} />}
 
       <main className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}>
         <HeroSection
@@ -34,12 +39,11 @@ export default function App() {
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
         />
-        <ProjectsSection
-          onVideoHoverChange={setIsVideoHovering}
-          onCardInViewChange={setIsProjectCardVisible}
-        />
+
+        <ProjectsSliderSection isMainVisible={showMain} />
+
         <AboutSection />
       </main>
-    </div>
+    </>
   );
 }

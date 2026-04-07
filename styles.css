@@ -27,3 +27,11 @@
   transition: opacity 0.1s ease, clip-path 0.1s ease;
   z-index: 1;
 }
+
+.projects-slider-section {
+  position: relative;
+  min-height: 100vh;
+  background: #000;
+  overflow: hidden;
+  z-index: 2;
+}

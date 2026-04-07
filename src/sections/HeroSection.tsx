@@ -1,5 +1,3 @@
-// src/sections/HeroSection.tsx - VERSÃO FINAL E FUNCIONAL
-
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -19,7 +17,17 @@ export function HeroSection({
   isMainVisible = true,
   isProjectCardVisible = false,
 }: HeroSectionProps) {
+  const heroRef = useRef<HTMLElement | null>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement>(null);
+
   const [hovered, setHovered] = useState(false);
+  const [scrambleKey, setScrambleKey] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
+  const [typedSubtitle, setTypedSubtitle] = useState('');
+  const [isGlitching, setIsGlitching] = useState(false);
+  const [glitchStrength, setGlitchStrength] = useState(1);
+  const [hideFixedTitle, setHideFixedTitle] = useState(false);
+
   const isScramblingRef = useRef(false);
   const hasCompletedPrimaryScrambleRef = useRef(false);
   const pointerInsideRef = useRef(false);
@@ -28,18 +36,32 @@ export function HeroSection({
   const autoScrambleTimerRef = useRef<number | null>(null);
   const hideDetailsTimerRef = useRef<number | null>(null);
   const glitchWindowTimerRef = useRef<number | null>(null);
+  const subtitleTypingTimerRef = useRef<number | null>(null);
+
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
-  const heroTitleRef = useRef<HTMLHeadingElement>(null);
-  const [scrambleKey, setScrambleKey] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
-  const [typedSubtitle, setTypedSubtitle] = useState('');
-  const [isGlitching, setIsGlitching] = useState(false);
-  const [glitchStrength, setGlitchStrength] = useState(1);
-  const subtitleTypingTimerRef = useRef<number | null>(null);
+
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const glitchWindowMs = 5000;
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHideFixedTitle(entry.intersectionRatio < 0.35);
+      },
+      {
+        threshold: [0, 0.15, 0.35, 0.5, 0.75, 1],
+      }
+    );
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!isMainVisible || hasScheduledIntroRef.current) return;
@@ -76,23 +98,12 @@ export function HeroSection({
   }, [isMainVisible]);
 
   useEffect(() => {
-
     return () => {
-      if (scrollUnlockTimerRef.current) {
-        window.clearTimeout(scrollUnlockTimerRef.current);
-      }
-      if (autoScrambleTimerRef.current) {
-        window.clearTimeout(autoScrambleTimerRef.current);
-      }
-      if (hideDetailsTimerRef.current) {
-        window.clearTimeout(hideDetailsTimerRef.current);
-      }
-      if (glitchWindowTimerRef.current) {
-        window.clearTimeout(glitchWindowTimerRef.current);
-      }
-      if (subtitleTypingTimerRef.current) {
-        window.clearTimeout(subtitleTypingTimerRef.current);
-      }
+      if (scrollUnlockTimerRef.current) window.clearTimeout(scrollUnlockTimerRef.current);
+      if (autoScrambleTimerRef.current) window.clearTimeout(autoScrambleTimerRef.current);
+      if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
+      if (glitchWindowTimerRef.current) window.clearTimeout(glitchWindowTimerRef.current);
+      if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
     };
   }, []);
 
@@ -114,6 +125,7 @@ export function HeroSection({
     if (hideDetailsTimerRef.current) {
       window.clearTimeout(hideDetailsTimerRef.current);
     }
+
     hideDetailsTimerRef.current = window.setTimeout(() => {
       setShowDetails(false);
       hideDetailsTimerRef.current = null;
@@ -126,12 +138,12 @@ export function HeroSection({
     scheduleDetailsAutoHide();
   }, [isProjectCardVisible, scheduleDetailsAutoHide]);
 
-  const startScramble = () => {
+  const startScramble = useCallback(() => {
     if (isScramblingRef.current) return;
     isScramblingRef.current = true;
     triggerGlitchWindow();
     setScrambleKey((prev) => prev + 1);
-  };
+  }, [triggerGlitchWindow]);
 
   const handleTitlePointerEnter = () => {
     pointerInsideRef.current = true;
@@ -143,17 +155,21 @@ export function HeroSection({
     if (event.pointerType !== 'mouse') return;
     if (isScrollLockedRef.current) return;
     if (event.movementX === 0 && event.movementY === 0) return;
+
     if (hasCompletedPrimaryScrambleRef.current && !showDetails) {
       revealDetails();
     }
+
     startScramble();
   };
 
   const handleTitleWheel = () => {
     isScrollLockedRef.current = true;
+
     if (scrollUnlockTimerRef.current) {
       window.clearTimeout(scrollUnlockTimerRef.current);
     }
+
     scrollUnlockTimerRef.current = window.setTimeout(() => {
       isScrollLockedRef.current = false;
       scrollUnlockTimerRef.current = null;
@@ -169,7 +185,9 @@ export function HeroSection({
 
   useEffect(() => {
     if (!isProjectCardVisible) return;
+
     setShowDetails(false);
+
     if (hideDetailsTimerRef.current) {
       window.clearTimeout(hideDetailsTimerRef.current);
       hideDetailsTimerRef.current = null;
@@ -193,6 +211,7 @@ export function HeroSection({
     const typeNext = () => {
       charIndex += 1;
       setTypedSubtitle(subtitleText.slice(0, charIndex));
+
       if (charIndex >= subtitleText.length) {
         subtitleTypingTimerRef.current = null;
         return;
@@ -210,7 +229,7 @@ export function HeroSection({
         subtitleTypingTimerRef.current = null;
       }
     };
-  }, [showDetails, subtitleText]);
+  }, [showDetails]);
 
   const handleTitlePointerLeave = () => {
     pointerInsideRef.current = false;
@@ -219,17 +238,24 @@ export function HeroSection({
 
   return (
     <section
+      ref={heroRef}
       className={`hero-section ${isGlitching ? 'is-glitching' : ''}`}
       id="inicio"
       style={{ '--glitch-strength': glitchStrength } as CSSProperties}
     >
       <CanvasGlitch />
       <div className="hero-glitch-overlay" aria-hidden="true" />
+
       <motion.div
-        className="hero-title-wrapper"
+        className={`hero-title-wrapper ${
+          hideFixedTitle || isVideoHovering ? 'hero-title-wrapper-hidden' : ''
+        }`}
         initial={{ opacity: 0, filter: 'blur(6px)' }}
-        animate={{ opacity: isVideoHovering ? 0 : 1, filter: isVideoHovering ? 'blur(6px)' : 'blur(0px)' }}
-        style={{ pointerEvents: isVideoHovering ? 'none' : 'auto' }}
+        animate={{
+          opacity: hideFixedTitle || isVideoHovering ? 0 : 1,
+          filter: hideFixedTitle || isVideoHovering ? 'blur(6px)' : 'blur(0px)',
+        }}
+        style={{ pointerEvents: hideFixedTitle || isVideoHovering ? 'none' : 'auto' }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         onPointerEnter={handleTitlePointerEnter}
         onPointerMove={handleTitlePointerMove}
@@ -237,7 +263,10 @@ export function HeroSection({
         onWheel={handleTitleWheel}
       >
         <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <span className="hero-title-measure" aria-hidden="true">FJR.</span>
+          <span className="hero-title-measure" aria-hidden="true">
+            FJR.
+          </span>
+
           <span className="hero-title-live">
             <TextScramble
               as="span"
@@ -253,7 +282,7 @@ export function HeroSection({
 
         <div className="hero-subtitle-reveal">
           <AnimatePresence mode="wait">
-            {showDetails && (
+            {showDetails && !hideFixedTitle && (
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
@@ -263,7 +292,9 @@ export function HeroSection({
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
                 {typedSubtitle}
-                <span className="hero-subtitle-caret" aria-hidden="true">|</span>
+                <span className="hero-subtitle-caret" aria-hidden="true">
+                  |
+                </span>
               </motion.p>
             )}
           </AnimatePresence>
@@ -271,7 +302,7 @@ export function HeroSection({
       </motion.div>
 
       <AnimatePresence>
-        {showDetails && (
+        {showDetails && !hideFixedTitle && (
           <motion.div
             className="social-icons"
             initial={{ y: 100, opacity: 0 }}
@@ -287,6 +318,7 @@ export function HeroSection({
             >
               <FaGithub />
             </a>
+
             <a
               href="https://www.linkedin.com/in/flaviojuniorls"
               target="_blank"

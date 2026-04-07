@@ -60,7 +60,6 @@ body {
   --glitch-strength: 1;
 }
 
-
 .glitch-image {
   position: fixed;
   background: #000;
@@ -83,8 +82,12 @@ body {
 }
 
 @keyframes flick {
-  0% { opacity: 0.72; }
-  100% { opacity: 0.98; }
+  0% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 0.98;
+  }
 }
 
 @keyframes turnOn {
@@ -115,10 +118,12 @@ body {
   transform: translate(-50%, -50%);
   pointer-events: auto;
   z-index: 40;
-  transition: opacity 0.8s ease, filter 0.8s ease;
+  transition: opacity 0.8s ease, filter 0.8s ease, visibility 0.8s ease;
 }
 
 .hero-title-wrapper-hidden {
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -148,6 +153,27 @@ body {
 .hero-title.is-glow {
   text-shadow: 0 0 4px rgba(255, 255, 255, 0.24), 0 0 12px rgba(255, 255, 255, 0.13);
   transform: scale(1.02);
+}
+
+/* Masked Hero Title Styles */
+.hero-title + div {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: #000;
+  pointer-events: none;
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s ease, clip-path 0.1s ease;
+  z-index: 1;
 }
 
 .hero-section.is-glitching .hero-glitch-overlay {
@@ -193,7 +219,7 @@ body {
   display: flex;
   justify-content: flex-start;
   min-height: 1.2rem;
-  padding-left: 1.0ch;
+  padding-left: 1ch;
 }
 
 .hero-subtitle-caret {
@@ -203,10 +229,12 @@ body {
 }
 
 @keyframes subtitle-caret-blink {
-  0%, 46% {
+  0%,
+  46% {
     opacity: 1;
   }
-  47%, 100% {
+  47%,
+  100% {
     opacity: 0;
   }
 }
@@ -229,6 +257,7 @@ body {
   justify-content: center;
 }
 
+/* Projects antiga - mantida temporariamente para transição */
 .projects-section {
   min-height: 100vh;
   position: relative;
@@ -271,6 +300,15 @@ body {
 
 .project-video.is-hovered {
   opacity: 1;
+}
+
+/* Nova seção do slider */
+.projects-slider-section {
+  position: relative;
+  min-height: 100vh;
+  background: #000;
+  overflow: hidden;
+  z-index: 2;
 }
 
 .about-section {
