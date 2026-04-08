@@ -50,32 +50,41 @@ export function HeroSection({
     const el = heroRef.current;
     if (!el) return;
 
-    const hideThreshold = 0.28;
-    const showThreshold = 0.45;
+    let rafId: number | null = null;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const ratio = entry.intersectionRatio;
+    const updateTitleVisibility = () => {
+      const { top, height } = el.getBoundingClientRect();
+      const hideAt = -(height * 0.2);
+      const showAt = -(height * 0.08);
 
-        if (!isFixedTitleHiddenRef.current && ratio <= hideThreshold) {
-          isFixedTitleHiddenRef.current = true;
-          setHideFixedTitle(true);
-          return;
-        }
-
-        if (isFixedTitleHiddenRef.current && ratio >= showThreshold) {
-          isFixedTitleHiddenRef.current = false;
-          setHideFixedTitle(false);
-        }
-      },
-      {
-        threshold: [0, hideThreshold, showThreshold, 0.75, 1],
+      if (!isFixedTitleHiddenRef.current && top <= hideAt) {
+        isFixedTitleHiddenRef.current = true;
+        setHideFixedTitle(true);
+      } else if (isFixedTitleHiddenRef.current && top >= showAt) {
+        isFixedTitleHiddenRef.current = false;
+        setHideFixedTitle(false);
       }
-    );
+    };
 
-    observer.observe(el);
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateTitleVisibility();
+      });
+    };
 
-    return () => observer.disconnect();
+    updateTitleVisibility();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, []);
 
   useEffect(() => {
