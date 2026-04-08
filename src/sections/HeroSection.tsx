@@ -41,6 +41,7 @@ export function HeroSection({
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
+  const isFixedTitleHiddenRef = useRef(false);
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const glitchWindowMs = 5000;
@@ -49,12 +50,26 @@ export function HeroSection({
     const el = heroRef.current;
     if (!el) return;
 
+    const hideThreshold = 0.28;
+    const showThreshold = 0.45;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setHideFixedTitle(entry.intersectionRatio < 0.35);
+        const ratio = entry.intersectionRatio;
+
+        if (!isFixedTitleHiddenRef.current && ratio <= hideThreshold) {
+          isFixedTitleHiddenRef.current = true;
+          setHideFixedTitle(true);
+          return;
+        }
+
+        if (isFixedTitleHiddenRef.current && ratio >= showThreshold) {
+          isFixedTitleHiddenRef.current = false;
+          setHideFixedTitle(false);
+        }
       },
       {
-        threshold: [0, 0.15, 0.35, 0.5, 0.75, 1],
+        threshold: [0, hideThreshold, showThreshold, 0.75, 1],
       }
     );
 
