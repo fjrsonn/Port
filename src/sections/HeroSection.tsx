@@ -100,6 +100,22 @@ export function HeroSection({
     }, heroAppearDuration + 150);
   }, [isMainVisible]);
 
+  useEffect(() => {
+    if (!hideFixedTitle) {
+      hasAutoJumpedToSliderRef.current = false;
+      return;
+    }
+
+    if (hasAutoJumpedToSliderRef.current) return;
+
+    const projectsSection = document.getElementById('projects');
+    if (!projectsSection) return;
+
+    hasAutoJumpedToSliderRef.current = true;
+    const nextTop = projectsSection.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: nextTop, behavior: 'auto' });
+  }, [hideFixedTitle]);
+
   useLayoutEffect(() => {
     if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
     hasPlayedHeroRevealRef.current = true;
