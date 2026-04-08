@@ -45,6 +45,7 @@ export function HeroSection({
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const glitchWindowMs = 5000;
+  const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
 
   useEffect(() => {
     const el = heroRef.current;
@@ -271,15 +272,16 @@ export function HeroSection({
       <div className="hero-glitch-overlay" aria-hidden="true" />
 
       <motion.div
-        className={`hero-title-wrapper ${
-          hideFixedTitle || isVideoHovering ? 'hero-title-wrapper-hidden' : ''
-        }`}
+        className="hero-title-wrapper"
         initial={{ opacity: 0, filter: 'blur(6px)' }}
         animate={{
-          opacity: hideFixedTitle || isVideoHovering ? 0 : 1,
-          filter: hideFixedTitle || isVideoHovering ? 'blur(6px)' : 'blur(0px)',
+          opacity: shouldHideFixedTitle ? 0 : 1,
+          filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
         }}
-        style={{ pointerEvents: hideFixedTitle || isVideoHovering ? 'none' : 'auto' }}
+        style={{
+          pointerEvents: shouldHideFixedTitle ? 'none' : 'auto',
+          visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
+        }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         onPointerEnter={handleTitlePointerEnter}
         onPointerMove={handleTitlePointerMove}
