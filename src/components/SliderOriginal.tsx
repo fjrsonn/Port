@@ -822,37 +822,6 @@ export default function SliderOriginal() {
 
   return (
     <div ref={rootRef} className="slider-original-root">
-      <header className="slider-head">
-        <a
-          href="https://codepen.io/ReGGae/live/povjKxV"
-          target="_blank"
-          rel="noreferrer"
-          data-txt="fullscreen is best"
-        >
-          <div>fullscreen is best</div>
-        </a>
-
-        <div>
-          <a
-            href="https://twitter.com/Jesper_Landberg"
-            target="_blank"
-            rel="noreferrer"
-            data-txt="about"
-          >
-            <div>about</div>
-          </a>
-
-          <a
-            href="https://twitter.com/Jesper_Landberg"
-            target="_blank"
-            rel="noreferrer"
-            data-txt="contact"
-          >
-            <div>contact</div>
-          </a>
-        </div>
-      </header>
-
       <div className="slider js-drag-area">
         <div ref={sliderRef} className="slider__inner js-slider">
           {slides.slice(0, 8).map((slide, index) => {
