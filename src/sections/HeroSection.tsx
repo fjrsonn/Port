@@ -41,6 +41,7 @@ export function HeroSection({
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
+  const isFixedTitleHiddenRef = useRef(false);
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const glitchWindowMs = 5000;
@@ -49,18 +50,41 @@ export function HeroSection({
     const el = heroRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHideFixedTitle(entry.intersectionRatio < 0.35);
-      },
-      {
-        threshold: [0, 0.15, 0.35, 0.5, 0.75, 1],
+    let rafId: number | null = null;
+
+    const updateTitleVisibility = () => {
+      const { top, height } = el.getBoundingClientRect();
+      const hideAt = -(height * 0.2);
+      const showAt = -(height * 0.08);
+
+      if (!isFixedTitleHiddenRef.current && top <= hideAt) {
+        isFixedTitleHiddenRef.current = true;
+        setHideFixedTitle(true);
+      } else if (isFixedTitleHiddenRef.current && top >= showAt) {
+        isFixedTitleHiddenRef.current = false;
+        setHideFixedTitle(false);
       }
-    );
+    };
 
-    observer.observe(el);
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateTitleVisibility();
+      });
+    };
 
-    return () => observer.disconnect();
+    updateTitleVisibility();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, []);
 
   useEffect(() => {
