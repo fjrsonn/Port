@@ -41,6 +41,7 @@ export function HeroSection({
   const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
+  const hasAutoJumpedToSliderRef = useRef(false);
   const isFixedTitleHiddenRef = useRef(false);
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
@@ -99,6 +100,22 @@ export function HeroSection({
       startScramble();
     }, heroAppearDuration + 150);
   }, [isMainVisible]);
+
+  useEffect(() => {
+    if (!hideFixedTitle) {
+      hasAutoJumpedToSliderRef.current = false;
+      return;
+    }
+
+    if (hasAutoJumpedToSliderRef.current) return;
+
+    const projectsSection = document.getElementById('projects');
+    if (!projectsSection) return;
+
+    hasAutoJumpedToSliderRef.current = true;
+    const nextTop = projectsSection.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: nextTop, behavior: 'auto' });
+  }, [hideFixedTitle]);
 
   useLayoutEffect(() => {
     if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
