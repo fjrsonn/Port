@@ -118,13 +118,6 @@ body {
   transform: translate(-50%, -50%);
   pointer-events: auto;
   z-index: 40;
-  transition: opacity 0.8s ease, filter 0.8s ease, visibility 0.8s ease;
-}
-
-.hero-title-wrapper-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .hero-title {
