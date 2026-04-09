@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent } from 'react';
+import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { TextScramble } from '../components/TextScramble';
-import { CanvasGlitch } from '../components/CanvasGlitch';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -24,8 +23,6 @@ export function HeroSection({
   const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
-  const [isGlitching, setIsGlitching] = useState(false);
-  const [glitchStrength, setGlitchStrength] = useState(1);
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
 
   const isScramblingRef = useRef(false);
@@ -35,7 +32,6 @@ export function HeroSection({
   const scrollUnlockTimerRef = useRef<number | null>(null);
   const autoScrambleTimerRef = useRef<number | null>(null);
   const hideDetailsTimerRef = useRef<number | null>(null);
-  const glitchWindowTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
 
   const hasAutoScrambledRef = useRef(false);
@@ -44,7 +40,6 @@ export function HeroSection({
   const isFixedTitleHiddenRef = useRef(false);
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
-  const glitchWindowMs = 5000;
   const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
 
   useEffect(() => {
@@ -127,24 +122,9 @@ export function HeroSection({
       if (scrollUnlockTimerRef.current) window.clearTimeout(scrollUnlockTimerRef.current);
       if (autoScrambleTimerRef.current) window.clearTimeout(autoScrambleTimerRef.current);
       if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
-      if (glitchWindowTimerRef.current) window.clearTimeout(glitchWindowTimerRef.current);
       if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
     };
   }, []);
-
-  const triggerGlitchWindow = useCallback(() => {
-    setGlitchStrength(0.85 + Math.random() * 0.45);
-    setIsGlitching(true);
-
-    if (glitchWindowTimerRef.current) {
-      window.clearTimeout(glitchWindowTimerRef.current);
-    }
-
-    glitchWindowTimerRef.current = window.setTimeout(() => {
-      setIsGlitching(false);
-      glitchWindowTimerRef.current = null;
-    }, glitchWindowMs);
-  }, [glitchWindowMs]);
 
   const scheduleDetailsAutoHide = useCallback(() => {
     if (hideDetailsTimerRef.current) {
@@ -166,9 +146,8 @@ export function HeroSection({
   const startScramble = useCallback(() => {
     if (isScramblingRef.current) return;
     isScramblingRef.current = true;
-    triggerGlitchWindow();
     setScrambleKey((prev) => prev + 1);
-  }, [triggerGlitchWindow]);
+  }, []);
 
   const handleTitlePointerEnter = () => {
     pointerInsideRef.current = true;
@@ -204,9 +183,8 @@ export function HeroSection({
   const handleScrambleComplete = useCallback(() => {
     isScramblingRef.current = false;
     hasCompletedPrimaryScrambleRef.current = true;
-    triggerGlitchWindow();
     revealDetails();
-  }, [revealDetails, triggerGlitchWindow]);
+  }, [revealDetails]);
 
   useEffect(() => {
     if (!isProjectCardVisible) return;
@@ -264,13 +242,9 @@ export function HeroSection({
   return (
     <section
       ref={heroRef}
-      className={`hero-section ${isGlitching ? 'is-glitching' : ''}`}
+      className="hero-section"
       id="inicio"
-      style={{ '--glitch-strength': glitchStrength } as CSSProperties}
     >
-      <CanvasGlitch />
-      <div className="hero-glitch-overlay" aria-hidden="true" />
-
       <motion.div
         className="hero-title-wrapper"
         initial={{ opacity: 0, filter: 'blur(6px)' }}
