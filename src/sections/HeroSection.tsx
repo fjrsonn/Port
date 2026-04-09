@@ -3,7 +3,6 @@ import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
-import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -20,13 +19,10 @@ export function HeroSection({
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
 
   const [hovered, setHovered] = useState(false);
-  const [scrambleKey, setScrambleKey] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
 
-  const isScramblingRef = useRef(false);
-  const hasCompletedPrimaryScrambleRef = useRef(false);
   const pointerInsideRef = useRef(false);
   const isScrollLockedRef = useRef(false);
   const scrollUnlockTimerRef = useRef<number | null>(null);
@@ -91,7 +87,7 @@ export function HeroSection({
     autoScrambleTimerRef.current = window.setTimeout(() => {
       if (hasAutoScrambledRef.current) return;
       hasAutoScrambledRef.current = true;
-      startScramble();
+      revealDetails();
     }, heroAppearDuration + 150);
   }, [isMainVisible]);
 
@@ -143,12 +139,6 @@ export function HeroSection({
     scheduleDetailsAutoHide();
   }, [isProjectCardVisible, scheduleDetailsAutoHide]);
 
-  const startScramble = useCallback(() => {
-    if (isScramblingRef.current) return;
-    isScramblingRef.current = true;
-    setScrambleKey((prev) => prev + 1);
-  }, []);
-
   const handleTitlePointerEnter = () => {
     pointerInsideRef.current = true;
     setHovered(true);
@@ -160,11 +150,7 @@ export function HeroSection({
     if (isScrollLockedRef.current) return;
     if (event.movementX === 0 && event.movementY === 0) return;
 
-    if (hasCompletedPrimaryScrambleRef.current && !showDetails) {
-      revealDetails();
-    }
-
-    startScramble();
+    revealDetails();
   };
 
   const handleTitleWheel = () => {
@@ -179,12 +165,6 @@ export function HeroSection({
       scrollUnlockTimerRef.current = null;
     }, 180);
   };
-
-  const handleScrambleComplete = useCallback(() => {
-    isScramblingRef.current = false;
-    hasCompletedPrimaryScrambleRef.current = true;
-    revealDetails();
-  }, [revealDetails]);
 
   useEffect(() => {
     if (!isProjectCardVisible) return;
@@ -267,17 +247,7 @@ export function HeroSection({
             FJR.
           </span>
 
-          <span className="hero-title-live">
-            <TextScramble
-              as="span"
-              triggerKey={scrambleKey}
-              duration={3}
-              speed={0.045}
-              onScrambleComplete={handleScrambleComplete}
-            >
-              FJR.
-            </TextScramble>
-          </span>
+          <span className="hero-title-live">FJR.</span>
         </h1>
 
         <div className="hero-subtitle-reveal">
