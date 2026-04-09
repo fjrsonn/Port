@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { motion } from 'framer-motion';
-import { TextScramble } from '../components/TextScramble';
 
 type HeroSectionProps = {
   videoUnderTitleProgress?: number;
@@ -10,11 +9,9 @@ type HeroSectionProps = {
 
 export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = false }: HeroSectionProps) {
   const [hovered, setHovered] = useState(false);
-  const isScramblingRef = useRef(false);
   const pointerInsideRef = useRef(false);
   const isScrollLockedRef = useRef(false);
   const scrollUnlockTimerRef = useRef<number | null>(null);
-  const [scrambleKey, setScrambleKey] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const titleWrapperRef = useRef<HTMLDivElement>(null);
   const [maskImage, setMaskImage] = useState<string>('');
@@ -89,12 +86,6 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
     };
   }, [videoUnderTitleProgress]);
 
-  const startScramble = () => {
-    if (isScramblingRef.current) return;
-    isScramblingRef.current = true;
-    setScrambleKey((prev) => prev + 1);
-  };
-
   const handleTitlePointerEnter = () => {
     pointerInsideRef.current = true;
     setHovered(true);
@@ -105,7 +96,6 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
     if (event.pointerType !== 'mouse') return;
     if (isScrollLockedRef.current) return;
     if (event.movementX === 0 && event.movementY === 0) return;
-    startScramble();
   };
 
   const handleTitleWheel = () => {
@@ -120,10 +110,6 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
       scrollUnlockTimerRef.current = null;
     }, 180);
   };
-
-  const handleScrambleComplete = useCallback(() => {
-    isScramblingRef.current = false;
-  }, []);
 
   const handleTitlePointerLeave = () => {
     pointerInsideRef.current = false;
@@ -159,15 +145,7 @@ export function HeroSection({ videoUnderTitleProgress = 0, isVideoHovering = fal
             position: 'relative',
           }}
         >
-          <TextScramble
-            as="span"
-            triggerKey={scrambleKey}
-            duration={3}
-            speed={0.045}
-            onScrambleComplete={handleScrambleComplete}
-          >
-            FJR.
-          </TextScramble>
+          FJR.
         </h1>
       </motion.div>
     </section>
