@@ -55,8 +55,8 @@ export function HeroSection({
 
     const updateTitleVisibility = () => {
       const { top, height } = el.getBoundingClientRect();
-      const hideAt = -(height * 0.88);
-      const showAt = -(height * 0.76);
+      const hideAt = -(height * 0.9);
+      const showAt = -(height * 0.78);
 
       if (!isFixedTitleHiddenRef.current && top <= hideAt) {
         isFixedTitleHiddenRef.current = true;
