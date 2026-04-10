@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@100;200;300;400;600;700&display=swap');
 
 :root {
   font-family: 'Alexandria', sans-serif;
@@ -16,7 +16,7 @@ body,
   margin: 0;
   width: 100%;
   min-height: 100%;
-  background: #000;
+  background: #111;
 }
 
 body {
@@ -29,7 +29,7 @@ body {
   z-index: 50;
   display: grid;
   place-items: center;
-  background: #000;
+  background: #111;
 }
 
 .intro-title {
@@ -64,7 +64,7 @@ body {
   place-items: center;
   overflow: hidden;
   isolation: isolate;
-  background: #000;
+  background: #111;
 }
 
 .hero-title-wrapper--particles {
@@ -80,7 +80,7 @@ body {
 .hero-subtitle-reveal--particles {
   position: absolute;
   left: 50%;
-  bottom: 4.8rem;
+  bottom: 2.8rem;
   transform: translateX(-50%);
   width: 100%;
   display: flex;
@@ -96,6 +96,7 @@ body {
   letter-spacing: 0.08em;
   text-align: center;
   margin: 0;
+  font-weight: 100;
 }
 
 .hero-subtitle-caret {
