@@ -23,6 +23,40 @@ body {
   overflow-x: hidden;
 }
 
+.intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.intro-title {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: clamp(2rem, 8vw, 5rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.main-content {
+  transition: opacity 0.45s ease, filter 0.45s ease;
+}
+
+.main-content.main-hidden {
+  opacity: 0;
+  filter: blur(8px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.main-content.main-visible {
+  opacity: 1;
+  filter: blur(0);
+  visibility: visible;
+}
+
 .hero-section {
   position: relative;
   min-height: 100vh;
@@ -35,8 +69,8 @@ body {
 
 .hero-title-wrapper--particles {
   position: relative;
-  width: min(96vw, 1200px);
-  height: min(78vh, 720px);
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +142,7 @@ body {
 @media (max-width: 768px) {
   .hero-title-wrapper--particles {
     width: 100vw;
-    height: 58vh;
+    height: 100vh;
   }
 
   .hero-subtitle-reveal--particles {
