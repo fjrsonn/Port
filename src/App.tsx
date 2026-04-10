@@ -19,15 +19,16 @@ export default function App() {
       setShowIntro(false);
     }, introTextTimelineMs);
 
-    const showMainTimer = window.setTimeout(() => {
-      setShowMain(true);
-    }, introTextTimelineMs);
-
     return () => {
       window.clearTimeout(hideIntroTimer);
-      window.clearTimeout(showMainTimer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showIntro) {
+      setShowMain(true);
+    }
+  }, [showIntro]);
 
   return (
     <>
