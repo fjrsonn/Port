@@ -21,7 +21,6 @@ export function HeroSection({
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
-  const [currentShape, setCurrentShape] = useState<'fjr' | 'profile'>('fjr');
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
@@ -164,13 +163,9 @@ export function HeroSection({
     };
   }, [showDetails]);
 
-  const handleShapeChange = useCallback(
-    (shape: 'fjr' | 'profile') => {
-      setCurrentShape(shape);
-      revealDetails();
-    },
-    [revealDetails],
-  );
+  const handleShapeChange = useCallback(() => {
+    revealDetails();
+  }, [revealDetails]);
 
   return (
     <section ref={heroRef} className="hero-section" id="inicio">
@@ -189,10 +184,6 @@ export function HeroSection({
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       >
         <HeroParticlesAdvanced onShapeChange={handleShapeChange} />
-
-        <div className="hero-particles-caption" aria-hidden="true">
-          <span>{currentShape === 'fjr' ? 'click to reveal' : 'click to return'}</span>
-        </div>
 
         <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">

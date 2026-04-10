@@ -77,21 +77,6 @@ body {
   z-index: 3;
 }
 
-.hero-particles-caption {
-  position: absolute;
-  left: 50%;
-  bottom: 2.4rem;
-  transform: translateX(-50%);
-  z-index: 4;
-  pointer-events: none;
-  font-size: 0.72rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
-  text-align: center;
-  white-space: nowrap;
-}
-
 .hero-subtitle-reveal--particles {
   position: absolute;
   left: 50%;
@@ -120,9 +105,8 @@ body {
 
 .social-icons {
   position: absolute;
-  left: 50%;
+  right: 2.2rem;
   bottom: 2.8rem;
-  transform: translateX(-50%);
   display: flex;
   gap: 1.25rem;
   z-index: 5;
@@ -149,14 +133,8 @@ body {
     bottom: 5rem;
   }
 
-  .hero-particles-caption {
-    bottom: 2rem;
-    font-size: 0.64rem;
-    letter-spacing: 0.2em;
-    white-space: normal;
-  }
-
   .social-icons {
+    right: 1.4rem;
     bottom: 2.1rem;
   }
 }
