@@ -1,0 +1,1223 @@
+# Versão final mais fiel ao demo do Bruno — arquivos completos
+
+Esta versão troca a base atual por uma implementação muito mais próxima do original do Bruno Imbrizi:
+
+* partículas como **quads** em `InstancedBufferGeometry`
+* `RawShaderMaterial`
+* `TouchTexture` com trail, força e easing
+* `show()` / `hide()` via uniforms como no demo original
+* descarte de pixels escuros por threshold, como no original
+* troca entre `FJR.` e `profile` por **hide -> destroy -> init -> show**, mais próxima do demo original que troca de sample por clique
+
+O demo original usa uma arquitetura com `WebGLView`, `Particles`, `TouchTexture` e `RawShaderMaterial`; `Particles.js` cria um `InstancedBufferGeometry`, descarta pixels abaixo de threshold, anima `uSize/uRandom/uDepth` com GSAP e usa `uTouch` para deslocar partículas no shader. fileciteturn11file0 fileciteturn12file0 fileciteturn13file0 fileciteturn14file0turn15file0
+
+> Observação honesta: 100% literal é inviável porque o seu projeto não é o demo isolado do Bruno e a sua integração precisa coexistir com React, Vite e a hero. Mas esta é a base mais fiel que eu consigo te entregar dentro da sua stack atual.
+
+---
+
+## 1) Estrutura final
+
+```txt
+src/
+  assets/
+    hero/
+      fjr-mask.png
+      profile-mask.png
+  components/
+    hero-particles/
+      engine/
+        HeroParticlesEngine.ts
+        Particles.ts
+        TouchTexture.ts
+        textureUtils.ts
+        types.ts
+      shaders/
+        particle.vert.glsl
+        particle.frag.glsl
+      HeroParticlesAdvanced.tsx
+      heroParticles.scss
+  sections/
+    HeroSection.tsx
+  vite-env.d.ts
+vite.config.ts
+src/styles.css
+```
+
+---
+
+## 2) `vite.config.ts`
+
+```ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+});
+```
+
+---
+
+## 3) `src/vite-env.d.ts`
+
+```ts
+/// <reference types="vite/client" />
+
+declare module '*.glsl?raw' {
+  const src: string;
+  export default src;
+}
+```
+
+---
+
+## 4) `src/components/hero-particles/engine/types.ts`
+
+```ts
+import * as THREE from 'three';
+
+export type ShapeName = 'fjr' | 'profile';
+
+export type ProcessedTexture = {
+  texture: THREE.CanvasTexture;
+  canvas: HTMLCanvasElement;
+  width: number;
+  height: number;
+};
+
+export type EngineOptions = {
+  container: HTMLDivElement;
+  onShapeChange?: (shape: ShapeName) => void;
+};
+```
+
+---
+
+## 5) `src/components/hero-particles/engine/textureUtils.ts`
+
+```ts
+import * as THREE from 'three';
+import type { ProcessedTexture } from './types';
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+export async function createProcessedTexture(
+  src: string,
+  maxWidth = 360,
+  maxHeight = 360,
+): Promise<ProcessedTexture> {
+  const image = await loadImage(src);
+
+  const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+  const width = Math.max(2, Math.floor(image.width * ratio));
+  const height = Math.max(2, Math.floor(image.height * ratio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    throw new Error('Não foi possível criar o contexto 2D da textura processada.');
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.flipY = false;
+  texture.needsUpdate = true;
+
+  return {
+    texture,
+    canvas,
+    width,
+    height,
+  };
+}
+```
+
+---
+
+## 6) `src/components/hero-particles/engine/TouchTexture.ts`
+
+```ts
+import * as THREE from 'three';
+
+function easeOutSine(t: number) {
+  return Math.sin((t * Math.PI) / 2);
+}
+
+export default class TouchTexture {
+  public texture: THREE.Texture;
+  public canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+
+  private size = 64;
+  private maxAge = 120;
+  private radius = 0.15;
+  private trail: Array<{ x: number; y: number; age: number; force: number }> = [];
+
+  constructor() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.canvas.height = this.size;
+
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Não foi possível criar o contexto do TouchTexture.');
+    }
+
+    this.ctx = ctx;
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.texture = new THREE.Texture(this.canvas);
+    this.texture.needsUpdate = true;
+  }
+
+  update() {
+    this.clear();
+
+    this.trail.forEach((point, i) => {
+      point.age += 1;
+      if (point.age > this.maxAge) {
+        this.trail.splice(i, 1);
+      }
+    });
+
+    this.trail.forEach((point) => {
+      this.drawTouch(point);
+    });
+
+    this.texture.needsUpdate = true;
+  }
+
+  addTouch(point: { x: number; y: number }) {
+    let force = 0;
+    const last = this.trail[this.trail.length - 1];
+
+    if (last) {
+      const dx = last.x - point.x;
+      const dy = last.y - point.y;
+      const dd = dx * dx + dy * dy;
+      force = Math.min(dd * 10000, 1);
+    }
+
+    this.trail.push({
+      x: point.x,
+      y: point.y,
+      age: 0,
+      force,
+    });
+  }
+
+  private clear() {
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  private drawTouch(point: { x: number; y: number; age: number; force: number }) {
+    const pos = {
+      x: point.x * this.size,
+      y: (1 - point.y) * this.size,
+    };
+
+    let intensity = 1;
+    if (point.age < this.maxAge * 0.3) {
+      intensity = easeOutSine(point.age / (this.maxAge * 0.3));
+    } else {
+      intensity = easeOutSine(1 - (point.age - this.maxAge * 0.3) / (this.maxAge * 0.7));
+    }
+
+    intensity *= point.force;
+
+    const radius = this.size * this.radius * intensity;
+    const gradient = this.ctx.createRadialGradient(pos.x, pos.y, radius * 0.25, pos.x, pos.y, radius);
+    gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.0)');
+
+    this.ctx.beginPath();
+    this.ctx.fillStyle = gradient;
+    this.ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    this.ctx.fill();
+  }
+}
+```
+
+---
+
+## 7) `src/components/hero-particles/shaders/particle.vert.glsl`
+
+```glsl
+precision highp float;
+
+attribute float pindex;
+attribute vec3 position;
+attribute vec3 offset;
+attribute vec2 uv;
+attribute float angle;
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+
+uniform float uTime;
+uniform float uRandom;
+uniform float uDepth;
+uniform float uSize;
+uniform vec2 uTextureSize;
+uniform sampler2D uTexture;
+uniform sampler2D uTouch;
+
+varying vec2 vPUv;
+varying vec2 vUv;
+
+float random(float n) {
+  return fract(sin(n) * 43758.5453123);
+}
+
+float mod289(float x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
+vec2 mod289(vec2 x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
+vec3 mod289(vec3 x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
+
+vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}
+
+float snoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v -   i + dot(i, C.xx);
+  vec2 i1;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod289(i);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m;
+  m = m*m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0+h*h);
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+void main() {
+  vUv = uv;
+
+  vec2 puv = offset.xy / uTextureSize;
+  vPUv = puv;
+
+  vec4 colA = texture2D(uTexture, puv);
+  float grey = colA.r * 0.21 + colA.g * 0.71 + colA.b * 0.07;
+
+  vec3 displaced = offset;
+  displaced.xy += vec2(random(pindex) - 0.5, random(offset.x + pindex) - 0.5) * uRandom;
+  float rndz = random(pindex) + snoise(vec2(pindex * 0.1, uTime * 0.1));
+  displaced.z += rndz * (random(pindex) * 2.0 * uDepth);
+  displaced.xy -= uTextureSize * 0.5;
+
+  float t = texture2D(uTouch, puv).r;
+  displaced.z += t * 20.0 * rndz;
+  displaced.x += cos(angle) * t * 20.0 * rndz;
+  displaced.y += sin(angle) * t * 20.0 * rndz;
+
+  float psize = (snoise(vec2(uTime, pindex) * 0.5) + 2.0);
+  psize *= max(grey, 0.2);
+  psize *= uSize;
+
+  vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+  mvPosition.xyz += position * psize;
+  vec4 finalPosition = projectionMatrix * mvPosition;
+
+  gl_Position = finalPosition;
+}
+```
+
+---
+
+## 8) `src/components/hero-particles/shaders/particle.frag.glsl`
+
+```glsl
+precision highp float;
+
+uniform sampler2D uTexture;
+
+varying vec2 vPUv;
+varying vec2 vUv;
+
+void main() {
+  vec4 color = vec4(0.0);
+  vec2 uv = vUv;
+  vec2 puv = vPUv;
+
+  vec4 colA = texture2D(uTexture, puv);
+
+  float grey = colA.r * 0.21 + colA.g * 0.71 + colA.b * 0.07;
+  vec4 colB = vec4(grey, grey, grey, 1.0);
+
+  float border = 0.3;
+  float radius = 0.5;
+  float dist = radius - distance(uv, vec2(0.5));
+  float t = smoothstep(0.0, border, dist);
+
+  color = colB;
+  color.a = t;
+
+  gl_FragColor = color;
+}
+```
+
+---
+
+## 9) `src/components/hero-particles/engine/Particles.ts`
+
+```ts
+import * as THREE from 'three';
+import { gsap, Quad } from 'gsap';
+import TouchTexture from './TouchTexture';
+import { createProcessedTexture } from './textureUtils';
+import type { ProcessedTexture } from './types';
+import vertexShader from '../shaders/particle.vert.glsl?raw';
+import fragmentShader from '../shaders/particle.frag.glsl?raw';
+
+export default class Particles {
+  public container: THREE.Object3D;
+  public object3D: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.RawShaderMaterial> | null = null;
+  public hitArea: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
+  public texture: ProcessedTexture | null = null;
+  public touch: TouchTexture | null = null;
+
+  private engine: any;
+  private width = 0;
+  private height = 0;
+  private numPoints = 0;
+  private moveHandler?: (uv: { x: number; y: number }) => void;
+
+  constructor(engine: any) {
+    this.engine = engine;
+    this.container = new THREE.Object3D();
+  }
+
+  async init(src: string) {
+    this.texture = await createProcessedTexture(src, 360, 360);
+    this.width = this.texture.width;
+    this.height = this.texture.height;
+
+    this.initPoints(true);
+    this.initHitArea();
+    this.initTouch();
+    this.resize();
+    this.show();
+  }
+
+  private initPoints(discardDarkPixels: boolean) {
+    if (!this.texture) return;
+
+    this.numPoints = this.width * this.height;
+
+    let numVisible = this.numPoints;
+    let threshold = 0;
+    let originalColors: Float32Array | undefined;
+
+    if (discardDarkPixels) {
+      numVisible = 0;
+      threshold = 34;
+
+      const ctx = this.texture.canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        throw new Error('Não foi possível ler os pixels da textura processada.');
+      }
+
+      const imgData = ctx.getImageData(0, 0, this.width, this.height);
+      originalColors = Float32Array.from(imgData.data);
+
+      for (let i = 0; i < this.numPoints; i += 1) {
+        if (originalColors[i * 4] > threshold) numVisible += 1;
+      }
+    }
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uRandom: { value: 1.0 },
+      uDepth: { value: 2.0 },
+      uSize: { value: 0.0 },
+      uTextureSize: { value: new THREE.Vector2(this.width, this.height) },
+      uTexture: { value: this.texture.texture },
+      uTouch: { value: null as THREE.Texture | null },
+    };
+
+    const material = new THREE.RawShaderMaterial({
+      uniforms,
+      vertexShader,
+      fragmentShader,
+      depthTest: false,
+      transparent: true,
+    });
+
+    const geometry = new THREE.InstancedBufferGeometry();
+
+    const positions = new THREE.BufferAttribute(new Float32Array(4 * 3), 3);
+    positions.setXYZ(0, -0.5,  0.5,  0.0);
+    positions.setXYZ(1,  0.5,  0.5,  0.0);
+    positions.setXYZ(2, -0.5, -0.5,  0.0);
+    positions.setXYZ(3,  0.5, -0.5,  0.0);
+    geometry.setAttribute('position', positions);
+
+    const uvs = new THREE.BufferAttribute(new Float32Array(4 * 2), 2);
+    uvs.setXY(0, 0.0, 0.0);
+    uvs.setXY(1, 1.0, 0.0);
+    uvs.setXY(2, 0.0, 1.0);
+    uvs.setXY(3, 1.0, 1.0);
+    geometry.setAttribute('uv', uvs);
+
+    geometry.setIndex([0, 2, 1, 2, 3, 1]);
+
+    const indices = new Float32Array(numVisible);
+    const offsets = new Float32Array(numVisible * 3);
+    const angles = new Float32Array(numVisible);
+
+    for (let i = 0, j = 0; i < this.numPoints; i += 1) {
+      if (discardDarkPixels && originalColors && originalColors[i * 4] <= threshold) continue;
+
+      offsets[j * 3] = i % this.width;
+      offsets[j * 3 + 1] = Math.floor(i / this.width);
+      offsets[j * 3 + 2] = 0;
+
+      indices[j] = i;
+      angles[j] = Math.random() * Math.PI;
+      j += 1;
+    }
+
+    geometry.setAttribute('pindex', new THREE.InstancedBufferAttribute(indices, 1, false));
+    geometry.setAttribute('offset', new THREE.InstancedBufferAttribute(offsets, 3, false));
+    geometry.setAttribute('angle', new THREE.InstancedBufferAttribute(angles, 1, false));
+
+    this.object3D = new THREE.Mesh(geometry, material);
+    this.container.add(this.object3D);
+  }
+
+  private initTouch() {
+    if (!this.touch) this.touch = new TouchTexture();
+    if (this.object3D) {
+      this.object3D.material.uniforms.uTouch.value = this.touch.texture;
+    }
+  }
+
+  private initHitArea() {
+    const geometry = new THREE.PlaneGeometry(this.width, this.height, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, depthTest: false });
+    material.visible = false;
+
+    this.hitArea = new THREE.Mesh(geometry, material);
+    this.container.add(this.hitArea);
+  }
+
+  update(delta: number) {
+    if (!this.object3D) return;
+    if (this.touch) this.touch.update();
+    this.object3D.material.uniforms.uTime.value += delta;
+  }
+
+  show(time = 1.0) {
+    if (!this.object3D) return;
+
+    gsap.fromTo(this.object3D.material.uniforms.uSize, { value: 0.5 }, { value: 1.5, duration: time });
+    gsap.to(this.object3D.material.uniforms.uRandom, { value: 2.0, duration: time });
+    gsap.fromTo(this.object3D.material.uniforms.uDepth, { value: 40.0 }, { value: 4.0, duration: time * 1.5 });
+  }
+
+  hide(time = 0.8) {
+    if (!this.object3D) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      gsap.to(this.object3D!.material.uniforms.uRandom, {
+        value: 5.0,
+        duration: time,
+        onComplete: () => resolve(),
+      });
+      gsap.to(this.object3D!.material.uniforms.uDepth, {
+        value: -20.0,
+        duration: time,
+        ease: 'power2.in',
+      });
+      gsap.to(this.object3D!.material.uniforms.uSize, {
+        value: 0.0,
+        duration: time * 0.8,
+      });
+    });
+  }
+
+  destroy() {
+    if (this.object3D) {
+      this.object3D.parent?.remove(this.object3D);
+      this.object3D.geometry.dispose();
+      this.object3D.material.dispose();
+      this.object3D = null;
+    }
+
+    if (this.hitArea) {
+      this.hitArea.parent?.remove(this.hitArea);
+      this.hitArea.geometry.dispose();
+      this.hitArea.material.dispose();
+      this.hitArea = null;
+    }
+
+    if (this.texture) {
+      this.texture.texture.dispose();
+      this.texture = null;
+    }
+  }
+
+  resize() {
+    if (!this.object3D || !this.hitArea) return;
+    const scale = this.engine.fovHeight / this.height;
+    this.object3D.scale.set(scale, scale, 1);
+    this.hitArea.scale.set(scale, scale, 1);
+  }
+
+  addTouch(uv: { x: number; y: number }) {
+    if (this.touch) this.touch.addTouch(uv);
+  }
+}
+```
+
+---
+
+## 10) `src/components/hero-particles/engine/HeroParticlesEngine.ts`
+
+```ts
+import * as THREE from 'three';
+import fjrMask from '../../../assets/hero/fjr-mask.png';
+import profileMask from '../../../assets/hero/profile-mask.png';
+import Particles from './Particles';
+import type { EngineOptions, ShapeName } from './types';
+
+export class HeroParticlesEngine {
+  private container: HTMLDivElement;
+  private scene: THREE.Scene;
+  private camera: THREE.PerspectiveCamera;
+  private renderer: THREE.WebGLRenderer;
+  private clock: THREE.Clock;
+  private frameId: number | null = null;
+  private raycaster: THREE.Raycaster;
+  private pointer: THREE.Vector2;
+  private currentShape: ShapeName = 'fjr';
+  private currentSample = 0;
+  private samples: string[] = [fjrMask, profileMask];
+  private onShapeChange?: (shape: ShapeName) => void;
+
+  public fovHeight = 0;
+  public particles: Particles;
+
+  constructor({ container, onShapeChange }: EngineOptions) {
+    this.container = container;
+    this.onShapeChange = onShapeChange;
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
+    this.camera.position.z = 300;
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setClearColor(0x000000, 0);
+
+    this.clock = new THREE.Clock(true);
+    this.raycaster = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+
+    this.container.appendChild(this.renderer.domElement);
+
+    this.particles = new Particles(this);
+    this.scene.add(this.particles.container);
+
+    this.handleResize = this.handleResize.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handleClick = this.handleClick.bind(this);
+    this.tick = this.tick.bind(this);
+  }
+
+  async init() {
+    await this.goto(0, false);
+    this.handleResize();
+    window.addEventListener('resize', this.handleResize);
+    this.container.addEventListener('pointermove', this.handlePointerMove);
+    this.container.addEventListener('click', this.handleClick);
+    this.tick();
+  }
+
+  private tick() {
+    const delta = this.clock.getDelta();
+    this.particles.update(delta);
+    this.renderer.render(this.scene, this.camera);
+    this.frameId = window.requestAnimationFrame(this.tick);
+  }
+
+  private async goto(index: number, animated = true) {
+    if (animated && this.particles.object3D) {
+      await this.particles.hide(0.8);
+      this.particles.destroy();
+    }
+
+    await this.particles.init(this.samples[index]);
+
+    this.currentSample = index;
+    this.currentShape = index === 0 ? 'fjr' : 'profile';
+    this.onShapeChange?.(this.currentShape);
+  }
+
+  private handleClick() {
+    const next = this.currentSample < this.samples.length - 1 ? this.currentSample + 1 : 0;
+    this.goto(next, true);
+  }
+
+  private handleResize() {
+    const width = Math.max(1, this.container.clientWidth || window.innerWidth);
+    const height = Math.max(1, this.container.clientHeight || window.innerHeight);
+
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+
+    this.fovHeight = 2 * Math.tan((this.camera.fov * Math.PI) / 180 / 2) * this.camera.position.z;
+
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setSize(width, height, true);
+
+    this.particles.resize();
+  }
+
+  private handlePointerMove(event: PointerEvent) {
+    if (!this.particles.hitArea) return;
+
+    const rect = this.container.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hits = this.raycaster.intersectObject(this.particles.hitArea);
+
+    if (hits.length > 0 && hits[0].uv) {
+      this.particles.addTouch(hits[0].uv);
+    }
+  }
+
+  destroy() {
+    window.removeEventListener('resize', this.handleResize);
+    this.container.removeEventListener('pointermove', this.handlePointerMove);
+    this.container.removeEventListener('click', this.handleClick);
+
+    if (this.frameId !== null) {
+      window.cancelAnimationFrame(this.frameId);
+    }
+
+    this.particles.destroy();
+    this.scene.remove(this.particles.container);
+    this.renderer.dispose();
+
+    if (this.renderer.domElement.parentElement === this.container) {
+      this.container.removeChild(this.renderer.domElement);
+    }
+  }
+}
+```
+
+---
+
+## 11) `src/components/hero-particles/HeroParticlesAdvanced.tsx`
+
+```tsx
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { HeroParticlesEngine } from './engine/HeroParticlesEngine';
+import type { ShapeName } from './engine/types';
+import './heroParticles.scss';
+
+type Props = {
+  className?: string;
+  onShapeChange?: (shape: ShapeName) => void;
+};
+
+export function HeroParticlesAdvanced({ className = '', onShapeChange }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const engineRef = useRef<HeroParticlesEngine | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  const classNames = useMemo(() => {
+    const base = 'hero-particle-stage';
+    const ready = isReady ? ' is-ready' : '';
+    const extra = className ? ` ${className}` : '';
+    return `${base}${ready}${extra}`;
+  }, [className, isReady]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let mounted = true;
+
+    const engine = new HeroParticlesEngine({ container, onShapeChange });
+    engineRef.current = engine;
+
+    engine.init().then(() => {
+      if (mounted) setIsReady(true);
+    });
+
+    return () => {
+      mounted = false;
+      engine.destroy();
+      engineRef.current = null;
+    };
+  }, [onShapeChange]);
+
+  return <div ref={containerRef} className={classNames} aria-hidden="true" />;
+}
+```
+
+---
+
+## 12) `src/components/hero-particles/heroParticles.scss`
+
+```scss
+.hero-particle-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.hero-particle-stage canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hero-particle-stage.is-ready {
+  opacity: 1;
+}
+```
+
+---
+
+## 13) `src/sections/HeroSection.tsx`
+
+```tsx
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import gsap from 'gsap';
+import { FaGithub, FaLinkedin } from 'react-icons/fa';
+import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
+
+type HeroSectionProps = {
+  isVideoHovering?: boolean;
+  isMainVisible?: boolean;
+  isProjectCardVisible?: boolean;
+};
+
+export function HeroSection({
+  isVideoHovering = false,
+  isMainVisible = true,
+  isProjectCardVisible = false,
+}: HeroSectionProps) {
+  const heroRef = useRef<HTMLElement | null>(null);
+  const heroStageRef = useRef<HTMLDivElement | null>(null);
+
+  const [showDetails, setShowDetails] = useState(false);
+  const [typedSubtitle, setTypedSubtitle] = useState('');
+  const [hideFixedTitle, setHideFixedTitle] = useState(false);
+  const [currentShape, setCurrentShape] = useState<'fjr' | 'profile'>('fjr');
+
+  const hideDetailsTimerRef = useRef<number | null>(null);
+  const subtitleTypingTimerRef = useRef<number | null>(null);
+  const hasScheduledIntroRef = useRef(false);
+  const hasPlayedHeroRevealRef = useRef(false);
+  const isFixedTitleHiddenRef = useRef(false);
+
+  const subtitleText = 'Machine Learning & Full Stack Dev.';
+  const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+
+    let rafId: number | null = null;
+
+    const updateTitleVisibility = () => {
+      const { top, height } = el.getBoundingClientRect();
+      const hideAt = -(height * 0.9);
+      const showAt = -(height * 0.78);
+
+      if (!isFixedTitleHiddenRef.current && top <= hideAt) {
+        isFixedTitleHiddenRef.current = true;
+        setHideFixedTitle(true);
+      } else if (isFixedTitleHiddenRef.current && top >= showAt) {
+        isFixedTitleHiddenRef.current = false;
+        setHideFixedTitle(false);
+      }
+    };
+
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateTitleVisibility();
+      });
+    };
+
+    updateTitleVisibility();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  const scheduleDetailsAutoHide = useCallback(() => {
+    if (hideDetailsTimerRef.current) {
+      window.clearTimeout(hideDetailsTimerRef.current);
+    }
+
+    hideDetailsTimerRef.current = window.setTimeout(() => {
+      setShowDetails(false);
+      hideDetailsTimerRef.current = null;
+    }, 5000);
+  }, []);
+
+  const revealDetails = useCallback(() => {
+    if (isProjectCardVisible) return;
+    setShowDetails(true);
+    scheduleDetailsAutoHide();
+  }, [isProjectCardVisible, scheduleDetailsAutoHide]);
+
+  useEffect(() => {
+    if (!isMainVisible || hasScheduledIntroRef.current) return;
+    hasScheduledIntroRef.current = true;
+
+    const introTimer = window.setTimeout(() => {
+      revealDetails();
+    }, 950);
+
+    return () => window.clearTimeout(introTimer);
+  }, [isMainVisible, revealDetails]);
+
+  useLayoutEffect(() => {
+    if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroStageRef.current) return;
+    hasPlayedHeroRevealRef.current = true;
+
+    const stageEl = heroStageRef.current;
+    const tl = gsap.timeline();
+
+    tl.set(stageEl, { opacity: 0, scale: 1.03, y: 10, filter: 'blur(8px)' }).to(stageEl, {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: 0.8,
+      ease: 'power3.out',
+    });
+
+    return () => {
+      tl.kill();
+      gsap.set(stageEl, { clearProps: 'opacity,scale,y,filter' });
+    };
+  }, [isMainVisible]);
+
+  useEffect(() => {
+    return () => {
+      if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
+      if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showDetails) {
+      setTypedSubtitle('');
+      return;
+    }
+
+    if (subtitleTypingTimerRef.current) {
+      window.clearTimeout(subtitleTypingTimerRef.current);
+      subtitleTypingTimerRef.current = null;
+    }
+
+    let charIndex = 0;
+    setTypedSubtitle('');
+
+    const typeNext = () => {
+      charIndex += 1;
+      setTypedSubtitle(subtitleText.slice(0, charIndex));
+
+      if (charIndex >= subtitleText.length) {
+        subtitleTypingTimerRef.current = null;
+        return;
+      }
+
+      subtitleTypingTimerRef.current = window.setTimeout(typeNext, 58 + Math.random() * 48);
+    };
+
+    subtitleTypingTimerRef.current = window.setTimeout(typeNext, 260);
+
+    return () => {
+      if (subtitleTypingTimerRef.current) {
+        window.clearTimeout(subtitleTypingTimerRef.current);
+        subtitleTypingTimerRef.current = null;
+      }
+    };
+  }, [showDetails]);
+
+  const handleShapeChange = useCallback(
+    (shape: 'fjr' | 'profile') => {
+      setCurrentShape(shape);
+      revealDetails();
+    },
+    [revealDetails],
+  );
+
+  return (
+    <section ref={heroRef} className="hero-section" id="inicio">
+      <motion.div
+        ref={heroStageRef}
+        className="hero-title-wrapper hero-title-wrapper--particles"
+        initial={{ opacity: 0, filter: 'blur(6px)' }}
+        animate={{
+          opacity: shouldHideFixedTitle ? 0 : 1,
+          filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
+        }}
+        style={{
+          pointerEvents: shouldHideFixedTitle ? 'none' : 'auto',
+          visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
+        }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <HeroParticlesAdvanced onShapeChange={handleShapeChange} />
+
+        <div className="hero-particles-caption" aria-hidden="true">
+          <span>{currentShape === 'fjr' ? 'click to reveal' : 'click to return'}</span>
+        </div>
+
+        <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
+          <AnimatePresence mode="wait">
+            {showDetails && !hideFixedTitle && (
+              <motion.p
+                key="hero-subtitle"
+                className="hero-subtitle"
+                initial={{ opacity: 0, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(6px)' }}
+                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {typedSubtitle}
+                <span className="hero-subtitle-caret" aria-hidden="true">|</span>
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {showDetails && !hideFixedTitle && (
+          <motion.div
+            className="social-icons"
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 1, ease: 'easeInOut' }}
+          >
+            <a href="https://github.com/fjrsonn" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+              <FaGithub />
+            </a>
+            <a href="https://www.linkedin.com/in/flaviojuniorls" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+              <FaLinkedin />
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+```
+
+---
+
+## 14) `src/styles.css`
+
+```css
+@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;700&display=swap');
+
+:root {
+  font-family: 'Alexandria', sans-serif;
+  color: #fff;
+  background: #000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+  background: #000;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.hero-section {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000;
+}
+
+.hero-title-wrapper--particles {
+  position: relative;
+  width: min(96vw, 1200px);
+  height: min(78vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.hero-particles-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 2.4rem;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hero-subtitle-reveal--particles {
+  position: absolute;
+  left: 50%;
+  bottom: 4.8rem;
+  transform: translateX(-50%);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 4;
+  pointer-events: none;
+  padding: 0 1rem;
+}
+
+.hero-subtitle {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin: 0;
+}
+
+.hero-subtitle-caret {
+  margin-left: 0.22rem;
+  animation: subtitle-caret-blink 1s steps(1) infinite;
+}
+
+.social-icons {
+  position: absolute;
+  left: 50%;
+  bottom: 2.8rem;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1.25rem;
+  z-index: 5;
+}
+
+.social-icons a {
+  color: #ffffff;
+  font-size: 1.5rem;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.social-icons a:hover {
+  transform: translateY(-2px) scale(1.04);
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .hero-title-wrapper--particles {
+    width: 100vw;
+    height: 58vh;
+  }
+
+  .hero-subtitle-reveal--particles {
+    bottom: 5rem;
+  }
+
+  .hero-particles-caption {
+    bottom: 2rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.2em;
+    white-space: normal;
+  }
+
+  .social-icons {
+    bottom: 2.1rem;
+  }
+}
+
+@keyframes subtitle-caret-blink {
+  0%,
+  46% {
+    opacity: 1;
+  }
+  47%,
+  100% {
+    opacity: 0;
+  }
+}
+```
+
+---
+
+## 15) O que ficou realmente mais próximo do Bruno
+
+* `InstancedBufferGeometry` com quad por partícula, como em `Particles.js`. fileciteturn12file0
+* `RawShaderMaterial`, como no original. fileciteturn12file0turn14file0turn15file0
+* threshold para descartar pixels escuros ao criar partículas, como no original. fileciteturn12file0
+* `TouchTexture` com trail, força por distância e easing, muito próxima da lógica do original. fileciteturn13file0
+* `show()` / `hide()` com `uSize`, `uRandom` e `uDepth`, como no original. fileciteturn12file0
+* click para alternar shape por reinit, análogo ao `next()` / `goto()` do original. fileciteturn10file0turn11file0turn12file0
+
+---
+
+## 16) Limite honesto desta versão
+
+Mesmo sendo a base mais fiel que eu consigo te entregar aqui, ela ainda não é literalmente o mesmo demo porque:
+
+* o demo original foi pensado como projeto isolado, não integrado a uma hero React;
+* seus assets (`fjr-mask.png` e `profile-mask.png`) não são as mesmas imagens do demo;
+* a sensação final depende muito da qualidade dessas máscaras;
+* ainda existe espaço para microajustes de parâmetros e da interação do touch.
+
+Mas em termos de arquitetura e comportamento, esta versão é muito mais próxima do original do Bruno do que as iterações anteriores.

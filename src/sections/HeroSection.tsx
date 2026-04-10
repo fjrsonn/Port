@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
+import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -16,21 +16,15 @@ export function HeroSection({
   isProjectCardVisible = false,
 }: HeroSectionProps) {
   const heroRef = useRef<HTMLElement | null>(null);
-  const heroTitleRef = useRef<HTMLHeadingElement>(null);
+  const heroStageRef = useRef<HTMLDivElement | null>(null);
 
-  const [hovered, setHovered] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
+  const [currentShape, setCurrentShape] = useState<'fjr' | 'profile'>('fjr');
 
-  const pointerInsideRef = useRef(false);
-  const isScrollLockedRef = useRef(false);
-  const scrollUnlockTimerRef = useRef<number | null>(null);
-  const autoScrambleTimerRef = useRef<number | null>(null);
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
-
-  const hasAutoScrambledRef = useRef(false);
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
   const isFixedTitleHiddenRef = useRef(false);
@@ -73,52 +67,7 @@ export function HeroSection({
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isMainVisible || hasScheduledIntroRef.current) return;
-    hasScheduledIntroRef.current = true;
-
-    const heroAppearDuration = 800;
-    autoScrambleTimerRef.current = window.setTimeout(() => {
-      if (hasAutoScrambledRef.current) return;
-      hasAutoScrambledRef.current = true;
-      revealDetails();
-    }, heroAppearDuration + 150);
-  }, [isMainVisible]);
-
-  useLayoutEffect(() => {
-    if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroTitleRef.current) return;
-    hasPlayedHeroRevealRef.current = true;
-
-    const titleEl = heroTitleRef.current;
-    const tl = gsap.timeline();
-
-    tl.set(titleEl, { opacity: 0, scale: 1.82, y: 40, filter: 'blur(22px)' }).to(titleEl, {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      filter: 'blur(0px)',
-      duration: 0.9,
-      ease: 'power3.out',
-    });
-
-    return () => {
-      tl.kill();
-      gsap.set(titleEl, { clearProps: 'opacity,scale,y,filter' });
-    };
-  }, [isMainVisible]);
-
-  useEffect(() => {
-    return () => {
-      if (scrollUnlockTimerRef.current) window.clearTimeout(scrollUnlockTimerRef.current);
-      if (autoScrambleTimerRef.current) window.clearTimeout(autoScrambleTimerRef.current);
-      if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
-      if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -139,53 +88,55 @@ export function HeroSection({
     scheduleDetailsAutoHide();
   }, [isProjectCardVisible, scheduleDetailsAutoHide]);
 
-  const handleTitlePointerEnter = () => {
-    pointerInsideRef.current = true;
-    setHovered(true);
-  };
+  useEffect(() => {
+    if (!isMainVisible || hasScheduledIntroRef.current) return;
+    hasScheduledIntroRef.current = true;
 
-  const handleTitlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!pointerInsideRef.current) return;
-    if (event.pointerType !== 'mouse') return;
-    if (isScrollLockedRef.current) return;
-    if (event.movementX === 0 && event.movementY === 0) return;
+    const introTimer = window.setTimeout(() => {
+      revealDetails();
+    }, 950);
 
-    revealDetails();
-  };
+    return () => window.clearTimeout(introTimer);
+  }, [isMainVisible, revealDetails]);
 
-  const handleTitleWheel = () => {
-    isScrollLockedRef.current = true;
+  useLayoutEffect(() => {
+    if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroStageRef.current) return;
+    hasPlayedHeroRevealRef.current = true;
 
-    if (scrollUnlockTimerRef.current) {
-      window.clearTimeout(scrollUnlockTimerRef.current);
-    }
+    const stageEl = heroStageRef.current;
+    const tl = gsap.timeline();
 
-    scrollUnlockTimerRef.current = window.setTimeout(() => {
-      isScrollLockedRef.current = false;
-      scrollUnlockTimerRef.current = null;
-    }, 180);
-  };
+    tl.set(stageEl, { opacity: 0, scale: 1.03, y: 10, filter: 'blur(8px)' }).to(stageEl, {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: 0.8,
+      ease: 'power3.out',
+    });
+
+    return () => {
+      tl.kill();
+      gsap.set(stageEl, { clearProps: 'opacity,scale,y,filter' });
+    };
+  }, [isMainVisible]);
 
   useEffect(() => {
-    if (!isProjectCardVisible) return;
-
-    setShowDetails(false);
-
-    if (hideDetailsTimerRef.current) {
-      window.clearTimeout(hideDetailsTimerRef.current);
-      hideDetailsTimerRef.current = null;
-    }
-  }, [isProjectCardVisible]);
+    return () => {
+      if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
+      if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
-    if (subtitleTypingTimerRef.current) {
-      window.clearTimeout(subtitleTypingTimerRef.current);
-      subtitleTypingTimerRef.current = null;
-    }
-
     if (!showDetails) {
       setTypedSubtitle('');
       return;
+    }
+
+    if (subtitleTypingTimerRef.current) {
+      window.clearTimeout(subtitleTypingTimerRef.current);
+      subtitleTypingTimerRef.current = null;
     }
 
     let charIndex = 0;
@@ -200,8 +151,7 @@ export function HeroSection({
         return;
       }
 
-      const cinematicDelay = 58 + Math.random() * 48;
-      subtitleTypingTimerRef.current = window.setTimeout(typeNext, cinematicDelay);
+      subtitleTypingTimerRef.current = window.setTimeout(typeNext, 58 + Math.random() * 48);
     };
 
     subtitleTypingTimerRef.current = window.setTimeout(typeNext, 260);
@@ -214,19 +164,19 @@ export function HeroSection({
     };
   }, [showDetails]);
 
-  const handleTitlePointerLeave = () => {
-    pointerInsideRef.current = false;
-    setHovered(false);
-  };
+  const handleShapeChange = useCallback(
+    (shape: 'fjr' | 'profile') => {
+      setCurrentShape(shape);
+      revealDetails();
+    },
+    [revealDetails],
+  );
 
   return (
-    <section
-      ref={heroRef}
-      className="hero-section"
-      id="inicio"
-    >
+    <section ref={heroRef} className="hero-section" id="inicio">
       <motion.div
-        className="hero-title-wrapper"
+        ref={heroStageRef}
+        className="hero-title-wrapper hero-title-wrapper--particles"
         initial={{ opacity: 0, filter: 'blur(6px)' }}
         animate={{
           opacity: shouldHideFixedTitle ? 0 : 1,
@@ -237,20 +187,14 @@ export function HeroSection({
           visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
         }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        onPointerEnter={handleTitlePointerEnter}
-        onPointerMove={handleTitlePointerMove}
-        onPointerLeave={handleTitlePointerLeave}
-        onWheel={handleTitleWheel}
       >
-        <h1 ref={heroTitleRef} className={`hero-title ${hovered ? 'is-glow' : ''}`}>
-          <span className="hero-title-measure" aria-hidden="true">
-            FJR.
-          </span>
+        <HeroParticlesAdvanced onShapeChange={handleShapeChange} />
 
-          <span className="hero-title-live">FJR.</span>
-        </h1>
+        <div className="hero-particles-caption" aria-hidden="true">
+          <span>{currentShape === 'fjr' ? 'click to reveal' : 'click to return'}</span>
+        </div>
 
-        <div className="hero-subtitle-reveal">
+        <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">
             {showDetails && !hideFixedTitle && (
               <motion.p
@@ -262,9 +206,7 @@ export function HeroSection({
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
                 {typedSubtitle}
-                <span className="hero-subtitle-caret" aria-hidden="true">
-                  |
-                </span>
+                <span className="hero-subtitle-caret" aria-hidden="true">|</span>
               </motion.p>
             )}
           </AnimatePresence>
@@ -280,21 +222,10 @@ export function HeroSection({
             exit={{ y: 100, opacity: 0 }}
             transition={{ duration: 1, ease: 'easeInOut' }}
           >
-            <a
-              href="https://github.com/fjrsonn"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-            >
+            <a href="https://github.com/fjrsonn" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
               <FaGithub />
             </a>
-
-            <a
-              href="https://www.linkedin.com/in/flaviojuniorls"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="LinkedIn"
-            >
+            <a href="https://www.linkedin.com/in/flaviojuniorls" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
               <FaLinkedin />
             </a>
           </motion.div>

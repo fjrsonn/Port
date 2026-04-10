@@ -1,0 +1,17 @@
+.hero-particle-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.hero-particle-stage canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hero-particle-stage.is-ready {
+  opacity: 1;
+}

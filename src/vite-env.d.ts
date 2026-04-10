@@ -1,2 +1,6 @@
 /// <reference types="vite/client" />
-declare module '*.scss';
+
+declare module '*.glsl?raw' {
+  const src: string;
+  export default src;
+}
