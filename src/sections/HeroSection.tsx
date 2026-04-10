@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
+import type { ShapeName } from '../components/hero-particles/engine/types';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
@@ -21,6 +22,7 @@ export function HeroSection({
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
+  const [currentShape, setCurrentShape] = useState<ShapeName>('fjr');
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
@@ -163,7 +165,8 @@ export function HeroSection({
     };
   }, [showDetails]);
 
-  const handleShapeChange = useCallback(() => {
+  const handleShapeChange = useCallback((shape: ShapeName) => {
+    setCurrentShape(shape);
     revealDetails();
   }, [revealDetails]);
 
@@ -187,7 +190,7 @@ export function HeroSection({
 
         <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">
-            {showDetails && !hideFixedTitle && (
+            {showDetails && !hideFixedTitle && currentShape === 'fjr' && (
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
