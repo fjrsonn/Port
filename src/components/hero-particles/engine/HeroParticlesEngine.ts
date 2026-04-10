@@ -107,7 +107,10 @@ export class HeroParticlesEngine {
     const hits = this.raycaster.intersectObject(this.particles.hitArea);
 
     if (hits.length > 0 && hits[0].uv) {
-      this.particles.addTouch(hits[0].uv);
+      this.particles.addTouch({
+        x: hits[0].uv.x,
+        y: 1 - hits[0].uv.y,
+      });
     }
   }
 
