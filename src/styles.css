@@ -69,8 +69,8 @@ body {
 
 .hero-title-wrapper--particles {
   position: relative;
-  width: min(96vw, 1200px);
-  height: min(78vh, 720px);
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -142,7 +142,7 @@ body {
 @media (max-width: 768px) {
   .hero-title-wrapper--particles {
     width: 100vw;
-    height: 58vh;
+    height: 100vh;
   }
 
   .hero-subtitle-reveal--particles {
