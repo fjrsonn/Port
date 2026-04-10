@@ -64,6 +64,7 @@ void main() {
   float grey = colA.r * 0.21 + colA.g * 0.71 + colA.b * 0.07;
 
   vec3 displaced = offset;
+  displaced.y = uTextureSize.y - displaced.y;
   displaced.xy += vec2(random(pindex) - 0.5, random(offset.x + pindex) - 0.5) * uRandom;
   float rndz = random(pindex) + snoise(vec2(pindex * 0.1, uTime * 0.1));
   displaced.z += rndz * (random(pindex) * 2.0 * uDepth);
