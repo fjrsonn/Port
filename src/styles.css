@@ -114,6 +114,12 @@ body {
   pointer-events: none;
 }
 
+.hero-profile-bio--right {
+  left: auto;
+  right: clamp(1.2rem, 4vw, 4rem);
+  text-align: right;
+}
+
 .hero-profile-bio-line {
   margin: 0 0 0.48rem;
   color: rgba(255, 255, 255, 0.95);
@@ -122,6 +128,11 @@ body {
   line-height: 1.45;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.hero-profile-bio-line--left {
+  max-width: min(46vw, 640px);
+  white-space: normal;
 }
 
 .hero-profile-bio-label {
@@ -180,9 +191,20 @@ body {
     transform: translateX(-50%);
   }
 
+  .hero-profile-bio--right {
+    right: auto;
+    left: 50%;
+    bottom: 2.2rem;
+    text-align: left;
+  }
+
   .hero-profile-bio-line {
     white-space: normal;
     font-size: clamp(0.72rem, 2.4vw, 0.9rem);
+  }
+
+  .hero-profile-bio-line--left {
+    max-width: min(90vw, 420px);
   }
 
   .social-icons {
