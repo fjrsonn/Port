@@ -35,14 +35,15 @@ export function HeroSection({
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
   const [currentShape, setCurrentShape] = useState<ShapeName>('fjr');
   const [visibleBioLabels, setVisibleBioLabels] = useState(0);
-  const [scrambledValues, setScrambledValues] = useState<string[]>([]);
-  const [isBioGlowActive, setIsBioGlowActive] = useState(false);
+  const [typedBioLabels, setTypedBioLabels] = useState<string[]>([]);
+  const [displayBioValues, setDisplayBioValues] = useState<string[]>([]);
+  const [glowingBioIndexes, setGlowingBioIndexes] = useState<Set<number>>(new Set());
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
-  const bioSequenceTimerRef = useRef<number | null>(null);
-  const bioGlowTimerRef = useRef<number | null>(null);
-  const bioScrambleRafRef = useRef<number | null>(null);
+  const bioTypingTimerRef = useRef<number | null>(null);
+  const bioScrambleRafRefs = useRef<Map<number, number>>(new Map());
+  const hoveredBioIndexesRef = useRef<Set<number>>(new Set());
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
   const isFixedTitleHiddenRef = useRef(false);
@@ -143,9 +144,9 @@ export function HeroSection({
     return () => {
       if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
       if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
-      if (bioSequenceTimerRef.current) window.clearTimeout(bioSequenceTimerRef.current);
-      if (bioGlowTimerRef.current) window.clearTimeout(bioGlowTimerRef.current);
-      if (bioScrambleRafRef.current) window.cancelAnimationFrame(bioScrambleRafRef.current);
+      if (bioTypingTimerRef.current) window.clearTimeout(bioTypingTimerRef.current);
+      bioScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+      bioScrambleRafRefs.current.clear();
     };
   }, []);
 
@@ -190,94 +191,141 @@ export function HeroSection({
 
     if (!shouldShowBio) {
       setVisibleBioLabels(0);
-      setScrambledValues([]);
-      setIsBioGlowActive(false);
-      if (bioSequenceTimerRef.current) {
-        window.clearTimeout(bioSequenceTimerRef.current);
-        bioSequenceTimerRef.current = null;
+      setTypedBioLabels([]);
+      setDisplayBioValues([]);
+      setGlowingBioIndexes(new Set());
+      hoveredBioIndexesRef.current = new Set();
+      if (bioTypingTimerRef.current) {
+        window.clearTimeout(bioTypingTimerRef.current);
+        bioTypingTimerRef.current = null;
       }
-      if (bioGlowTimerRef.current) {
-        window.clearTimeout(bioGlowTimerRef.current);
-        bioGlowTimerRef.current = null;
-      }
-      if (bioScrambleRafRef.current) {
-        window.cancelAnimationFrame(bioScrambleRafRef.current);
-        bioScrambleRafRef.current = null;
-      }
+      bioScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+      bioScrambleRafRefs.current.clear();
       return;
     }
 
-    const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
-    const labelsDelay = 260;
-    const scrambleDuration = 1200;
-
     setVisibleBioLabels(0);
-    setScrambledValues(new Array(heroBioLines.length).fill(''));
-    setIsBioGlowActive(false);
+    setTypedBioLabels(new Array(heroBioLines.length).fill(''));
+    setDisplayBioValues(heroBioLines.map((line) => line.value));
+    setGlowingBioIndexes(new Set());
+    hoveredBioIndexesRef.current = new Set();
 
+    const labelsDelay = 220;
+    const charDelay = 28;
     let labelIndex = 0;
-    const revealNextLabel = () => {
-      labelIndex += 1;
-      setVisibleBioLabels(labelIndex);
-
-      if (labelIndex < heroBioLines.length) {
-        bioSequenceTimerRef.current = window.setTimeout(revealNextLabel, labelsDelay);
+    const typeLine = () => {
+      if (labelIndex >= heroBioLines.length) {
+        bioTypingTimerRef.current = null;
         return;
       }
 
-      const startedAt = performance.now();
+      const fullLabel = heroBioLines[labelIndex].label;
+      setVisibleBioLabels(labelIndex + 1);
+      let charIndex = 0;
 
-      const scrambleFrame = (now: number) => {
-        const progress = Math.min(1, (now - startedAt) / scrambleDuration);
-        setScrambledValues(
-          heroBioLines.map(({ value }) => {
-            const revealCount = Math.floor(progress * value.length);
+      const typeChar = () => {
+        charIndex += 1;
+        setTypedBioLabels((prev) => {
+          const next = [...prev];
+          next[labelIndex] = fullLabel.slice(0, charIndex);
+          return next;
+        });
 
-            return value
-              .split('')
-              .map((char, index) => {
-                if (char === ' ') return ' ';
-                if (index < revealCount) return value[index];
-                return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
-              })
-              .join('');
-          }),
-        );
-
-        if (progress < 1) {
-          bioScrambleRafRef.current = window.requestAnimationFrame(scrambleFrame);
+        if (charIndex < fullLabel.length) {
+          bioTypingTimerRef.current = window.setTimeout(typeChar, charDelay);
           return;
         }
 
-        setScrambledValues(heroBioLines.map(({ value }) => value));
-        setIsBioGlowActive(true);
-        bioGlowTimerRef.current = window.setTimeout(() => {
-          setIsBioGlowActive(false);
-          bioGlowTimerRef.current = null;
-        }, 720);
+        labelIndex += 1;
+        bioTypingTimerRef.current = window.setTimeout(typeLine, labelsDelay);
       };
 
-      bioScrambleRafRef.current = window.requestAnimationFrame(scrambleFrame);
-      bioSequenceTimerRef.current = null;
+      bioTypingTimerRef.current = window.setTimeout(typeChar, 20);
     };
 
-    bioSequenceTimerRef.current = window.setTimeout(revealNextLabel, 180);
+    bioTypingTimerRef.current = window.setTimeout(typeLine, 160);
 
     return () => {
-      if (bioSequenceTimerRef.current) {
-        window.clearTimeout(bioSequenceTimerRef.current);
-        bioSequenceTimerRef.current = null;
+      if (bioTypingTimerRef.current) {
+        window.clearTimeout(bioTypingTimerRef.current);
+        bioTypingTimerRef.current = null;
       }
-      if (bioGlowTimerRef.current) {
-        window.clearTimeout(bioGlowTimerRef.current);
-        bioGlowTimerRef.current = null;
-      }
-      if (bioScrambleRafRef.current) {
-        window.cancelAnimationFrame(bioScrambleRafRef.current);
-        bioScrambleRafRef.current = null;
-      }
+      bioScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+      bioScrambleRafRefs.current.clear();
     };
   }, [currentShape, hideFixedTitle]);
+
+  const runBioValueScramble = useCallback((index: number) => {
+    const targetValue = heroBioLines[index].value;
+    const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
+    const duration = 720;
+    const runningRaf = bioScrambleRafRefs.current.get(index);
+
+    if (runningRaf) window.cancelAnimationFrame(runningRaf);
+    setGlowingBioIndexes((prev) => {
+      const next = new Set(prev);
+      next.delete(index);
+      return next;
+    });
+
+    const startedAt = performance.now();
+    const scrambleFrame = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const revealCount = Math.floor(progress * targetValue.length);
+      const scrambled = targetValue
+        .split('')
+        .map((char, charIndex) => {
+          if (char === ' ') return ' ';
+          if (charIndex < revealCount) return targetValue[charIndex];
+          return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+        })
+        .join('');
+
+      setDisplayBioValues((prev) => {
+        const next = [...prev];
+        next[index] = scrambled;
+        return next;
+      });
+
+      if (progress < 1) {
+        const rafId = window.requestAnimationFrame(scrambleFrame);
+        bioScrambleRafRefs.current.set(index, rafId);
+        return;
+      }
+
+      setDisplayBioValues((prev) => {
+        const next = [...prev];
+        next[index] = targetValue;
+        return next;
+      });
+      bioScrambleRafRefs.current.delete(index);
+
+      if (hoveredBioIndexesRef.current.has(index)) {
+        setGlowingBioIndexes((prev) => {
+          const next = new Set(prev);
+          next.add(index);
+          return next;
+        });
+      }
+    };
+
+    const rafId = window.requestAnimationFrame(scrambleFrame);
+    bioScrambleRafRefs.current.set(index, rafId);
+  }, []);
+
+  const handleBioValueMouseEnter = useCallback((index: number) => {
+    hoveredBioIndexesRef.current.add(index);
+    runBioValueScramble(index);
+  }, [runBioValueScramble]);
+
+  const handleBioValueMouseLeave = useCallback((index: number) => {
+    hoveredBioIndexesRef.current.delete(index);
+    setGlowingBioIndexes((prev) => {
+      const next = new Set(prev);
+      next.delete(index);
+      return next;
+    });
+  }, []);
 
   const handleShapeChange = useCallback((shape: ShapeName) => {
     setCurrentShape(shape);
@@ -341,11 +389,16 @@ export function HeroSection({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <span className="hero-profile-bio-label">{line.label}:</span>
+                    <span className="hero-profile-bio-label">
+                      {typedBioLabels[index] ?? ''}
+                      {(typedBioLabels[index] ?? '').length >= line.label.length ? ':' : ''}
+                    </span>
                     <span
-                      className={`hero-profile-bio-value ${isBioGlowActive ? 'hero-profile-bio-value--glow' : ''}`}
+                      className={`hero-profile-bio-value ${glowingBioIndexes.has(index) ? 'hero-profile-bio-value--glow' : ''}`}
+                      onMouseEnter={() => handleBioValueMouseEnter(index)}
+                      onMouseLeave={() => handleBioValueMouseLeave(index)}
                     >
-                      {scrambledValues[index] ?? ''}
+                      {displayBioValues[index] ?? line.value}
                     </span>
                   </motion.p>
                 );
