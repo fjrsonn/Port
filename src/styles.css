@@ -114,6 +114,12 @@ body {
   pointer-events: none;
 }
 
+.hero-profile-bio--right {
+  left: auto;
+  right: clamp(1.2rem, 4vw, 4rem);
+  text-align: right;
+}
+
 .hero-profile-bio-line {
   margin: 0 0 0.48rem;
   color: rgba(255, 255, 255, 0.95);
@@ -178,6 +184,13 @@ body {
     top: auto;
     bottom: 8.4rem;
     transform: translateX(-50%);
+  }
+
+  .hero-profile-bio--right {
+    right: auto;
+    left: 50%;
+    bottom: 2.2rem;
+    text-align: left;
   }
 
   .hero-profile-bio-line {
