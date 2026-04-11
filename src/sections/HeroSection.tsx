@@ -52,6 +52,8 @@ export function HeroSection({
   const [displayBioRightValues, setDisplayBioRightValues] = useState<string[]>([]);
   const [glowingBioRightIndexes, setGlowingBioRightIndexes] = useState<Set<number>>(new Set());
   const [isInitialBioRightGlowActive, setIsInitialBioRightGlowActive] = useState(false);
+  const [isProfileBioVisible, setIsProfileBioVisible] = useState(true);
+  const [isProfileTypingComplete, setIsProfileTypingComplete] = useState(false);
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
@@ -68,6 +70,8 @@ export function HeroSection({
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
   const isFixedTitleHiddenRef = useRef(false);
+  const profileIdleHideTimerRef = useRef<number | null>(null);
+  const isBottomEdgeTriggerReadyRef = useRef(true);
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
@@ -179,6 +183,7 @@ export function HeroSection({
       bioRightScrambleRafRefs.current.clear();
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
+      if (profileIdleHideTimerRef.current) window.clearTimeout(profileIdleHideTimerRef.current);
     };
   }, []);
 
@@ -232,6 +237,8 @@ export function HeroSection({
       setDisplayBioRightValues([]);
       setGlowingBioRightIndexes(new Set());
       setIsInitialBioRightGlowActive(false);
+      setIsProfileTypingComplete(false);
+      setIsProfileBioVisible(true);
       if (bioTypingTimerRef.current) {
         window.clearTimeout(bioTypingTimerRef.current);
         bioTypingTimerRef.current = null;
@@ -264,6 +271,10 @@ export function HeroSection({
       bioHoverGlowTimerRefs.current.clear();
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
+      if (profileIdleHideTimerRef.current) {
+        window.clearTimeout(profileIdleHideTimerRef.current);
+        profileIdleHideTimerRef.current = null;
+      }
       return;
     }
 
@@ -277,10 +288,12 @@ export function HeroSection({
     setDisplayBioRightValues(new Array(heroBioRightLines.length).fill(''));
     setGlowingBioRightIndexes(new Set());
     setIsInitialBioRightGlowActive(false);
+    setIsProfileTypingComplete(false);
+    setIsProfileBioVisible(true);
 
     const labelsDelay = 220;
     const charDelay = 28;
-    const rightBioStartDelay = 3000;
+    const rightBioStartDelay = 1000;
     const runLineValueScramble = (lineIndex: number, onComplete: () => void) => {
       const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
       const duration = 760;
@@ -329,6 +342,7 @@ export function HeroSection({
           setIsInitialBioRightGlowActive(false);
           bioRightInitialGlowTimerRef.current = null;
         }, 700);
+        setIsProfileTypingComplete(true);
         bioRightTypingTimerRef.current = null;
         return;
       }
@@ -456,6 +470,56 @@ export function HeroSection({
       bioRightHoverGlowTimerRefs.current.clear();
     };
   }, [currentShape, hideFixedTitle]);
+
+  useEffect(() => {
+    if (currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
+
+    const bottomThreshold = 84;
+    const onPointerMove = (event: MouseEvent) => {
+      const isNearBottom = event.clientY >= window.innerHeight - bottomThreshold;
+      if (isNearBottom && isBottomEdgeTriggerReadyRef.current) {
+        isBottomEdgeTriggerReadyRef.current = false;
+        revealDetails();
+      } else if (!isNearBottom) {
+        isBottomEdgeTriggerReadyRef.current = true;
+      }
+    };
+
+    window.addEventListener('mousemove', onPointerMove, { passive: true });
+    return () => window.removeEventListener('mousemove', onPointerMove);
+  }, [currentShape, hideFixedTitle, isProjectCardVisible, revealDetails]);
+
+  useEffect(() => {
+    if (currentShape !== 'profile' || hideFixedTitle || !isProfileTypingComplete) return;
+
+    const scheduleProfileHide = () => {
+      if (profileIdleHideTimerRef.current) {
+        window.clearTimeout(profileIdleHideTimerRef.current);
+      }
+      profileIdleHideTimerRef.current = window.setTimeout(() => {
+        setIsProfileBioVisible(false);
+        profileIdleHideTimerRef.current = null;
+      }, 5000);
+    };
+
+    setIsProfileBioVisible(true);
+    scheduleProfileHide();
+
+    const onPointerMove = () => {
+      setIsProfileBioVisible(true);
+      scheduleProfileHide();
+    };
+
+    window.addEventListener('mousemove', onPointerMove, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', onPointerMove);
+      if (profileIdleHideTimerRef.current) {
+        window.clearTimeout(profileIdleHideTimerRef.current);
+        profileIdleHideTimerRef.current = null;
+      }
+    };
+  }, [currentShape, hideFixedTitle, isProfileTypingComplete]);
 
   const runBioValueScramble = useCallback((index: number) => {
     const targetValue = heroBioLines[index].value;
@@ -614,15 +678,15 @@ export function HeroSection({
         </div>
 
         <AnimatePresence>
-          {!hideFixedTitle && currentShape === 'profile' && (
+          {!hideFixedTitle && currentShape === 'profile' && isProfileBioVisible && (
             <>
               <motion.div
                 key="hero-profile-bio-left"
                 className="hero-profile-bio"
                 initial={{ opacity: 0, x: -24, filter: 'blur(8px)' }}
                 animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: -24, filter: 'blur(8px)' }}
-                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                exit={{ opacity: 0, x: -18, filter: 'blur(10px)' }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 {heroBioLines.map((line, index) => {
                   if (index >= visibleBioLabels) return null;
@@ -656,8 +720,8 @@ export function HeroSection({
                 className="hero-profile-bio hero-profile-bio--right"
                 initial={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
                 animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
-                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                exit={{ opacity: 0, x: 18, filter: 'blur(10px)' }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 {heroBioRightLines.map((line, index) => {
                   if (index >= visibleBioRightLabels) return null;
@@ -672,7 +736,7 @@ export function HeroSection({
                     >
                       <span className="hero-profile-bio-label">
                         {typedBioRightLabels[index] ?? ''}
-                        {(typedBioRightLabels[index] ?? '').length >= line.label.length ? ':' : ''}
+                        {(typedBioRightLabels[index] ?? '').length >= line.label.length && !line.label.endsWith(':') ? ':' : ''}
                       </span>
                       <span
                         className={`hero-profile-bio-value ${(isInitialBioRightGlowActive || glowingBioRightIndexes.has(index)) ? 'hero-profile-bio-value--glow' : ''}`}
