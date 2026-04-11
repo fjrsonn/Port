@@ -378,13 +378,7 @@ export function HeroSection({
     let labelIndex = 0;
     const typeLine = () => {
       if (labelIndex >= heroBioLines.length) {
-        setIsInitialBioGlowActive(true);
-        bioInitialGlowTimerRef.current = window.setTimeout(() => {
-          setIsInitialBioGlowActive(false);
-          bioInitialGlowTimerRef.current = null;
-        }, 700);
         bioTypingTimerRef.current = null;
-        bioRightTypingTimerRef.current = window.setTimeout(typeRightLine, rightBioStartDelay);
         return;
       }
 
@@ -406,6 +400,17 @@ export function HeroSection({
         }
 
         runLineValueScramble(labelIndex, () => {
+          if (labelIndex >= heroBioLines.length - 1) {
+            setIsInitialBioGlowActive(true);
+            bioInitialGlowTimerRef.current = window.setTimeout(() => {
+              setIsInitialBioGlowActive(false);
+              bioInitialGlowTimerRef.current = null;
+            }, 700);
+            bioTypingTimerRef.current = null;
+            bioRightTypingTimerRef.current = window.setTimeout(typeRightLine, rightBioStartDelay);
+            return;
+          }
+
           labelIndex += 1;
           bioTypingTimerRef.current = window.setTimeout(typeLine, labelsDelay);
         });
