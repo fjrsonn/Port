@@ -130,6 +130,13 @@ body {
   pointer-events: none;
 }
 
+
+.hero-profile-bio--right .hero-profile-bio-line {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .hero-profile-bio-label {
   font-weight: 400;
   opacity: 0.96;
