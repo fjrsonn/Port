@@ -12,14 +12,11 @@ type HeroSectionProps = {
 };
 
 const heroBioLines = [
-  { label: 'Beginning in technology', value: 'since 2012' },
-  { label: 'Profile', value: 'bold in the face of technological advances' },
-  { label: 'Journey', value: 'marked by constant challenges' },
-  { label: 'Learning method', value: 'self-taught' },
-  { label: 'Area of interest', value: 'computer science' },
-  { label: 'Source of knowledge', value: 'research on the World Wide Web' },
-  { label: 'Current profession', value: 'private security' },
-  { label: 'Professional role', value: 'monitoring through technology' },
+  {
+    label: 'Responsibility, academic background, and current activities',
+    value:
+      'prevention and resolution of security-related problems, currently in the 2nd semester of Systems Analysis and Development, while studying and developing personal projects',
+  },
 ] as const;
 
 export function HeroSection({
