@@ -39,7 +39,6 @@ export function HeroSection({
   const [displayBioValues, setDisplayBioValues] = useState<string[]>([]);
   const [glowingBioIndexes, setGlowingBioIndexes] = useState<Set<number>>(new Set());
   const [isInitialBioGlowActive, setIsInitialBioGlowActive] = useState(false);
-  const [areBioValuesReady, setAreBioValuesReady] = useState(false);
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
@@ -203,7 +202,6 @@ export function HeroSection({
       setDisplayBioValues([]);
       setGlowingBioIndexes(new Set());
       setIsInitialBioGlowActive(false);
-      setAreBioValuesReady(false);
       if (bioTypingTimerRef.current) {
         window.clearTimeout(bioTypingTimerRef.current);
         bioTypingTimerRef.current = null;
@@ -228,43 +226,44 @@ export function HeroSection({
     setDisplayBioValues(new Array(heroBioLines.length).fill(''));
     setGlowingBioIndexes(new Set());
     setIsInitialBioGlowActive(false);
-    setAreBioValuesReady(false);
 
     const labelsDelay = 220;
     const charDelay = 28;
-    const runInitialValuesScramble = () => {
+    const runLineValueScramble = (lineIndex: number, onComplete: () => void) => {
       const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
-      const duration = 1000;
+      const duration = 760;
       const startedAt = performance.now();
-      setAreBioValuesReady(true);
+      const targetValue = heroBioLines[lineIndex].value;
 
       const scrambleFrame = (now: number) => {
         const progress = Math.min(1, (now - startedAt) / duration);
-        setDisplayBioValues(
-          heroBioLines.map(({ value }) => {
-            const revealCount = Math.floor(progress * value.length);
-            return value
-              .split('')
-              .map((char, charIndex) => {
-                if (char === ' ') return ' ';
-                if (charIndex < revealCount) return value[charIndex];
-                return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
-              })
-              .join('');
-          }),
-        );
+        const revealCount = Math.floor(progress * targetValue.length);
+        const scrambled = targetValue
+          .split('')
+          .map((char, charIndex) => {
+            if (char === ' ') return ' ';
+            if (charIndex < revealCount) return targetValue[charIndex];
+            return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+          })
+          .join('');
+
+        setDisplayBioValues((prev) => {
+          const next = [...prev];
+          next[lineIndex] = scrambled;
+          return next;
+        });
 
         if (progress < 1) {
           bioInitialScrambleRafRef.current = window.requestAnimationFrame(scrambleFrame);
           return;
         }
 
-        setDisplayBioValues(heroBioLines.map(({ value }) => value));
-        setIsInitialBioGlowActive(true);
-        bioInitialGlowTimerRef.current = window.setTimeout(() => {
-          setIsInitialBioGlowActive(false);
-          bioInitialGlowTimerRef.current = null;
-        }, 700);
+        setDisplayBioValues((prev) => {
+          const next = [...prev];
+          next[lineIndex] = targetValue;
+          return next;
+        });
+        onComplete();
       };
 
       bioInitialScrambleRafRef.current = window.requestAnimationFrame(scrambleFrame);
@@ -273,7 +272,11 @@ export function HeroSection({
     let labelIndex = 0;
     const typeLine = () => {
       if (labelIndex >= heroBioLines.length) {
-        runInitialValuesScramble();
+        setIsInitialBioGlowActive(true);
+        bioInitialGlowTimerRef.current = window.setTimeout(() => {
+          setIsInitialBioGlowActive(false);
+          bioInitialGlowTimerRef.current = null;
+        }, 700);
         bioTypingTimerRef.current = null;
         return;
       }
@@ -295,8 +298,10 @@ export function HeroSection({
           return;
         }
 
-        labelIndex += 1;
-        bioTypingTimerRef.current = window.setTimeout(typeLine, labelsDelay);
+        runLineValueScramble(labelIndex, () => {
+          labelIndex += 1;
+          bioTypingTimerRef.current = window.setTimeout(typeLine, labelsDelay);
+        });
       };
 
       bioTypingTimerRef.current = window.setTimeout(typeChar, 20);
@@ -478,7 +483,7 @@ export function HeroSection({
                       onMouseEnter={() => handleBioValueMouseEnter(index)}
                       onMouseLeave={() => handleBioValueMouseLeave(index)}
                     >
-                      {areBioValuesReady ? (displayBioValues[index] ?? line.value) : ''}
+                      {displayBioValues[index] ?? ''}
                     </span>
                   </motion.p>
                 );
