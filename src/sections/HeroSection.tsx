@@ -23,9 +23,11 @@ const heroBioLines = [
 ] as const;
 
 const heroBioRightLines = [
-  { label: 'Responsibility', value: 'prevention and resolution of security-related problems' },
-  { label: 'Academic background', value: '2nd semester of Systems Analysis and Development' },
-  { label: 'Current activities', value: 'studying and developing personal projects' },
+  {
+    label: 'Responsibility, academic background, and current activities:',
+    value:
+      'prevention and resolution of security-related problems, currently in the 2nd semester of Systems Analysis and Development, while studying and developing personal projects.',
+  },
 ] as const;
 
 export function HeroSection({
