@@ -117,6 +117,7 @@ body {
 .hero-profile-bio--right {
   left: auto;
   right: clamp(1.2rem, 4vw, 4rem);
+  width: min(28vw, 420px);
   text-align: right;
 }
 
@@ -197,6 +198,7 @@ body {
     right: auto;
     left: 50%;
     bottom: 2.2rem;
+    width: min(90vw, 420px);
     text-align: left;
   }
 
