@@ -107,7 +107,7 @@ body {
 .hero-profile-bio {
   position: absolute;
   left: clamp(1.2rem, 4vw, 4rem);
-  top: 50%;
+  top: 41%;
   transform: translateY(-50%);
   z-index: 6;
   width: min(46vw, 640px);
@@ -131,7 +131,7 @@ body {
 .hero-profile-bio-value {
   margin-left: 0.35rem;
   font-weight: 200;
-  color: rgba(183, 214, 255, 0.96);
+  color: rgba(255, 255, 255, 0.98);
   text-shadow: 0 0 0 rgba(110, 188, 255, 0);
 }
 

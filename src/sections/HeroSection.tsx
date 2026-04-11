@@ -186,7 +186,7 @@ export function HeroSection({
   }, [showDetails]);
 
   useEffect(() => {
-    const shouldShowBio = showDetails && !hideFixedTitle && currentShape === 'profile';
+    const shouldShowBio = !hideFixedTitle && currentShape === 'profile';
 
     if (!shouldShowBio) {
       setVisibleBioLabels(0);
@@ -277,7 +277,7 @@ export function HeroSection({
         bioScrambleRafRef.current = null;
       }
     };
-  }, [currentShape, hideFixedTitle, showDetails]);
+  }, [currentShape, hideFixedTitle]);
 
   const handleShapeChange = useCallback((shape: ShapeName) => {
     setCurrentShape(shape);
@@ -321,7 +321,7 @@ export function HeroSection({
         </div>
 
         <AnimatePresence>
-          {showDetails && !hideFixedTitle && currentShape === 'profile' && (
+          {!hideFixedTitle && currentShape === 'profile' && (
             <motion.div
               key="hero-profile-bio"
               className="hero-profile-bio"
@@ -334,14 +334,20 @@ export function HeroSection({
                 if (index >= visibleBioLabels) return null;
 
                 return (
-                  <p key={line.label} className="hero-profile-bio-line">
+                  <motion.p
+                    key={line.label}
+                    className="hero-profile-bio-line"
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+                  >
                     <span className="hero-profile-bio-label">{line.label}:</span>
                     <span
                       className={`hero-profile-bio-value ${isBioGlowActive ? 'hero-profile-bio-value--glow' : ''}`}
                     >
                       {scrambledValues[index] ?? ''}
                     </span>
-                  </p>
+                  </motion.p>
                 );
               })}
             </motion.div>
