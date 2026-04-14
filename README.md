@@ -39,6 +39,27 @@ npm run dev
 
 Depois, abra a URL exibida no terminal (normalmente `http://localhost:5173`).
 
+### 2.1) Rodar a API Python do agente
+
+Crie um arquivo `.env` na raiz do projeto com base em `.env.example`.
+
+Hoje o projeto estÃ¡ configurado para usar **Grok/xAI** por padrÃ£o, com `LLM_PROVIDER=xai` e `XAI_API_KEY`.
+As configuraÃ§Ãµes da **OpenAI** continuam disponÃ­veis no mesmo `.env` para uso futuro, bastando trocar `LLM_PROVIDER=openai`.
+
+Instale as dependencias do backend:
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+Depois, rode a API:
+
+```bash
+npm run dev:api
+```
+
+Com isso, o front em desenvolvimento vai encaminhar `/api/*` para `http://127.0.0.1:8000` usando o proxy do Vite.
+
 ### 3) Build de produção
 
 ```bash
@@ -78,3 +99,11 @@ npm run preview
 
 - Se `npm install` falhar por bloqueio de rede/política (ex.: `403 Forbidden`), rode em um ambiente com acesso ao registro npm.
 - Os vídeos da seção de projetos usam links remotos de exemplo e podem ser substituídos por assets locais em `src/assets`.
+
+
+npm.cmd run dev:api
+npm.cmd run dev
+
+http://localhost:5173/
+http://localhost:5173/api/health
+http://127.0.0.1:8000/

@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "python -m uvicorn backend.main:app --reload --app-dir . --port 8000",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:api": "python -m compileall backend"
   },
   "dependencies": {
     "framer-motion": "^12.38.0",

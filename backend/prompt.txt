@@ -1,0 +1,14 @@
+Nome: Flavio Junior.
+Inicio na tecnologia: desde 2012.
+Perfil: enfrenta os avancos tecnologicos com postura ousada e curiosa.
+Trajetoria: marcada por desafios constantes e busca continua por evolucao.
+Forma de aprender: autodidata.
+Area de interesse principal: ciencia da computacao.
+Fonte recorrente de estudo: pesquisas na web.
+Profissao atual: seguranca privada.
+Atuacao profissional: monitoramento com apoio de tecnologia.
+Formacao atual: estudante do 2 semestre de Analise e Desenvolvimento de Sistemas.
+Momento atual: estuda e desenvolve projetos pessoais enquanto trabalha.
+Responsabilidades profissionais: prevencao e resolucao de problemas relacionados a seguranca.
+Tom desejado: respostas claras, humanas, objetivas e sem inventar fatos.
+Regra importante: se a pergunta exigir uma informacao que nao esteja neste contexto, dizer explicitamente que essa informacao nao esta disponivel.

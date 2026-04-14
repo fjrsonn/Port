@@ -1,15 +1,84 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ChangeEvent,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import gsap from 'gsap';
-import { FaGithub, FaLinkedin } from 'react-icons/fa';
+import { FaGithub, FaLinkedin, FaMicrophone, FaPaperPlane, FaSearch } from 'react-icons/fa';
+import { HeroAgentPanel, type HeroAgentTurn } from '../components/hero-agent/HeroAgentPanel';
 import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
-import type { ShapeName } from '../components/hero-particles/engine/types';
+import type { HeroTransitionPhase, ShapeName } from '../components/hero-particles/engine/types';
+import { sendAgentMessage } from '../lib/agentApi';
 
 type HeroSectionProps = {
   isVideoHovering?: boolean;
   isMainVisible?: boolean;
   isProjectCardVisible?: boolean;
 };
+
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+type SearchBarDragState = {
+  activePointerId: number | null;
+  isDragging: boolean;
+  maxOffsetX: number;
+  maxOffsetY: number;
+  pendingX: number;
+  pendingY: number;
+  startPointerX: number;
+  startPointerY: number;
+};
+
+const getElasticDragOffset = (delta: number, limit: number) => {
+  const softness = Math.max(limit * 1.65, 52);
+  return limit * Math.tanh(delta / softness);
+};
+
+const rotatingSearchPrompts = [
+  'Pergunte sobre Flavio Jr. ou qualquer tema!',
+  'Quais são as habilidades do Flavio Jr.?',
+  'Quantos anos tem Flavio Jr.?',
+  'Qual é o currículo completo do Flavio Jr.?',
+  'Por quais empresas o Flavio Jr. passou?',
+  'Quais são os projetos do Flavio Jr.?',
+] as const;
+
+const searchIntroMessage = 'Olá, Sejam Bem vindos!';
+
+const profileGuideMoveDurationMs = 340;
+const profileGuideProfileCount = 4;
 
 const heroBioLines = [
   { label: 'Beginning in technology', value: 'since 2012' },
@@ -37,11 +106,25 @@ export function HeroSection({
 }: HeroSectionProps) {
   const heroRef = useRef<HTMLElement | null>(null);
   const heroStageRef = useRef<HTMLDivElement | null>(null);
+  const profileGuideParticleRef = useRef<HTMLDivElement | null>(null);
+  const searchBarShellRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const searchIntroTextRef = useRef('');
+  const searchIntroModeRef = useRef<'idle' | 'typingIn' | 'typingOut' | 'completed'>('idle');
 
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
   const [currentShape, setCurrentShape] = useState<ShapeName>('fjr');
+  const [currentParticleSampleIndex, setCurrentParticleSampleIndex] = useState(0);
+  const [particleTransitionPhase, setParticleTransitionPhase] = useState<HeroTransitionPhase>('idle');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isListeningToSearch, setIsListeningToSearch] = useState(false);
+  const [activeSearchPromptIndex, setActiveSearchPromptIndex] = useState(0);
+  const [searchIntroDisplayText, setSearchIntroDisplayText] = useState('');
+  const [agentTurns, setAgentTurns] = useState<HeroAgentTurn[]>([]);
+  const [isAgentPanelDismissed, setIsAgentPanelDismissed] = useState(false);
   const [visibleBioLabels, setVisibleBioLabels] = useState(0);
   const [typedBioLabels, setTypedBioLabels] = useState<string[]>([]);
   const [displayBioValues, setDisplayBioValues] = useState<string[]>([]);
@@ -53,10 +136,16 @@ export function HeroSection({
   const [glowingBioRightIndexes, setGlowingBioRightIndexes] = useState<Set<number>>(new Set());
   const [isInitialBioRightGlowActive, setIsInitialBioRightGlowActive] = useState(false);
   const [isProfileBioVisible, setIsProfileBioVisible] = useState(true);
+  const [isSearchBarRestVisible, setIsSearchBarRestVisible] = useState(true);
+  const [activeProfileGuideIndex, setActiveProfileGuideIndex] = useState<number | null>(null);
+  const [isProfileGuideVisible, setIsProfileGuideVisible] = useState(false);
+  const [isProfileSceneExiting, setIsProfileSceneExiting] = useState(false);
   const [isProfileTypingComplete, setIsProfileTypingComplete] = useState(false);
 
   const hideDetailsTimerRef = useRef<number | null>(null);
   const subtitleTypingTimerRef = useRef<number | null>(null);
+  const searchIntroTypingTimerRef = useRef<number | null>(null);
+  const rotatingSearchPromptTimerRef = useRef<number | null>(null);
   const bioTypingTimerRef = useRef<number | null>(null);
   const bioInitialGlowTimerRef = useRef<number | null>(null);
   const bioInitialScrambleRafRef = useRef<number | null>(null);
@@ -70,11 +159,77 @@ export function HeroSection({
   const hasScheduledIntroRef = useRef(false);
   const hasPlayedHeroRevealRef = useRef(false);
   const isFixedTitleHiddenRef = useRef(false);
-  const profileIdleHideTimerRef = useRef<number | null>(null);
+  const profileAmbientHideTimerRef = useRef<number | null>(null);
+  const wasProfileAmbientActiveRef = useRef(false);
   const isBottomEdgeTriggerReadyRef = useRef(true);
+  const profileGuideDragRafRef = useRef<number | null>(null);
+  const searchBarDragRafRef = useRef<number | null>(null);
+  const agentRequestAbortRef = useRef<AbortController | null>(null);
+  const profileGuideDragStateRef = useRef<SearchBarDragState>({
+    activePointerId: null,
+    isDragging: false,
+    maxOffsetX: 0,
+    maxOffsetY: 0,
+    pendingX: 0,
+    pendingY: 0,
+    startPointerX: 0,
+    startPointerY: 0,
+  });
+  const searchBarDragStateRef = useRef<SearchBarDragState>({
+    activePointerId: null,
+    isDragging: false,
+    maxOffsetX: 0,
+    maxOffsetY: 0,
+    pendingX: 0,
+    pendingY: 0,
+    startPointerX: 0,
+    startPointerY: 0,
+  });
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
   const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
+  const isParticleSceneActive = particleTransitionPhase !== 'idle';
+  const shouldShowSearchBar = currentShape === 'profile' || isParticleSceneActive;
+  const isSearchBarElasticReady = currentShape === 'profile' && particleTransitionPhase === 'idle' && !shouldHideFixedTitle;
+  const isSearchBarInteractionReady =
+    isSearchBarElasticReady &&
+    isSearchBarRestVisible &&
+    !isProfileSceneExiting &&
+    searchIntroDisplayText.length === 0;
+  const shouldShowAgentPanel =
+    isSearchBarElasticReady &&
+    !isAgentPanelDismissed &&
+    !isProfileSceneExiting &&
+    agentTurns.length > 0;
+  const resolvedProfileGuideIndex =
+    activeProfileGuideIndex !== null && activeProfileGuideIndex >= 1 && activeProfileGuideIndex <= profileGuideProfileCount
+      ? activeProfileGuideIndex
+      : 1;
+  const shouldShowProfileGuideParticle =
+    currentShape === 'profile' &&
+    currentParticleSampleIndex >= 1 &&
+    currentParticleSampleIndex <= profileGuideProfileCount &&
+    particleTransitionPhase === 'idle' &&
+    isProfileGuideVisible &&
+    !isProfileSceneExiting;
+  const profileGuideLayerStyle = {
+    '--hero-profile-guide-move-duration': `${profileGuideMoveDurationMs}ms`,
+  } as CSSProperties;
+  const activeSearchPrompt = rotatingSearchPrompts[activeSearchPromptIndex] ?? rotatingSearchPrompts[0];
+  const shouldShowSearchIntroText = searchIntroDisplayText.length > 0;
+  const agentPanelRoute =
+    [...agentTurns].reverse().find((turn) => turn.route !== null)?.route ?? null;
+  const searchSceneClassName = [
+    'hero-search-scene',
+    shouldShowSearchBar ? 'hero-search-scene--visible' : '',
+    isParticleSceneActive ? `hero-search-scene--${particleTransitionPhase}` : '',
+    currentShape === 'profile' ? 'hero-search-scene--ready' : '',
+    shouldShowSearchIntroText ? 'hero-search-scene--intro-visible' : '',
+    isSearchBarInteractionReady ? 'hero-search-scene--controls-ready' : '',
+    isSearchBarElasticReady && !isSearchBarRestVisible && !shouldShowAgentPanel ? 'hero-search-scene--rest-hidden' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     const el = heroRef.current;
@@ -169,6 +324,8 @@ export function HeroSection({
     return () => {
       if (hideDetailsTimerRef.current) window.clearTimeout(hideDetailsTimerRef.current);
       if (subtitleTypingTimerRef.current) window.clearTimeout(subtitleTypingTimerRef.current);
+      if (searchIntroTypingTimerRef.current) window.clearTimeout(searchIntroTypingTimerRef.current);
+      if (rotatingSearchPromptTimerRef.current) window.clearTimeout(rotatingSearchPromptTimerRef.current);
       if (bioTypingTimerRef.current) window.clearTimeout(bioTypingTimerRef.current);
       if (bioInitialGlowTimerRef.current) window.clearTimeout(bioInitialGlowTimerRef.current);
       if (bioInitialScrambleRafRef.current) window.cancelAnimationFrame(bioInitialScrambleRafRef.current);
@@ -183,7 +340,8 @@ export function HeroSection({
       bioRightScrambleRafRefs.current.clear();
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
-      if (profileIdleHideTimerRef.current) window.clearTimeout(profileIdleHideTimerRef.current);
+      if (profileAmbientHideTimerRef.current) window.clearTimeout(profileAmbientHideTimerRef.current);
+      agentRequestAbortRef.current?.abort();
     };
   }, []);
 
@@ -239,6 +397,9 @@ export function HeroSection({
       setIsInitialBioRightGlowActive(false);
       setIsProfileTypingComplete(false);
       setIsProfileBioVisible(true);
+      setIsSearchBarRestVisible(true);
+      setIsProfileSceneExiting(false);
+      wasProfileAmbientActiveRef.current = false;
       if (bioTypingTimerRef.current) {
         window.clearTimeout(bioTypingTimerRef.current);
         bioTypingTimerRef.current = null;
@@ -271,9 +432,9 @@ export function HeroSection({
       bioHoverGlowTimerRefs.current.clear();
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
-      if (profileIdleHideTimerRef.current) {
-        window.clearTimeout(profileIdleHideTimerRef.current);
-        profileIdleHideTimerRef.current = null;
+      if (profileAmbientHideTimerRef.current) {
+        window.clearTimeout(profileAmbientHideTimerRef.current);
+        profileAmbientHideTimerRef.current = null;
       }
       return;
     }
@@ -290,6 +451,9 @@ export function HeroSection({
     setIsInitialBioRightGlowActive(false);
     setIsProfileTypingComplete(false);
     setIsProfileBioVisible(true);
+    setIsSearchBarRestVisible(true);
+    setIsProfileSceneExiting(false);
+    wasProfileAmbientActiveRef.current = false;
 
     const labelsDelay = 220;
     const charDelay = 28;
@@ -489,37 +653,86 @@ export function HeroSection({
     return () => window.removeEventListener('mousemove', onPointerMove);
   }, [currentShape, hideFixedTitle, isProjectCardVisible, revealDetails]);
 
-  useEffect(() => {
-    if (currentShape !== 'profile' || hideFixedTitle || !isProfileTypingComplete) return;
+  const clearProfileAmbientHideTimer = useCallback(() => {
+    if (profileAmbientHideTimerRef.current) {
+      window.clearTimeout(profileAmbientHideTimerRef.current);
+      profileAmbientHideTimerRef.current = null;
+    }
+  }, []);
 
-    const scheduleProfileHide = () => {
-      if (profileIdleHideTimerRef.current) {
-        window.clearTimeout(profileIdleHideTimerRef.current);
-      }
-      profileIdleHideTimerRef.current = window.setTimeout(() => {
+  const scheduleProfileAmbientHide = useCallback(
+    (hideSearchBar: boolean) => {
+      clearProfileAmbientHideTimer();
+      profileAmbientHideTimerRef.current = window.setTimeout(() => {
         setIsProfileBioVisible(false);
-        profileIdleHideTimerRef.current = null;
-      }, 5000);
-    };
+        if (hideSearchBar) {
+          setIsSearchBarRestVisible(false);
+        }
+        profileAmbientHideTimerRef.current = null;
+      }, 10000);
+    },
+    [clearProfileAmbientHideTimer],
+  );
 
-    setIsProfileBioVisible(true);
-    scheduleProfileHide();
+  useEffect(() => {
+    const isProfileAmbientActive =
+      currentShape === 'profile' &&
+      !hideFixedTitle &&
+      isProfileTypingComplete &&
+      !isProfileSceneExiting;
+
+    if (isProfileSceneExiting) {
+      clearProfileAmbientHideTimer();
+      return;
+    }
+
+    if (!isProfileAmbientActive) {
+      clearProfileAmbientHideTimer();
+      wasProfileAmbientActiveRef.current = false;
+      setIsProfileBioVisible(true);
+      setIsSearchBarRestVisible(true);
+      return;
+    }
+
+    const isFreshActivation = !wasProfileAmbientActiveRef.current;
+    wasProfileAmbientActiveRef.current = true;
+
+    if (isFreshActivation) {
+      setIsProfileBioVisible(true);
+      setIsSearchBarRestVisible(true);
+    } else {
+      setIsSearchBarRestVisible(true);
+    }
+
+    scheduleProfileAmbientHide(!shouldShowAgentPanel);
 
     const onPointerMove = () => {
       setIsProfileBioVisible(true);
-      scheduleProfileHide();
+      setIsSearchBarRestVisible(true);
+      scheduleProfileAmbientHide(!shouldShowAgentPanel);
     };
 
     window.addEventListener('mousemove', onPointerMove, { passive: true });
 
     return () => {
       window.removeEventListener('mousemove', onPointerMove);
-      if (profileIdleHideTimerRef.current) {
-        window.clearTimeout(profileIdleHideTimerRef.current);
-        profileIdleHideTimerRef.current = null;
-      }
+      clearProfileAmbientHideTimer();
     };
-  }, [currentShape, hideFixedTitle, isProfileTypingComplete]);
+  }, [
+    clearProfileAmbientHideTimer,
+    currentShape,
+    hideFixedTitle,
+    isProfileSceneExiting,
+    isProfileTypingComplete,
+    scheduleProfileAmbientHide,
+    shouldShowAgentPanel,
+  ]);
+
+  const waitForUiTransition = useCallback((durationMs: number) => {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, durationMs);
+    });
+  }, []);
 
   const runBioValueScramble = useCallback((index: number) => {
     const targetValue = heroBioLines[index].value;
@@ -606,8 +819,642 @@ export function HeroSection({
 
   const handleShapeChange = useCallback((shape: ShapeName) => {
     setCurrentShape(shape);
+    setIsProfileSceneExiting(false);
     revealDetails();
   }, [revealDetails]);
+
+  const handleParticleTransitionPhaseChange = useCallback((phase: HeroTransitionPhase) => {
+    setParticleTransitionPhase(phase);
+  }, []);
+
+  const handleParticleSampleChange = useCallback((sampleIndex: number) => {
+    setCurrentParticleSampleIndex(sampleIndex);
+
+    if (sampleIndex < 1 || sampleIndex > profileGuideProfileCount) {
+      setActiveProfileGuideIndex(null);
+      setIsProfileGuideVisible(false);
+      return;
+    }
+
+    setActiveProfileGuideIndex(sampleIndex);
+    setIsProfileGuideVisible(true);
+  }, []);
+
+  const handleBeforeParticleSampleTransition = useCallback((fromSampleIndex: number, toSampleIndex: number) => {
+    const isFromProfileSample = fromSampleIndex >= 1 && fromSampleIndex <= profileGuideProfileCount;
+    const isToProfileSample = toSampleIndex >= 1 && toSampleIndex <= profileGuideProfileCount;
+
+    if (isFromProfileSample && isToProfileSample) {
+      setActiveProfileGuideIndex(toSampleIndex);
+      setIsProfileGuideVisible(true);
+      return;
+    }
+
+    if (fromSampleIndex === profileGuideProfileCount && !isToProfileSample) {
+      setIsProfileGuideVisible(false);
+    }
+  }, []);
+
+  const applyProfileGuideDragOffset = useCallback((x: number, y: number, dragging: boolean) => {
+    const particle = profileGuideParticleRef.current;
+    if (!particle) return;
+    particle.style.setProperty('--hero-profile-guide-drag-x', `${x.toFixed(2)}px`);
+    particle.style.setProperty('--hero-profile-guide-drag-y', `${y.toFixed(2)}px`);
+    particle.dataset.dragging = dragging ? 'true' : 'false';
+  }, []);
+
+  const scheduleProfileGuideDragOffset = useCallback(
+    (x: number, y: number, dragging: boolean) => {
+      const state = profileGuideDragStateRef.current;
+      state.pendingX = x;
+      state.pendingY = y;
+      state.isDragging = dragging;
+
+      if (profileGuideDragRafRef.current !== null) return;
+
+      profileGuideDragRafRef.current = window.requestAnimationFrame(() => {
+        profileGuideDragRafRef.current = null;
+        const nextState = profileGuideDragStateRef.current;
+        applyProfileGuideDragOffset(nextState.pendingX, nextState.pendingY, nextState.isDragging);
+      });
+    },
+    [applyProfileGuideDragOffset],
+  );
+
+  const resetProfileGuideDrag = useCallback(() => {
+    const particle = profileGuideParticleRef.current;
+    const state = profileGuideDragStateRef.current;
+
+    if (particle && state.activePointerId !== null && particle.hasPointerCapture(state.activePointerId)) {
+      particle.releasePointerCapture(state.activePointerId);
+    }
+
+    state.activePointerId = null;
+    state.isDragging = false;
+    state.maxOffsetX = 0;
+    state.maxOffsetY = 0;
+    state.pendingX = 0;
+    state.pendingY = 0;
+
+    if (profileGuideDragRafRef.current !== null) {
+      window.cancelAnimationFrame(profileGuideDragRafRef.current);
+      profileGuideDragRafRef.current = null;
+    }
+
+    applyProfileGuideDragOffset(0, 0, false);
+  }, [applyProfileGuideDragOffset]);
+
+  const handleProfileGuidePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!shouldShowProfileGuideParticle) return;
+
+      const particle = profileGuideParticleRef.current;
+      if (!particle) return;
+
+      const rect = particle.getBoundingClientRect();
+      const state = profileGuideDragStateRef.current;
+      state.activePointerId = event.pointerId;
+      state.startPointerX = event.clientX;
+      state.startPointerY = event.clientY;
+      state.maxOffsetX = Math.min(Math.max(rect.width * 10, 26), 42);
+      state.maxOffsetY = Math.min(Math.max(rect.height * 10, 26), 42);
+      state.isDragging = true;
+
+      particle.setPointerCapture(event.pointerId);
+      applyProfileGuideDragOffset(0, 0, true);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [applyProfileGuideDragOffset, shouldShowProfileGuideParticle],
+  );
+
+  const handleProfileGuidePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const state = profileGuideDragStateRef.current;
+      if (!shouldShowProfileGuideParticle || state.activePointerId !== event.pointerId) return;
+
+      const deltaX = event.clientX - state.startPointerX;
+      const deltaY = event.clientY - state.startPointerY;
+      const offsetX = getElasticDragOffset(deltaX, state.maxOffsetX);
+      const offsetY = getElasticDragOffset(deltaY, state.maxOffsetY);
+
+      scheduleProfileGuideDragOffset(offsetX, offsetY, true);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [scheduleProfileGuideDragOffset, shouldShowProfileGuideParticle],
+  );
+
+  const handleProfileGuidePointerRelease = useCallback(
+    (pointerId?: number) => {
+      const state = profileGuideDragStateRef.current;
+      if (pointerId !== undefined && state.activePointerId !== pointerId) return;
+      if (state.activePointerId === null && !state.isDragging) return;
+
+      state.activePointerId = null;
+      scheduleProfileGuideDragOffset(0, 0, false);
+    },
+    [scheduleProfileGuideDragOffset],
+  );
+
+  useEffect(() => {
+    if (shouldShowProfileGuideParticle) return;
+    resetProfileGuideDrag();
+  }, [resetProfileGuideDrag, shouldShowProfileGuideParticle]);
+
+  useEffect(() => {
+    searchIntroTextRef.current = searchIntroDisplayText;
+  }, [searchIntroDisplayText]);
+
+  const clearSearchIntroTypingTimer = useCallback(() => {
+    if (searchIntroTypingTimerRef.current) {
+      window.clearTimeout(searchIntroTypingTimerRef.current);
+      searchIntroTypingTimerRef.current = null;
+    }
+  }, []);
+
+  const startSearchIntroTypingIn = useCallback(() => {
+    if (
+      searchIntroModeRef.current === 'typingIn' ||
+      searchIntroModeRef.current === 'typingOut' ||
+      searchIntroModeRef.current === 'completed'
+    ) {
+      return;
+    }
+
+    clearSearchIntroTypingTimer();
+    searchIntroModeRef.current = 'typingIn';
+    searchIntroTextRef.current = '';
+    setSearchIntroDisplayText('');
+
+    let nextIndex = 0;
+    const typeNextCharacter = () => {
+      nextIndex += 1;
+      const nextText = searchIntroMessage.slice(0, nextIndex);
+      searchIntroTextRef.current = nextText;
+      setSearchIntroDisplayText(nextText);
+
+      if (nextIndex < searchIntroMessage.length) {
+        searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, 72);
+        return;
+      }
+
+      searchIntroModeRef.current = 'completed';
+      searchIntroTypingTimerRef.current = null;
+    };
+
+    searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, 200);
+  }, [clearSearchIntroTypingTimer]);
+
+  const startSearchIntroTypingOut = useCallback(() => {
+    if (searchIntroModeRef.current === 'typingOut') return;
+
+    clearSearchIntroTypingTimer();
+
+    let nextText = searchIntroTextRef.current || searchIntroMessage;
+    if (!nextText) {
+      searchIntroModeRef.current = 'idle';
+      setSearchIntroDisplayText('');
+      return;
+    }
+
+    searchIntroModeRef.current = 'typingOut';
+    searchIntroTextRef.current = nextText;
+    setSearchIntroDisplayText(nextText);
+
+    const deletePreviousCharacter = () => {
+      nextText = nextText.slice(0, -1);
+      searchIntroTextRef.current = nextText;
+      setSearchIntroDisplayText(nextText);
+
+      if (nextText.length > 0) {
+        searchIntroTypingTimerRef.current = window.setTimeout(deletePreviousCharacter, 46);
+        return;
+      }
+
+      searchIntroModeRef.current = 'idle';
+      searchIntroTypingTimerRef.current = null;
+    };
+
+    searchIntroTypingTimerRef.current = window.setTimeout(deletePreviousCharacter, 120);
+  }, [clearSearchIntroTypingTimer]);
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  const handleSearchInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  }, []);
+
+  const primeActiveSearchPrompt = useCallback(() => {
+    if (!activeSearchPrompt) return;
+    setSearchQuery(activeSearchPrompt);
+
+    window.requestAnimationFrame(() => {
+      const input = searchInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(0, activeSearchPrompt.length);
+    });
+  }, [activeSearchPrompt]);
+
+  const reopenAgentPanelFromSearchField = useCallback(() => {
+    if (!isSearchBarInteractionReady) return;
+    if (agentTurns.length === 0) return;
+    setIsAgentPanelDismissed(false);
+  }, [agentTurns.length, isSearchBarInteractionReady]);
+
+  const prunePendingAgentTurns = useCallback(() => {
+    setAgentTurns((prev) => prev.filter((turn) => turn.status !== 'loading'));
+  }, []);
+
+  const closeAgentPanel = useCallback(() => {
+    agentRequestAbortRef.current?.abort();
+    agentRequestAbortRef.current = null;
+    prunePendingAgentTurns();
+    setIsAgentPanelDismissed(true);
+  }, [prunePendingAgentTurns]);
+
+  const handleBeforeShapeTransition = useCallback(
+    async (from: ShapeName, to: ShapeName) => {
+      if (from !== 'profile' || to !== 'fjr') return;
+
+      const shouldAnimateProfileExit = shouldShowAgentPanel || isProfileBioVisible || isSearchBarRestVisible;
+      setIsProfileSceneExiting(true);
+
+      if (shouldShowAgentPanel) {
+        closeAgentPanel();
+        await waitForUiTransition(480);
+      }
+
+      setIsProfileBioVisible(false);
+      setIsSearchBarRestVisible(false);
+
+      if (shouldAnimateProfileExit) {
+        await waitForUiTransition(820);
+      }
+    },
+    [
+      closeAgentPanel,
+      isProfileBioVisible,
+      isSearchBarRestVisible,
+      shouldShowAgentPanel,
+      waitForUiTransition,
+    ],
+  );
+
+  const submitSearchQuery = useCallback(
+    async (overrideQuery?: string) => {
+      const normalizedQuery = (overrideQuery ?? searchQuery).trim();
+
+      if (!normalizedQuery) {
+        primeActiveSearchPrompt();
+        return;
+      }
+
+      if (!isSearchBarElasticReady) {
+        focusSearchInput();
+        return;
+      }
+
+      speechRecognitionRef.current?.stop();
+      setSearchQuery(normalizedQuery);
+      agentRequestAbortRef.current?.abort();
+      prunePendingAgentTurns();
+
+      const controller = new AbortController();
+      agentRequestAbortRef.current = controller;
+      const turnId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      setAgentTurns((prev) => [
+        ...prev,
+        {
+          id: turnId,
+          question: normalizedQuery,
+          answer: '',
+          error: '',
+          status: 'loading',
+          route: null,
+          questionTypingPlayed: false,
+          answerTypingPlayed: false,
+        },
+      ]);
+      setSearchQuery('');
+      setIsAgentPanelDismissed(false);
+
+      try {
+        const response = await sendAgentMessage(normalizedQuery, controller.signal);
+        if (controller.signal.aborted) return;
+
+        setAgentTurns((prev) =>
+          prev.map((turn) =>
+            turn.id === turnId
+              ? {
+                  ...turn,
+                  answer: response.answer,
+                  error: '',
+                  route: response.route,
+                  status: 'answered',
+                  answerTypingPlayed: false,
+                }
+              : turn,
+          ),
+        );
+      } catch (error) {
+        if (controller.signal.aborted) return;
+
+        setAgentTurns((prev) =>
+          prev.map((turn) =>
+            turn.id === turnId
+              ? {
+                  ...turn,
+                  answer: '',
+                  error:
+                    error instanceof Error ? error.message : 'Nao foi possivel obter uma resposta do agente agora.',
+                  route: null,
+                  status: 'error',
+                  answerTypingPlayed: false,
+                }
+              : turn,
+          ),
+        );
+      } finally {
+        if (agentRequestAbortRef.current === controller) {
+          agentRequestAbortRef.current = null;
+        }
+      }
+    },
+    [focusSearchInput, isSearchBarElasticReady, primeActiveSearchPrompt, prunePendingAgentTurns, searchQuery],
+  );
+
+  const handleSearchSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void submitSearchQuery();
+    },
+    [submitSearchQuery],
+  );
+
+  const handleSearchMicToggle = useCallback(() => {
+    if (!isSearchBarInteractionReady) return;
+
+    const speechApiWindow = window as Window &
+      typeof globalThis & {
+        SpeechRecognition?: new () => SpeechRecognitionLike;
+        webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+      };
+
+    const SpeechRecognitionCtor = speechApiWindow.SpeechRecognition ?? speechApiWindow.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionCtor) {
+      focusSearchInput();
+      return;
+    }
+
+    if (isListeningToSearch) {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+
+    const recognition = speechRecognitionRef.current ?? new SpeechRecognitionCtor();
+    speechRecognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'pt-BR';
+    recognition.onresult = (event) => {
+      let transcript = '';
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        transcript += event.results[index][0]?.transcript ?? '';
+      }
+
+      setSearchQuery(transcript.trim());
+    };
+    recognition.onend = () => {
+      setIsListeningToSearch(false);
+    };
+    recognition.onerror = () => {
+      setIsListeningToSearch(false);
+    };
+
+    try {
+      recognition.start();
+      setIsListeningToSearch(true);
+      focusSearchInput();
+    } catch {
+      setIsListeningToSearch(false);
+    }
+  }, [focusSearchInput, isListeningToSearch, isSearchBarInteractionReady]);
+
+  const applySearchBarDragOffset = useCallback((x: number, y: number, dragging: boolean) => {
+    const shell = searchBarShellRef.current;
+    if (!shell) return;
+    shell.style.setProperty('--search-drag-x', `${x.toFixed(2)}px`);
+    shell.style.setProperty('--search-drag-y', `${y.toFixed(2)}px`);
+    shell.dataset.dragging = dragging ? 'true' : 'false';
+  }, []);
+
+  const scheduleSearchBarDragOffset = useCallback(
+    (x: number, y: number, dragging: boolean) => {
+      const state = searchBarDragStateRef.current;
+      state.pendingX = x;
+      state.pendingY = y;
+      state.isDragging = dragging;
+
+      if (searchBarDragRafRef.current !== null) return;
+
+      searchBarDragRafRef.current = window.requestAnimationFrame(() => {
+        searchBarDragRafRef.current = null;
+        const nextState = searchBarDragStateRef.current;
+        applySearchBarDragOffset(nextState.pendingX, nextState.pendingY, nextState.isDragging);
+      });
+    },
+    [applySearchBarDragOffset],
+  );
+
+  const resetSearchBarDrag = useCallback(() => {
+    const shell = searchBarShellRef.current;
+    const state = searchBarDragStateRef.current;
+
+    if (shell && state.activePointerId !== null && shell.hasPointerCapture(state.activePointerId)) {
+      shell.releasePointerCapture(state.activePointerId);
+    }
+
+    state.activePointerId = null;
+    state.isDragging = false;
+    state.maxOffsetX = 0;
+    state.maxOffsetY = 0;
+    state.pendingX = 0;
+    state.pendingY = 0;
+
+    if (searchBarDragRafRef.current !== null) {
+      window.cancelAnimationFrame(searchBarDragRafRef.current);
+      searchBarDragRafRef.current = null;
+    }
+
+    applySearchBarDragOffset(0, 0, false);
+  }, [applySearchBarDragOffset]);
+
+  const handleSearchBarPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isSearchBarElasticReady) return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-search-control="true"]')) return;
+
+      const shell = searchBarShellRef.current;
+      if (!shell) return;
+
+      const rect = shell.getBoundingClientRect();
+      const state = searchBarDragStateRef.current;
+      state.activePointerId = event.pointerId;
+      state.startPointerX = event.clientX;
+      state.startPointerY = event.clientY;
+      state.maxOffsetX = Math.min(rect.width * 0.14, 86);
+      state.maxOffsetY = Math.min(rect.height * 0.9, 48);
+      state.isDragging = true;
+
+      shell.setPointerCapture(event.pointerId);
+      applySearchBarDragOffset(0, 0, true);
+      event.preventDefault();
+    },
+    [applySearchBarDragOffset, isSearchBarElasticReady],
+  );
+
+  const handleSearchBarPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const state = searchBarDragStateRef.current;
+      if (!isSearchBarElasticReady || state.activePointerId !== event.pointerId) return;
+
+      const deltaX = event.clientX - state.startPointerX;
+      const deltaY = event.clientY - state.startPointerY;
+      const offsetX = getElasticDragOffset(deltaX, state.maxOffsetX);
+      const offsetY = getElasticDragOffset(deltaY, state.maxOffsetY);
+
+      scheduleSearchBarDragOffset(offsetX, offsetY, true);
+      event.preventDefault();
+    },
+    [isSearchBarElasticReady, scheduleSearchBarDragOffset],
+  );
+
+  const handleSearchBarPointerRelease = useCallback(
+    (pointerId?: number) => {
+      const state = searchBarDragStateRef.current;
+      if (pointerId !== undefined && state.activePointerId !== pointerId) return;
+      if (state.activePointerId === null && !state.isDragging) return;
+
+      state.activePointerId = null;
+      scheduleSearchBarDragOffset(0, 0, false);
+    },
+    [scheduleSearchBarDragOffset],
+  );
+
+  useEffect(() => {
+    if (isSearchBarElasticReady) return;
+    speechRecognitionRef.current?.abort();
+    setIsListeningToSearch(false);
+    agentRequestAbortRef.current?.abort();
+    agentRequestAbortRef.current = null;
+    prunePendingAgentTurns();
+    resetSearchBarDrag();
+  }, [isSearchBarElasticReady, prunePendingAgentTurns, resetSearchBarDrag]);
+
+  useEffect(() => {
+    if (rotatingSearchPromptTimerRef.current) {
+      window.clearTimeout(rotatingSearchPromptTimerRef.current);
+      rotatingSearchPromptTimerRef.current = null;
+    }
+
+    if (!isSearchBarElasticReady) return;
+
+    const rotatePrompt = () => {
+      rotatingSearchPromptTimerRef.current = window.setTimeout(() => {
+        setActiveSearchPromptIndex((prev) => (prev + 1) % rotatingSearchPrompts.length);
+        rotatePrompt();
+      }, 4000);
+    };
+
+    rotatePrompt();
+
+    return () => {
+      if (rotatingSearchPromptTimerRef.current) {
+        window.clearTimeout(rotatingSearchPromptTimerRef.current);
+        rotatingSearchPromptTimerRef.current = null;
+      }
+    };
+  }, [isSearchBarElasticReady]);
+
+  useEffect(() => {
+    if (particleTransitionPhase === 'searchMaterialize') {
+      startSearchIntroTypingIn();
+      return;
+    }
+
+    if (particleTransitionPhase === 'searchDrop') {
+      startSearchIntroTypingOut();
+      return;
+    }
+
+    if (
+      particleTransitionPhase === 'particle' ||
+      particleTransitionPhase === 'particleGrow' ||
+      particleTransitionPhase === 'particlePulse'
+    ) {
+      clearSearchIntroTypingTimer();
+      searchIntroModeRef.current = 'idle';
+      searchIntroTextRef.current = '';
+      setSearchIntroDisplayText('');
+    }
+  }, [
+    clearSearchIntroTypingTimer,
+    particleTransitionPhase,
+    startSearchIntroTypingIn,
+    startSearchIntroTypingOut,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearSearchIntroTypingTimer();
+      agentRequestAbortRef.current?.abort();
+      speechRecognitionRef.current?.abort();
+      resetProfileGuideDrag();
+      resetSearchBarDrag();
+    };
+  }, [clearSearchIntroTypingTimer, resetProfileGuideDrag, resetSearchBarDrag]);
+
+  const handleRetryAgentResponse = useCallback(
+    (question: string) => {
+      void submitSearchQuery(question);
+    },
+    [submitSearchQuery],
+  );
+
+  const handleAgentQuestionTypingComplete = useCallback((turnId: string) => {
+    setAgentTurns((prev) =>
+      prev.map((turn) =>
+        turn.id === turnId && !turn.questionTypingPlayed
+          ? {
+              ...turn,
+              questionTypingPlayed: true,
+            }
+          : turn,
+      ),
+    );
+  }, []);
+
+  const handleAgentAnswerTypingComplete = useCallback((turnId: string) => {
+    setAgentTurns((prev) =>
+      prev.map((turn) =>
+        turn.id === turnId && !turn.answerTypingPlayed
+          ? {
+              ...turn,
+              answerTypingPlayed: true,
+            }
+          : turn,
+      ),
+    );
+  }, []);
 
   const handleBioRightValueMouseEnter = useCallback((index: number) => {
     setGlowingBioRightIndexes((prev) => {
@@ -657,11 +1504,151 @@ export function HeroSection({
         }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       >
-        <HeroParticlesAdvanced onShapeChange={handleShapeChange} />
+        <HeroParticlesAdvanced
+          onBeforeSampleTransition={handleBeforeParticleSampleTransition}
+          onBeforeShapeTransition={handleBeforeShapeTransition}
+          onSampleChange={handleParticleSampleChange}
+          onShapeChange={handleShapeChange}
+          onTransitionPhaseChange={handleParticleTransitionPhaseChange}
+        />
+
+        <div
+          className={`hero-profile-guide-particle-layer${shouldShowProfileGuideParticle ? ' hero-profile-guide-particle-layer--visible' : ''}`}
+          data-profile={String(resolvedProfileGuideIndex)}
+          style={profileGuideLayerStyle}
+          aria-hidden="true"
+        >
+          <div
+            ref={profileGuideParticleRef}
+            className="hero-profile-guide-particle"
+            onClick={(event) => event.stopPropagation()}
+            onLostPointerCapture={() => handleProfileGuidePointerRelease()}
+            onPointerCancel={(event) => {
+              event.stopPropagation();
+              handleProfileGuidePointerRelease(event.pointerId);
+            }}
+            onPointerDown={handleProfileGuidePointerDown}
+            onPointerMove={handleProfileGuidePointerMove}
+            onPointerUp={(event) => {
+              event.stopPropagation();
+              handleProfileGuidePointerRelease(event.pointerId);
+            }}
+          >
+            <div className="hero-profile-guide-particle__core" />
+          </div>
+        </div>
+
+        <div className={searchSceneClassName} aria-hidden={!isSearchBarElasticReady}>
+          <div className="hero-search-scene__core-shell">
+            <div className="hero-search-scene__core" />
+          </div>
+          <div className="hero-search-scene__pulse" />
+
+          <div
+            ref={searchBarShellRef}
+            className="hero-search-scene__bar-shell"
+            onLostPointerCapture={() => handleSearchBarPointerRelease()}
+            onPointerCancel={(event) => handleSearchBarPointerRelease(event.pointerId)}
+            onPointerDown={handleSearchBarPointerDown}
+            onPointerMove={handleSearchBarPointerMove}
+            onPointerUp={(event) => handleSearchBarPointerRelease(event.pointerId)}
+          >
+            <div className="hero-search-scene__border-glow" />
+
+            <svg
+              className="hero-search-scene__beam-svg"
+              viewBox="0 0 1000 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                className="hero-search-scene__beam-path hero-search-scene__beam-path--glow"
+                pathLength={100}
+                d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
+              />
+              <path
+                className="hero-search-scene__beam-path hero-search-scene__beam-path--core"
+                pathLength={100}
+                d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
+              />
+            </svg>
+
+            <div className="hero-search-scene__bar">
+              <div className="hero-search-scene__intro-copy" aria-hidden={!shouldShowSearchIntroText}>
+                {searchIntroDisplayText}
+              </div>
+
+              <div className="hero-search-scene__actions hero-search-scene__actions--left">
+                <button
+                  type="button"
+                  className="hero-search-scene__action-button"
+                  aria-label="Abrir busca"
+                  data-search-control="true"
+                  disabled={!isSearchBarInteractionReady}
+                  onClick={focusSearchInput}
+                >
+                  <FaSearch className="hero-search-scene__icon" />
+                </button>
+              </div>
+
+              <form className="hero-search-scene__field" onSubmit={handleSearchSubmit}>
+                <input
+                  ref={searchInputRef}
+                  className="hero-search-scene__field-input"
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  onClick={reopenAgentPanelFromSearchField}
+                  onFocus={reopenAgentPanelFromSearchField}
+                  placeholder={isListeningToSearch ? 'Ouvindo...' : activeSearchPrompt}
+                  aria-label="Pesquisar"
+                  autoComplete="off"
+                  spellCheck={false}
+                  data-search-control="true"
+                  disabled={!isSearchBarInteractionReady}
+                />
+              </form>
+
+              <div className="hero-search-scene__actions hero-search-scene__actions--right">
+                <button
+                  type="button"
+                  className="hero-search-scene__action-button"
+                  aria-label={isListeningToSearch ? 'Parar ditado' : 'Ditado por voz'}
+                  aria-pressed={isListeningToSearch}
+                  data-search-control="true"
+                  disabled={!isSearchBarInteractionReady}
+                  onClick={handleSearchMicToggle}
+                >
+                  <FaMicrophone className="hero-search-scene__icon" />
+                </button>
+                <button
+                  type="button"
+                  className="hero-search-scene__action-button"
+                  aria-label="Enviar busca"
+                  data-search-control="true"
+                  disabled={!isSearchBarInteractionReady}
+                  onClick={() => void submitSearchQuery()}
+                >
+                  <FaPaperPlane className="hero-search-scene__icon" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <HeroAgentPanel
+            isVisible={shouldShowAgentPanel}
+            turns={agentTurns}
+            route={agentPanelRoute}
+            onClose={closeAgentPanel}
+            onRetry={handleRetryAgentResponse}
+            onQuestionTypingComplete={handleAgentQuestionTypingComplete}
+            onAnswerTypingComplete={handleAgentAnswerTypingComplete}
+          />
+        </div>
 
         <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">
-            {showDetails && !hideFixedTitle && currentShape === 'fjr' && (
+            {showDetails && !hideFixedTitle && currentShape === 'fjr' && !isParticleSceneActive && (
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
@@ -678,15 +1665,19 @@ export function HeroSection({
         </div>
 
         <AnimatePresence>
-          {!hideFixedTitle && currentShape === 'profile' && isProfileBioVisible && (
+          {!hideFixedTitle && currentShape === 'profile' && (
             <>
               <motion.div
                 key="hero-profile-bio-left"
                 className="hero-profile-bio"
-                initial={{ opacity: 0, x: -24, filter: 'blur(8px)' }}
-                animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: -18, filter: 'blur(10px)' }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, x: '-6%', filter: 'blur(8px)' }}
+                animate={
+                  isProfileBioVisible
+                    ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
+                    : { opacity: 0, x: '-112%', filter: 'blur(10px)' }
+                }
+                exit={{ opacity: 0, x: '-6%', filter: 'blur(10px)' }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               >
                 {heroBioLines.map((line, index) => {
                   if (index >= visibleBioLabels) return null;
@@ -718,10 +1709,14 @@ export function HeroSection({
               <motion.div
                 key="hero-profile-bio-right"
                 className="hero-profile-bio hero-profile-bio--right"
-                initial={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
-                animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: 18, filter: 'blur(10px)' }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, x: '6%', filter: 'blur(8px)' }}
+                animate={
+                  isProfileBioVisible
+                    ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
+                    : { opacity: 0, x: '112%', filter: 'blur(10px)' }
+                }
+                exit={{ opacity: 0, x: '6%', filter: 'blur(10px)' }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
               >
                 {heroBioRightLines.map((line, index) => {
                   if (index >= visibleBioRightLabels) return null;
@@ -755,7 +1750,7 @@ export function HeroSection({
       </motion.div>
 
       <AnimatePresence>
-        {showDetails && !hideFixedTitle && (
+        {showDetails && !hideFixedTitle && !isParticleSceneActive && (
           <motion.div
             className="social-icons"
             initial={{ y: 100, opacity: 0 }}

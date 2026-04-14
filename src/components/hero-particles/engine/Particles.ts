@@ -17,7 +17,6 @@ export default class Particles {
   private width = 0;
   private height = 0;
   private numPoints = 0;
-  private moveHandler?: (uv: { x: number; y: number }) => void;
 
   constructor(engine: any) {
     this.engine = engine;

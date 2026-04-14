@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import fjrMask from '../../../assets/hero/fjr-mask.png';
 import profileMask from '../../../assets/hero/profile-mask.png';
+import profileMask2 from '../../../assets/hero/2profile-mask.png';
+import profileMask3 from '../../../assets/hero/3profile-mask.png';
+import profileMask4 from '../../../assets/hero/4profile-mask.png';
 import Particles from './Particles';
-import type { EngineOptions, ShapeName } from './types';
+import type { EngineOptions, HeroTransitionPhase, ShapeName } from './types';
 
 export class HeroParticlesEngine {
   private container: HTMLDivElement;
@@ -15,15 +18,34 @@ export class HeroParticlesEngine {
   private pointer: THREE.Vector2;
   private currentShape: ShapeName = 'fjr';
   private currentSample = 0;
-  private samples: string[] = [fjrMask, profileMask];
+  private samples: string[] = [fjrMask, profileMask, profileMask2, profileMask3, profileMask4];
   private onShapeChange?: (shape: ShapeName) => void;
+  private onSampleChange?: (sampleIndex: number) => void;
+  private onTransitionPhaseChange?: (phase: HeroTransitionPhase) => void;
+  private onBeforeSampleTransition?: (fromSampleIndex: number, toSampleIndex: number) => Promise<void> | void;
+  private onBeforeShapeTransition?: (from: ShapeName, to: ShapeName) => Promise<void> | void;
+  private isTransitioning = false;
+  private isDestroyed = false;
+  private transitionTimers = new Set<number>();
+  private transitionResolvers = new Map<number, () => void>();
 
   public fovHeight = 0;
   public particles: Particles;
 
-  constructor({ container, onShapeChange }: EngineOptions) {
+  constructor({
+    container,
+    onShapeChange,
+    onSampleChange,
+    onTransitionPhaseChange,
+    onBeforeSampleTransition,
+    onBeforeShapeTransition,
+  }: EngineOptions) {
     this.container = container;
     this.onShapeChange = onShapeChange;
+    this.onSampleChange = onSampleChange;
+    this.onTransitionPhaseChange = onTransitionPhaseChange;
+    this.onBeforeSampleTransition = onBeforeSampleTransition;
+    this.onBeforeShapeTransition = onBeforeShapeTransition;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
@@ -63,20 +85,136 @@ export class HeroParticlesEngine {
     this.frameId = window.requestAnimationFrame(this.tick);
   }
 
-  private async goto(index: number, animated = true) {
-    if (animated && this.particles.object3D) {
-      await this.particles.hide(0.8);
-      this.particles.destroy();
+  private setTransitionPhase(phase: HeroTransitionPhase) {
+    if (this.isDestroyed) return;
+    this.onTransitionPhaseChange?.(phase);
+  }
+
+  private wait(ms: number) {
+    return new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => {
+        this.transitionTimers.delete(timer);
+        this.transitionResolvers.delete(timer);
+        resolve();
+      }, ms);
+
+      this.transitionTimers.add(timer);
+      this.transitionResolvers.set(timer, resolve);
+    });
+  }
+
+  private clearTransitionTimers() {
+    this.transitionTimers.forEach((timer) => {
+      window.clearTimeout(timer);
+      this.transitionResolvers.get(timer)?.();
+    });
+    this.transitionTimers.clear();
+    this.transitionResolvers.clear();
+  }
+
+  private async runFjrToProfileTransition(
+    particleHoldBeforeGrowMs: number,
+    particleGrowDurationMs: number,
+    particlePulseDurationMs: number,
+  ) {
+    const searchGlowDurationMs = 2500;
+
+    if (particleHoldBeforeGrowMs > 0) {
+      await this.wait(particleHoldBeforeGrowMs);
+      if (this.isDestroyed) return;
     }
 
-    await this.particles.init(this.samples[index]);
+    this.setTransitionPhase('particleGrow');
+    await this.wait(particleGrowDurationMs);
+    if (this.isDestroyed) return;
 
-    this.currentSample = index;
-    this.currentShape = index === 0 ? 'fjr' : 'profile';
-    this.onShapeChange?.(this.currentShape);
+    this.setTransitionPhase('particlePulse');
+    await this.wait(particlePulseDurationMs);
+    if (this.isDestroyed) return;
+
+    this.setTransitionPhase('searchMaterialize');
+    await this.wait(1150);
+    if (this.isDestroyed) return;
+
+    this.setTransitionPhase('searchGlow');
+    await this.wait(searchGlowDurationMs);
+    if (this.isDestroyed) return;
+
+    this.setTransitionPhase('searchDrop');
+    await this.wait(1150);
+  }
+
+  private async goto(index: number, animated = true) {
+    if (this.isTransitioning || this.isDestroyed) return;
+
+    const nextShape: ShapeName = index === 0 ? 'fjr' : 'profile';
+    const isFjrToProfileTransition = animated && this.currentSample === 0 && index === 1;
+    const isProfileSampleExit = animated && this.currentSample >= 1;
+    const hideDurationSeconds = 0.8;
+    const profileGuideTriggerLeadMs = 280;
+    const particleSmallDurationMs = 2000;
+    const particleGrowDurationMs = 1000;
+    const particlePulseDurationMs = 4000;
+    this.isTransitioning = true;
+
+    try {
+      if (animated) {
+        await this.onBeforeShapeTransition?.(this.currentShape, nextShape);
+        if (this.isDestroyed) return;
+      }
+
+      if (animated && this.particles.object3D) {
+        if (isFjrToProfileTransition) {
+          this.setTransitionPhase('particle');
+        }
+
+        const hidePromise = this.particles.hide(hideDurationSeconds);
+
+        if (isProfileSampleExit) {
+          await this.wait(Math.max(0, hideDurationSeconds * 1000 - profileGuideTriggerLeadMs));
+          if (this.isDestroyed) return;
+
+          this.onBeforeSampleTransition?.(this.currentSample, index);
+          if (this.isDestroyed) return;
+        }
+
+        await hidePromise;
+        if (this.isDestroyed) return;
+        this.particles.destroy();
+      }
+
+      if (isFjrToProfileTransition) {
+        const particleHoldBeforeGrowMs = Math.max(
+          0,
+          particleSmallDurationMs - hideDurationSeconds * 1000,
+        );
+
+        await this.runFjrToProfileTransition(
+          particleHoldBeforeGrowMs,
+          particleGrowDurationMs,
+          particlePulseDurationMs,
+        );
+        if (this.isDestroyed) return;
+      }
+
+      await this.particles.init(this.samples[index]);
+      if (this.isDestroyed) return;
+
+      this.currentSample = index;
+      this.currentShape = nextShape;
+      this.onShapeChange?.(this.currentShape);
+      this.onSampleChange?.(this.currentSample);
+
+      if (isFjrToProfileTransition) {
+        this.setTransitionPhase('idle');
+      }
+    } finally {
+      this.isTransitioning = false;
+    }
   }
 
   private handleClick() {
+    if (this.isTransitioning) return;
     const next = this.currentSample < this.samples.length - 1 ? this.currentSample + 1 : 0;
     this.goto(next, true);
   }
@@ -115,6 +253,8 @@ export class HeroParticlesEngine {
   }
 
   destroy() {
+    this.isDestroyed = true;
+    this.clearTransitionTimers();
     window.removeEventListener('resize', this.handleResize);
     this.container.removeEventListener('pointermove', this.handlePointerMove);
     this.container.removeEventListener('click', this.handleClick);
