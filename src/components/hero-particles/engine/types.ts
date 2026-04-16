@@ -26,6 +26,8 @@ export type LoadedShape = {
 
 export type EngineOptions = {
   container: HTMLDivElement;
+  initialSampleIndex?: number;
+  lockSample?: boolean;
   onShapeChange?: (shape: ShapeName) => void;
   onSampleChange?: (sampleIndex: number) => void;
   onTransitionPhaseChange?: (phase: HeroTransitionPhase) => void;

@@ -6,10 +6,12 @@ import {
   useState,
   type CSSProperties,
   type ChangeEvent,
+  type Dispatch,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
 } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useIsPresent } from 'framer-motion';
 import gsap from 'gsap';
 import { FaGithub, FaLinkedin, FaMicrophone, FaPaperPlane, FaSearch } from 'react-icons/fa';
 import { HeroAgentPanel, type HeroAgentTurn } from '../components/hero-agent/HeroAgentPanel';
@@ -17,10 +19,36 @@ import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticle
 import type { HeroTransitionPhase, ShapeName } from '../components/hero-particles/engine/types';
 import { sendAgentMessage } from '../lib/agentApi';
 
-type HeroSectionProps = {
+export type HeroSharedProfileUiState = {
+  searchQuery: string;
+  setSearchQuery: Dispatch<SetStateAction<string>>;
+  activeSearchPromptIndex: number;
+  setActiveSearchPromptIndex: Dispatch<SetStateAction<number>>;
+  agentTurns: HeroAgentTurn[];
+  setAgentTurns: Dispatch<SetStateAction<HeroAgentTurn[]>>;
+  isAgentPanelDismissed: boolean;
+  setIsAgentPanelDismissed: Dispatch<SetStateAction<boolean>>;
+};
+
+export type HeroSectionProps = {
+  sectionId?: string;
+  sampleIndex?: number;
+  renderSearchUi?: boolean;
+  renderProfileGuideParticle?: boolean;
+  transitionTargetSampleIndex?: number | null;
+  transitionRequestId?: number;
+  transitionSkipFinalSampleLoad?: boolean;
+  disableAmbientAutoHide?: boolean;
+  externalProfileBioVisible?: boolean;
+  isSectionParticleExitActive?: boolean;
   isVideoHovering?: boolean;
   isMainVisible?: boolean;
   isProjectCardVisible?: boolean;
+  sharedProfileUiState?: HeroSharedProfileUiState;
+  onExternalSampleChange?: (sampleIndex: number) => void;
+  onExternalShapeChange?: (shape: ShapeName) => void;
+  onExternalTransitionPhaseChange?: (phase: HeroTransitionPhase) => void;
+  onProfileTypingCompleteChange?: (isComplete: boolean) => void;
 };
 
 type SpeechRecognitionAlternativeLike = {
@@ -100,10 +128,27 @@ const heroBioRightLines = [
 ] as const;
 
 export function HeroSection({
+  sectionId = 'inicio',
+  sampleIndex = 0,
+  renderSearchUi = true,
+  renderProfileGuideParticle = true,
+  transitionTargetSampleIndex = null,
+  transitionRequestId = 0,
+  transitionSkipFinalSampleLoad = false,
+  disableAmbientAutoHide = false,
+  externalProfileBioVisible = true,
+  isSectionParticleExitActive = false,
   isVideoHovering = false,
   isMainVisible = true,
   isProjectCardVisible = false,
+  sharedProfileUiState,
+  onExternalSampleChange,
+  onExternalShapeChange,
+  onExternalTransitionPhaseChange,
+  onProfileTypingCompleteChange,
 }: HeroSectionProps) {
+  const resolvedSampleIndex = Math.min(Math.max(sampleIndex, 0), profileGuideProfileCount);
+  const initialShape: ShapeName = resolvedSampleIndex === 0 ? 'fjr' : 'profile';
   const heroRef = useRef<HTMLElement | null>(null);
   const heroStageRef = useRef<HTMLDivElement | null>(null);
   const profileGuideParticleRef = useRef<HTMLDivElement | null>(null);
@@ -112,12 +157,15 @@ export function HeroSection({
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const searchIntroTextRef = useRef('');
   const searchIntroModeRef = useRef<'idle' | 'typingIn' | 'typingOut' | 'completed'>('idle');
+  const isPresent = useIsPresent();
+  const isPresenceExiting = !isPresent;
 
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [typedSubtitle, setTypedSubtitle] = useState('');
   const [hideFixedTitle, setHideFixedTitle] = useState(false);
-  const [currentShape, setCurrentShape] = useState<ShapeName>('fjr');
-  const [currentParticleSampleIndex, setCurrentParticleSampleIndex] = useState(0);
+  const [currentShape, setCurrentShape] = useState<ShapeName>(initialShape);
+  const [currentParticleSampleIndex, setCurrentParticleSampleIndex] = useState(resolvedSampleIndex);
   const [particleTransitionPhase, setParticleTransitionPhase] = useState<HeroTransitionPhase>('idle');
   const [searchQuery, setSearchQuery] = useState('');
   const [isListeningToSearch, setIsListeningToSearch] = useState(false);
@@ -137,8 +185,12 @@ export function HeroSection({
   const [isInitialBioRightGlowActive, setIsInitialBioRightGlowActive] = useState(false);
   const [isProfileBioVisible, setIsProfileBioVisible] = useState(true);
   const [isSearchBarRestVisible, setIsSearchBarRestVisible] = useState(true);
-  const [activeProfileGuideIndex, setActiveProfileGuideIndex] = useState<number | null>(null);
-  const [isProfileGuideVisible, setIsProfileGuideVisible] = useState(false);
+  const [activeProfileGuideIndex, setActiveProfileGuideIndex] = useState<number | null>(
+    resolvedSampleIndex >= 1 && resolvedSampleIndex <= profileGuideProfileCount ? resolvedSampleIndex : null,
+  );
+  const [isProfileGuideVisible, setIsProfileGuideVisible] = useState(
+    resolvedSampleIndex >= 1 && resolvedSampleIndex <= profileGuideProfileCount,
+  );
   const [isProfileSceneExiting, setIsProfileSceneExiting] = useState(false);
   const [isProfileTypingComplete, setIsProfileTypingComplete] = useState(false);
 
@@ -187,31 +239,40 @@ export function HeroSection({
   });
 
   const subtitleText = 'Machine Learning & Full Stack Dev.';
+  const shouldRenderEmbeddedSearchUi = renderSearchUi && !sharedProfileUiState;
+  const isSectionActive = isMainVisible && hasEnteredViewport;
   const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
   const isParticleSceneActive = particleTransitionPhase !== 'idle';
-  const shouldShowSearchBar = currentShape === 'profile' || isParticleSceneActive;
-  const isSearchBarElasticReady = currentShape === 'profile' && particleTransitionPhase === 'idle' && !shouldHideFixedTitle;
+  const isProfileExitActive = isProfileSceneExiting || isPresenceExiting || isSectionParticleExitActive;
+  const shouldShowSearchBar = shouldRenderEmbeddedSearchUi && (currentShape === 'profile' || isParticleSceneActive);
+  const isSearchBarElasticReady =
+    shouldRenderEmbeddedSearchUi &&
+    currentShape === 'profile' &&
+    particleTransitionPhase === 'idle' &&
+    !shouldHideFixedTitle;
   const isSearchBarInteractionReady =
     isSearchBarElasticReady &&
     isSearchBarRestVisible &&
-    !isProfileSceneExiting &&
+    !isProfileExitActive &&
     searchIntroDisplayText.length === 0;
   const shouldShowAgentPanel =
+    shouldRenderEmbeddedSearchUi &&
     isSearchBarElasticReady &&
     !isAgentPanelDismissed &&
-    !isProfileSceneExiting &&
+    !isProfileExitActive &&
     agentTurns.length > 0;
   const resolvedProfileGuideIndex =
     activeProfileGuideIndex !== null && activeProfileGuideIndex >= 1 && activeProfileGuideIndex <= profileGuideProfileCount
       ? activeProfileGuideIndex
       : 1;
   const shouldShowProfileGuideParticle =
+    renderProfileGuideParticle &&
+    !isProfileExitActive &&
     currentShape === 'profile' &&
     currentParticleSampleIndex >= 1 &&
     currentParticleSampleIndex <= profileGuideProfileCount &&
     particleTransitionPhase === 'idle' &&
-    isProfileGuideVisible &&
-    !isProfileSceneExiting;
+    isProfileGuideVisible;
   const profileGuideLayerStyle = {
     '--hero-profile-guide-move-duration': `${profileGuideMoveDurationMs}ms`,
   } as CSSProperties;
@@ -219,6 +280,8 @@ export function HeroSection({
   const shouldShowSearchIntroText = searchIntroDisplayText.length > 0;
   const agentPanelRoute =
     [...agentTurns].reverse().find((turn) => turn.route !== null)?.route ?? null;
+  const effectiveProfileBioVisible =
+    (disableAmbientAutoHide ? externalProfileBioVisible : isProfileBioVisible) && !isProfileExitActive;
   const searchSceneClassName = [
     'hero-search-scene',
     shouldShowSearchBar ? 'hero-search-scene--visible' : '',
@@ -230,6 +293,34 @@ export function HeroSection({
   ]
     .filter(Boolean)
     .join(' ');
+
+  useEffect(() => {
+    onProfileTypingCompleteChange?.(isProfileTypingComplete);
+  }, [isProfileTypingComplete, onProfileTypingCompleteChange]);
+
+  useEffect(() => {
+    const element = heroRef.current;
+    if (!element || hasEnteredViewport) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setHasEnteredViewport(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0.2,
+        rootMargin: '160px 0px',
+      },
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasEnteredViewport]);
 
   useEffect(() => {
     const el = heroRef.current;
@@ -288,7 +379,7 @@ export function HeroSection({
   }, [isProjectCardVisible, scheduleDetailsAutoHide]);
 
   useEffect(() => {
-    if (!isMainVisible || hasScheduledIntroRef.current) return;
+    if (!isSectionActive || hasScheduledIntroRef.current) return;
     hasScheduledIntroRef.current = true;
 
     const introTimer = window.setTimeout(() => {
@@ -296,10 +387,10 @@ export function HeroSection({
     }, 950);
 
     return () => window.clearTimeout(introTimer);
-  }, [isMainVisible, revealDetails]);
+  }, [isSectionActive, revealDetails]);
 
   useLayoutEffect(() => {
-    if (!isMainVisible || hasPlayedHeroRevealRef.current || !heroStageRef.current) return;
+    if (!isSectionActive || hasPlayedHeroRevealRef.current || !heroStageRef.current) return;
     hasPlayedHeroRevealRef.current = true;
 
     const stageEl = heroStageRef.current;
@@ -318,7 +409,7 @@ export function HeroSection({
       tl.kill();
       gsap.set(stageEl, { clearProps: 'opacity,scale,y,filter' });
     };
-  }, [isMainVisible]);
+  }, [isSectionActive]);
 
   useEffect(() => {
     return () => {
@@ -382,7 +473,7 @@ export function HeroSection({
   }, [showDetails]);
 
   useEffect(() => {
-    const shouldShowBio = !hideFixedTitle && currentShape === 'profile';
+    const shouldShowBio = isSectionActive && !hideFixedTitle && currentShape === 'profile';
 
     if (!shouldShowBio) {
       setVisibleBioLabels(0);
@@ -633,10 +724,10 @@ export function HeroSection({
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
     };
-  }, [currentShape, hideFixedTitle]);
+  }, [currentShape, hideFixedTitle, isSectionActive]);
 
   useEffect(() => {
-    if (currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
+    if (!isSectionActive || currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
 
     const bottomThreshold = 84;
     const onPointerMove = (event: MouseEvent) => {
@@ -651,7 +742,7 @@ export function HeroSection({
 
     window.addEventListener('mousemove', onPointerMove, { passive: true });
     return () => window.removeEventListener('mousemove', onPointerMove);
-  }, [currentShape, hideFixedTitle, isProjectCardVisible, revealDetails]);
+  }, [currentShape, hideFixedTitle, isProjectCardVisible, isSectionActive, revealDetails]);
 
   const clearProfileAmbientHideTimer = useCallback(() => {
     if (profileAmbientHideTimerRef.current) {
@@ -675,13 +766,32 @@ export function HeroSection({
   );
 
   useEffect(() => {
+    if (!disableAmbientAutoHide) return;
+    clearProfileAmbientHideTimer();
+    setIsProfileBioVisible(true);
+    setIsSearchBarRestVisible(true);
+    wasProfileAmbientActiveRef.current = false;
+  }, [clearProfileAmbientHideTimer, disableAmbientAutoHide]);
+
+  useEffect(() => {
+    if (!disableAmbientAutoHide) return;
+    setIsProfileBioVisible(externalProfileBioVisible);
+  }, [disableAmbientAutoHide, externalProfileBioVisible]);
+
+  useEffect(() => {
     const isProfileAmbientActive =
+      isSectionActive &&
       currentShape === 'profile' &&
       !hideFixedTitle &&
       isProfileTypingComplete &&
-      !isProfileSceneExiting;
+      !isProfileExitActive;
 
-    if (isProfileSceneExiting) {
+    if (disableAmbientAutoHide) {
+      clearProfileAmbientHideTimer();
+      return;
+    }
+
+    if (isProfileExitActive) {
       clearProfileAmbientHideTimer();
       return;
     }
@@ -721,9 +831,11 @@ export function HeroSection({
   }, [
     clearProfileAmbientHideTimer,
     currentShape,
+    disableAmbientAutoHide,
     hideFixedTitle,
-    isProfileSceneExiting,
+    isProfileExitActive,
     isProfileTypingComplete,
+    isSectionActive,
     scheduleProfileAmbientHide,
     shouldShowAgentPanel,
   ]);
@@ -821,14 +933,17 @@ export function HeroSection({
     setCurrentShape(shape);
     setIsProfileSceneExiting(false);
     revealDetails();
-  }, [revealDetails]);
+    onExternalShapeChange?.(shape);
+  }, [onExternalShapeChange, revealDetails]);
 
   const handleParticleTransitionPhaseChange = useCallback((phase: HeroTransitionPhase) => {
     setParticleTransitionPhase(phase);
-  }, []);
+    onExternalTransitionPhaseChange?.(phase);
+  }, [onExternalTransitionPhaseChange]);
 
   const handleParticleSampleChange = useCallback((sampleIndex: number) => {
     setCurrentParticleSampleIndex(sampleIndex);
+    onExternalSampleChange?.(sampleIndex);
 
     if (sampleIndex < 1 || sampleIndex > profileGuideProfileCount) {
       setActiveProfileGuideIndex(null);
@@ -838,7 +953,7 @@ export function HeroSection({
 
     setActiveProfileGuideIndex(sampleIndex);
     setIsProfileGuideVisible(true);
-  }, []);
+  }, [onExternalSampleChange]);
 
   const handleBeforeParticleSampleTransition = useCallback((fromSampleIndex: number, toSampleIndex: number) => {
     const isFromProfileSample = fromSampleIndex >= 1 && fromSampleIndex <= profileGuideProfileCount;
@@ -1366,7 +1481,7 @@ export function HeroSection({
       rotatingSearchPromptTimerRef.current = null;
     }
 
-    if (!isSearchBarElasticReady) return;
+    if (!isSectionActive || !isSearchBarElasticReady) return;
 
     const rotatePrompt = () => {
       rotatingSearchPromptTimerRef.current = window.setTimeout(() => {
@@ -1383,7 +1498,7 @@ export function HeroSection({
         rotatingSearchPromptTimerRef.current = null;
       }
     };
-  }, [isSearchBarElasticReady]);
+  }, [isSearchBarElasticReady, isSectionActive]);
 
   useEffect(() => {
     if (particleTransitionPhase === 'searchMaterialize') {
@@ -1417,11 +1532,12 @@ export function HeroSection({
     return () => {
       clearSearchIntroTypingTimer();
       agentRequestAbortRef.current?.abort();
+      prunePendingAgentTurns();
       speechRecognitionRef.current?.abort();
       resetProfileGuideDrag();
       resetSearchBarDrag();
     };
-  }, [clearSearchIntroTypingTimer, resetProfileGuideDrag, resetSearchBarDrag]);
+  }, [clearSearchIntroTypingTimer, prunePendingAgentTurns, resetProfileGuideDrag, resetSearchBarDrag]);
 
   const handleRetryAgentResponse = useCallback(
     (question: string) => {
@@ -1489,28 +1605,35 @@ export function HeroSection({
   }, []);
 
   return (
-    <section ref={heroRef} className="hero-section" id="inicio">
-      <motion.div
-        ref={heroStageRef}
-        className="hero-title-wrapper hero-title-wrapper--particles"
-        initial={{ opacity: 0, filter: 'blur(6px)' }}
-        animate={{
-          opacity: shouldHideFixedTitle ? 0 : 1,
-          filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
-        }}
-        style={{
-          pointerEvents: shouldHideFixedTitle ? 'none' : 'auto',
-          visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
-        }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <HeroParticlesAdvanced
-          onBeforeSampleTransition={handleBeforeParticleSampleTransition}
-          onBeforeShapeTransition={handleBeforeShapeTransition}
-          onSampleChange={handleParticleSampleChange}
-          onShapeChange={handleShapeChange}
-          onTransitionPhaseChange={handleParticleTransitionPhaseChange}
-        />
+    <section ref={heroRef} className="hero-section" id={sectionId}>
+      {hasEnteredViewport && (
+        <motion.div
+          ref={heroStageRef}
+          className="hero-title-wrapper hero-title-wrapper--particles"
+          initial={{ opacity: 0, filter: 'blur(6px)' }}
+          animate={{
+            opacity: shouldHideFixedTitle ? 0 : 1,
+            filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
+          }}
+          style={{
+            pointerEvents: shouldHideFixedTitle ? 'none' : 'auto',
+            visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
+          }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <HeroParticlesAdvanced
+            isExiting={isProfileExitActive && resolvedSampleIndex > 0}
+            initialSampleIndex={resolvedSampleIndex}
+            lockSample
+            transitionRequestId={transitionRequestId}
+            transitionSkipFinalSampleLoad={transitionSkipFinalSampleLoad}
+            transitionTargetSampleIndex={transitionTargetSampleIndex}
+            onBeforeSampleTransition={handleBeforeParticleSampleTransition}
+            onBeforeShapeTransition={handleBeforeShapeTransition}
+            onSampleChange={handleParticleSampleChange}
+            onShapeChange={handleShapeChange}
+            onTransitionPhaseChange={handleParticleTransitionPhaseChange}
+          />
 
         <div
           className={`hero-profile-guide-particle-layer${shouldShowProfileGuideParticle ? ' hero-profile-guide-particle-layer--visible' : ''}`}
@@ -1538,113 +1661,115 @@ export function HeroSection({
           </div>
         </div>
 
-        <div className={searchSceneClassName} aria-hidden={!isSearchBarElasticReady}>
-          <div className="hero-search-scene__core-shell">
-            <div className="hero-search-scene__core" />
-          </div>
-          <div className="hero-search-scene__pulse" />
+        {shouldRenderEmbeddedSearchUi && (
+          <div className={searchSceneClassName} aria-hidden={!isSearchBarElasticReady}>
+            <div className="hero-search-scene__core-shell">
+              <div className="hero-search-scene__core" />
+            </div>
+            <div className="hero-search-scene__pulse" />
 
-          <div
-            ref={searchBarShellRef}
-            className="hero-search-scene__bar-shell"
-            onLostPointerCapture={() => handleSearchBarPointerRelease()}
-            onPointerCancel={(event) => handleSearchBarPointerRelease(event.pointerId)}
-            onPointerDown={handleSearchBarPointerDown}
-            onPointerMove={handleSearchBarPointerMove}
-            onPointerUp={(event) => handleSearchBarPointerRelease(event.pointerId)}
-          >
-            <div className="hero-search-scene__border-glow" />
-
-            <svg
-              className="hero-search-scene__beam-svg"
-              viewBox="0 0 1000 100"
-              preserveAspectRatio="none"
-              aria-hidden="true"
+            <div
+              ref={searchBarShellRef}
+              className="hero-search-scene__bar-shell"
+              onLostPointerCapture={() => handleSearchBarPointerRelease()}
+              onPointerCancel={(event) => handleSearchBarPointerRelease(event.pointerId)}
+              onPointerDown={handleSearchBarPointerDown}
+              onPointerMove={handleSearchBarPointerMove}
+              onPointerUp={(event) => handleSearchBarPointerRelease(event.pointerId)}
             >
-              <path
-                className="hero-search-scene__beam-path hero-search-scene__beam-path--glow"
-                pathLength={100}
-                d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
-              />
-              <path
-                className="hero-search-scene__beam-path hero-search-scene__beam-path--core"
-                pathLength={100}
-                d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
-              />
-            </svg>
+              <div className="hero-search-scene__border-glow" />
 
-            <div className="hero-search-scene__bar">
-              <div className="hero-search-scene__intro-copy" aria-hidden={!shouldShowSearchIntroText}>
-                {searchIntroDisplayText}
-              </div>
-
-              <div className="hero-search-scene__actions hero-search-scene__actions--left">
-                <button
-                  type="button"
-                  className="hero-search-scene__action-button"
-                  aria-label="Abrir busca"
-                  data-search-control="true"
-                  disabled={!isSearchBarInteractionReady}
-                  onClick={focusSearchInput}
-                >
-                  <FaSearch className="hero-search-scene__icon" />
-                </button>
-              </div>
-
-              <form className="hero-search-scene__field" onSubmit={handleSearchSubmit}>
-                <input
-                  ref={searchInputRef}
-                  className="hero-search-scene__field-input"
-                  type="text"
-                  value={searchQuery}
-                  onChange={handleSearchInputChange}
-                  onClick={reopenAgentPanelFromSearchField}
-                  onFocus={reopenAgentPanelFromSearchField}
-                  placeholder={isListeningToSearch ? 'Ouvindo...' : activeSearchPrompt}
-                  aria-label="Pesquisar"
-                  autoComplete="off"
-                  spellCheck={false}
-                  data-search-control="true"
-                  disabled={!isSearchBarInteractionReady}
+              <svg
+                className="hero-search-scene__beam-svg"
+                viewBox="0 0 1000 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path
+                  className="hero-search-scene__beam-path hero-search-scene__beam-path--glow"
+                  pathLength={100}
+                  d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
                 />
-              </form>
+                <path
+                  className="hero-search-scene__beam-path hero-search-scene__beam-path--core"
+                  pathLength={100}
+                  d="M 500 0 H 50 A 50 50 0 0 0 0 50 A 50 50 0 0 0 50 100 H 950 A 50 50 0 0 0 1000 50 A 50 50 0 0 0 950 0 H 500"
+                />
+              </svg>
 
-              <div className="hero-search-scene__actions hero-search-scene__actions--right">
-                <button
-                  type="button"
-                  className="hero-search-scene__action-button"
-                  aria-label={isListeningToSearch ? 'Parar ditado' : 'Ditado por voz'}
-                  aria-pressed={isListeningToSearch}
-                  data-search-control="true"
-                  disabled={!isSearchBarInteractionReady}
-                  onClick={handleSearchMicToggle}
-                >
-                  <FaMicrophone className="hero-search-scene__icon" />
-                </button>
-                <button
-                  type="button"
-                  className="hero-search-scene__action-button"
-                  aria-label="Enviar busca"
-                  data-search-control="true"
-                  disabled={!isSearchBarInteractionReady}
-                  onClick={() => void submitSearchQuery()}
-                >
-                  <FaPaperPlane className="hero-search-scene__icon" />
-                </button>
+              <div className="hero-search-scene__bar">
+                <div className="hero-search-scene__intro-copy" aria-hidden={!shouldShowSearchIntroText}>
+                  {searchIntroDisplayText}
+                </div>
+
+                <div className="hero-search-scene__actions hero-search-scene__actions--left">
+                  <button
+                    type="button"
+                    className="hero-search-scene__action-button"
+                    aria-label="Abrir busca"
+                    data-search-control="true"
+                    disabled={!isSearchBarInteractionReady}
+                    onClick={focusSearchInput}
+                  >
+                    <FaSearch className="hero-search-scene__icon" />
+                  </button>
+                </div>
+
+                <form className="hero-search-scene__field" onSubmit={handleSearchSubmit}>
+                  <input
+                    ref={searchInputRef}
+                    className="hero-search-scene__field-input"
+                    type="text"
+                    value={searchQuery}
+                    onChange={handleSearchInputChange}
+                    onClick={reopenAgentPanelFromSearchField}
+                    onFocus={reopenAgentPanelFromSearchField}
+                    placeholder={isListeningToSearch ? 'Ouvindo...' : activeSearchPrompt}
+                    aria-label="Pesquisar"
+                    autoComplete="off"
+                    spellCheck={false}
+                    data-search-control="true"
+                    disabled={!isSearchBarInteractionReady}
+                  />
+                </form>
+
+                <div className="hero-search-scene__actions hero-search-scene__actions--right">
+                  <button
+                    type="button"
+                    className="hero-search-scene__action-button"
+                    aria-label={isListeningToSearch ? 'Parar ditado' : 'Ditado por voz'}
+                    aria-pressed={isListeningToSearch}
+                    data-search-control="true"
+                    disabled={!isSearchBarInteractionReady}
+                    onClick={handleSearchMicToggle}
+                  >
+                    <FaMicrophone className="hero-search-scene__icon" />
+                  </button>
+                  <button
+                    type="button"
+                    className="hero-search-scene__action-button"
+                    aria-label="Enviar busca"
+                    data-search-control="true"
+                    disabled={!isSearchBarInteractionReady}
+                    onClick={() => void submitSearchQuery()}
+                  >
+                    <FaPaperPlane className="hero-search-scene__icon" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <HeroAgentPanel
-            isVisible={shouldShowAgentPanel}
-            turns={agentTurns}
-            route={agentPanelRoute}
-            onClose={closeAgentPanel}
-            onRetry={handleRetryAgentResponse}
-            onQuestionTypingComplete={handleAgentQuestionTypingComplete}
-            onAnswerTypingComplete={handleAgentAnswerTypingComplete}
-          />
-        </div>
+            <HeroAgentPanel
+              isVisible={shouldShowAgentPanel}
+              turns={agentTurns}
+              route={agentPanelRoute}
+              onClose={closeAgentPanel}
+              onRetry={handleRetryAgentResponse}
+              onQuestionTypingComplete={handleAgentQuestionTypingComplete}
+              onAnswerTypingComplete={handleAgentAnswerTypingComplete}
+            />
+          </div>
+        )}
 
         <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">
@@ -1664,93 +1789,94 @@ export function HeroSection({
           </AnimatePresence>
         </div>
 
-        <AnimatePresence>
-          {!hideFixedTitle && currentShape === 'profile' && (
-            <>
-              <motion.div
-                key="hero-profile-bio-left"
-                className="hero-profile-bio"
-                initial={{ opacity: 0, x: '-6%', filter: 'blur(8px)' }}
-                animate={
-                  isProfileBioVisible
-                    ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
-                    : { opacity: 0, x: '-112%', filter: 'blur(10px)' }
-                }
-                exit={{ opacity: 0, x: '-6%', filter: 'blur(10px)' }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {heroBioLines.map((line, index) => {
-                  if (index >= visibleBioLabels) return null;
+          <AnimatePresence>
+            {!hideFixedTitle && currentShape === 'profile' && (
+              <>
+                <motion.div
+                  key="hero-profile-bio-left"
+                  className="hero-profile-bio"
+                  initial={{ opacity: 0, x: '-6%', filter: 'blur(8px)' }}
+                  animate={
+                    effectiveProfileBioVisible
+                      ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
+                      : { opacity: 0, x: '-112%', filter: 'blur(10px)' }
+                  }
+                  exit={{ opacity: 0, x: '-6%', filter: 'blur(10px)' }}
+                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {heroBioLines.map((line, index) => {
+                    if (index >= visibleBioLabels) return null;
 
-                  return (
-                    <motion.p
-                      key={line.label}
-                      className="hero-profile-bio-line"
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <span className="hero-profile-bio-label">
-                        {typedBioLabels[index] ?? ''}
-                        {(typedBioLabels[index] ?? '').length >= line.label.length ? ':' : ''}
-                      </span>
-                      <span
-                        className={`hero-profile-bio-value ${(isInitialBioGlowActive || glowingBioIndexes.has(index)) ? 'hero-profile-bio-value--glow' : ''}`}
-                        onMouseEnter={() => handleBioValueMouseEnter(index)}
-                        onMouseLeave={() => handleBioValueMouseLeave(index)}
+                    return (
+                      <motion.p
+                        key={line.label}
+                        className="hero-profile-bio-line"
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        {displayBioValues[index] ?? ''}
-                      </span>
-                    </motion.p>
-                  );
-                })}
-              </motion.div>
+                        <span className="hero-profile-bio-label">
+                          {typedBioLabels[index] ?? ''}
+                          {(typedBioLabels[index] ?? '').length >= line.label.length ? ':' : ''}
+                        </span>
+                        <span
+                          className={`hero-profile-bio-value ${(isInitialBioGlowActive || glowingBioIndexes.has(index)) ? 'hero-profile-bio-value--glow' : ''}`}
+                          onMouseEnter={() => handleBioValueMouseEnter(index)}
+                          onMouseLeave={() => handleBioValueMouseLeave(index)}
+                        >
+                          {displayBioValues[index] ?? ''}
+                        </span>
+                      </motion.p>
+                    );
+                  })}
+                </motion.div>
 
-              <motion.div
-                key="hero-profile-bio-right"
-                className="hero-profile-bio hero-profile-bio--right"
-                initial={{ opacity: 0, x: '6%', filter: 'blur(8px)' }}
-                animate={
-                  isProfileBioVisible
-                    ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
-                    : { opacity: 0, x: '112%', filter: 'blur(10px)' }
-                }
-                exit={{ opacity: 0, x: '6%', filter: 'blur(10px)' }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {heroBioRightLines.map((line, index) => {
-                  if (index >= visibleBioRightLabels) return null;
+                <motion.div
+                  key="hero-profile-bio-right"
+                  className="hero-profile-bio hero-profile-bio--right"
+                  initial={{ opacity: 0, x: '6%', filter: 'blur(8px)' }}
+                  animate={
+                    effectiveProfileBioVisible
+                      ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
+                      : { opacity: 0, x: '112%', filter: 'blur(10px)' }
+                  }
+                  exit={{ opacity: 0, x: '6%', filter: 'blur(10px)' }}
+                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {heroBioRightLines.map((line, index) => {
+                    if (index >= visibleBioRightLabels) return null;
 
-                  return (
-                    <motion.p
-                      key={line.label}
-                      className="hero-profile-bio-line"
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <span className="hero-profile-bio-label">
-                        {typedBioRightLabels[index] ?? ''}
-                        {(typedBioRightLabels[index] ?? '').length >= line.label.length && !line.label.endsWith(':') ? ':' : ''}
-                      </span>
-                      <span
-                        className={`hero-profile-bio-value ${(isInitialBioRightGlowActive || glowingBioRightIndexes.has(index)) ? 'hero-profile-bio-value--glow' : ''}`}
-                        onMouseEnter={() => handleBioRightValueMouseEnter(index)}
-                        onMouseLeave={() => handleBioRightValueMouseLeave(index)}
+                    return (
+                      <motion.p
+                        key={line.label}
+                        className="hero-profile-bio-line"
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        {displayBioRightValues[index] ?? ''}
-                      </span>
-                    </motion.p>
-                  );
-                })}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </motion.div>
+                        <span className="hero-profile-bio-label">
+                          {typedBioRightLabels[index] ?? ''}
+                          {(typedBioRightLabels[index] ?? '').length >= line.label.length && !line.label.endsWith(':') ? ':' : ''}
+                        </span>
+                        <span
+                          className={`hero-profile-bio-value ${(isInitialBioRightGlowActive || glowingBioRightIndexes.has(index)) ? 'hero-profile-bio-value--glow' : ''}`}
+                          onMouseEnter={() => handleBioRightValueMouseEnter(index)}
+                          onMouseLeave={() => handleBioRightValueMouseLeave(index)}
+                        >
+                          {displayBioRightValues[index] ?? ''}
+                        </span>
+                      </motion.p>
+                    );
+                  })}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
 
       <AnimatePresence>
-        {showDetails && !hideFixedTitle && !isParticleSceneActive && (
+        {showDetails && !shouldHideFixedTitle && !isParticleSceneActive && !isProfileExitActive && (
           <motion.div
             className="social-icons"
             initial={{ y: 100, opacity: 0 }}

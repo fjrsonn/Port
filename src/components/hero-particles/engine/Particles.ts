@@ -146,6 +146,9 @@ export default class Particles {
   show(time = 1.0) {
     if (!this.object3D) return;
 
+    const { uSize, uRandom, uDepth } = this.object3D.material.uniforms;
+    gsap.killTweensOf([uSize, uRandom, uDepth]);
+
     gsap.fromTo(this.object3D.material.uniforms.uSize, { value: 0.5 }, { value: 1.5, duration: time });
     gsap.to(this.object3D.material.uniforms.uRandom, { value: 2.0, duration: time });
     gsap.fromTo(this.object3D.material.uniforms.uDepth, { value: 40.0 }, { value: 4.0, duration: time * 1.5 });
@@ -155,17 +158,20 @@ export default class Particles {
     if (!this.object3D) return Promise.resolve();
 
     return new Promise<void>((resolve) => {
-      gsap.to(this.object3D!.material.uniforms.uRandom, {
+      const { uSize, uRandom, uDepth } = this.object3D!.material.uniforms;
+      gsap.killTweensOf([uSize, uRandom, uDepth]);
+
+      gsap.to(uRandom, {
         value: 5.0,
         duration: time,
         onComplete: () => resolve(),
       });
-      gsap.to(this.object3D!.material.uniforms.uDepth, {
+      gsap.to(uDepth, {
         value: -20.0,
         duration: time,
         ease: 'power2.in',
       });
-      gsap.to(this.object3D!.material.uniforms.uSize, {
+      gsap.to(uSize, {
         value: 0.0,
         duration: time * 0.8,
       });

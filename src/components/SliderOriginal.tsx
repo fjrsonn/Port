@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type WheelEvent as ReactWheelEvent } from 'react';
 import gsap from 'gsap';
 import * as THREE from 'three';
 import './slider-original.scss';
@@ -30,6 +30,11 @@ type SliderItem = {
   max: number;
   tl: gsap.core.Timeline;
   out: boolean;
+};
+
+type SliderCallbacks = {
+  onReachEnd?: () => void;
+  onReachStart?: () => void;
 };
 
 const ENABLE_VIDEO_MODE = false;
@@ -329,10 +334,14 @@ class Slider {
   gl: Gl;
   onResizeBound: () => void;
   onScrollBound: () => void;
+  onReachEnd?: () => void;
+  onReachStart?: () => void;
 
-  constructor(el: HTMLElement, gl: Gl, opts: SliderOptions = {}) {
+  constructor(el: HTMLElement, gl: Gl, opts: SliderOptions = {}, callbacks: SliderCallbacks = {}) {
     this.el = el;
     this.gl = gl;
+    this.onReachEnd = callbacks.onReachEnd;
+    this.onReachStart = callbacks.onReachStart;
 
     this.opts = Object.assign(
       {
@@ -525,11 +534,13 @@ class Slider {
 
   calc() {
     const state = this.state;
+    state.target = this.clampPosition(state.target);
     state.current += (state.target - state.current) * this.opts.ease;
-    state.currentRounded = Math.round(state.current * 100) / 100;
+    state.current = this.clampPosition(state.current);
+    state.currentRounded = Math.round(this.clampPosition(state.current) * 100) / 100;
     state.diff = (state.target - state.current) * 0.0005;
     state.progress =
-      state.max !== 0 ? gsap.utils.wrap(0, 1, state.currentRounded / state.max) : 0;
+      state.max !== 0 ? gsap.utils.clamp(0, 1, state.currentRounded / state.max) : 0;
 
     this.tl?.progress(state.progress);
   }
@@ -563,23 +574,16 @@ class Slider {
 
   isVisible({
     left,
-    right,
     width,
-    min,
-    max,
   }: {
     left: number;
-    right: number;
     width: number;
-    min: number;
-    max: number;
   }) {
     const { ww } = store;
-    const { currentRounded } = this.state;
-    const translate = gsap.utils.wrap(min, max, currentRounded);
+    const translate = this.clampPosition(this.state.currentRounded);
     const threshold = this.opts.threshold;
     const start = left + translate;
-    const end = right + translate;
+    const end = start + width;
     const isVisible = start < threshold + ww && end > -threshold;
     const progress = gsap.utils.clamp(
       0,
@@ -588,6 +592,36 @@ class Slider {
     );
 
     return { translate, isVisible, progress };
+  }
+
+  clampPosition(value: number) {
+    return Math.min(this.state.min, Math.max(this.state.max, value));
+  }
+
+  isAtEnd(threshold = 14) {
+    return this.clampPosition(Math.min(this.state.currentRounded, this.state.target)) <= this.state.max + threshold;
+  }
+
+  isAtStart(threshold = 14) {
+    return this.clampPosition(Math.max(this.state.currentRounded, this.state.target)) >= this.state.min - threshold;
+  }
+
+  applyWheelDelta(deltaY: number) {
+    if (Math.abs(deltaY) < 1) return false;
+
+    if (deltaY > 0 && this.isAtEnd()) {
+      this.onReachEnd?.();
+      return true;
+    }
+
+    if (deltaY < 0 && this.isAtStart()) {
+      this.onReachStart?.();
+      return true;
+    }
+
+    this.state.off = this.state.target;
+    this.state.target = this.clampPosition(this.state.target - deltaY * this.opts.speed * 0.9);
+    return true;
   }
 
   getPos(e: PointerLikeEvent) {
@@ -638,7 +672,7 @@ class Slider {
       e.stopPropagation();
     }
 
-    state.target = off + moveX * this.opts.speed;
+    state.target = this.clampPosition(off + moveX * this.opts.speed);
   }
 }
 
@@ -721,9 +755,18 @@ type RootWithCleanup = HTMLDivElement & {
   __sliderCleanup?: () => void;
 };
 
-export default function SliderOriginal() {
+type SliderOriginalProps = {
+  onReachEnd?: () => void;
+  onReachStart?: () => void;
+};
+
+export default function SliderOriginal({
+  onReachEnd,
+  onReachStart,
+}: SliderOriginalProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+  const sliderInstanceRef = useRef<Slider | null>(null);
   const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
@@ -744,7 +787,8 @@ export default function SliderOriginal() {
           if (!rootRef.current || !sliderRef.current) return;
 
           gl = new Gl(rootRef.current);
-          slider = new Slider(sliderRef.current, gl);
+          slider = new Slider(sliderRef.current, gl, {}, { onReachEnd, onReachStart });
+          sliderInstanceRef.current = slider;
 
           window.dispatchEvent(new Event('resize'));
 
@@ -759,6 +803,7 @@ export default function SliderOriginal() {
             if (tick) gsap.ticker.remove(tick);
             slider?.destroy();
             gl?.destroy();
+            sliderInstanceRef.current = null;
           };
         } catch (error) {
           console.error('Falha ao iniciar WebGL:', error);
@@ -820,8 +865,23 @@ export default function SliderOriginal() {
     setActiveVideo(null);
   };
 
+  const handleWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      if (activeVideo) return;
+
+      const slider = sliderInstanceRef.current;
+      if (!slider) return;
+
+      const handled = slider.applyWheelDelta(event.deltaY);
+      if (!handled) return;
+
+      event.stopPropagation();
+    },
+    [activeVideo],
+  );
+
   return (
-    <div ref={rootRef} className="slider-original-root">
+    <div ref={rootRef} className="slider-original-root" onWheel={handleWheel}>
       <div className="slider js-drag-area">
         <div ref={sliderRef} className="slider__inner js-slider">
           {slides.slice(0, 8).map((slide, index) => {

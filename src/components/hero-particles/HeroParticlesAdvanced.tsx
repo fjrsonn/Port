@@ -5,6 +5,13 @@ import './heroParticles.scss';
 
 type Props = {
   className?: string;
+  isExiting?: boolean;
+  exitHideDuration?: number;
+  initialSampleIndex?: number;
+  lockSample?: boolean;
+  transitionTargetSampleIndex?: number | null;
+  transitionRequestId?: number;
+  transitionSkipFinalSampleLoad?: boolean;
   onShapeChange?: (shape: ShapeName) => void;
   onSampleChange?: (sampleIndex: number) => void;
   onTransitionPhaseChange?: (phase: HeroTransitionPhase) => void;
@@ -14,6 +21,13 @@ type Props = {
 
 export function HeroParticlesAdvanced({
   className = '',
+  isExiting = false,
+  exitHideDuration = 0.82,
+  initialSampleIndex = 0,
+  lockSample = false,
+  transitionTargetSampleIndex = null,
+  transitionRequestId = 0,
+  transitionSkipFinalSampleLoad = false,
   onShapeChange,
   onSampleChange,
   onTransitionPhaseChange,
@@ -27,6 +41,7 @@ export function HeroParticlesAdvanced({
   const onTransitionPhaseChangeRef = useRef(onTransitionPhaseChange);
   const onBeforeSampleTransitionRef = useRef(onBeforeSampleTransition);
   const onBeforeShapeTransitionRef = useRef(onBeforeShapeTransition);
+  const hasRunExitHideRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -64,6 +79,8 @@ export function HeroParticlesAdvanced({
 
     const engine = new HeroParticlesEngine({
       container,
+      initialSampleIndex,
+      lockSample,
       onShapeChange: (shape) => onShapeChangeRef.current?.(shape),
       onSampleChange: (sampleIndex) => onSampleChangeRef.current?.(sampleIndex),
       onTransitionPhaseChange: (phase) => onTransitionPhaseChangeRef.current?.(phase),
@@ -82,7 +99,26 @@ export function HeroParticlesAdvanced({
       engine.destroy();
       engineRef.current = null;
     };
-  }, []);
+  }, [initialSampleIndex, lockSample]);
+
+  useEffect(() => {
+    if (transitionRequestId === 0) return;
+    if (transitionTargetSampleIndex === null) return;
+    void engineRef.current?.goTo(transitionTargetSampleIndex, true, {
+      skipFinalSampleLoad: transitionSkipFinalSampleLoad,
+    });
+  }, [transitionRequestId, transitionSkipFinalSampleLoad, transitionTargetSampleIndex]);
+
+  useEffect(() => {
+    if (!isExiting) {
+      hasRunExitHideRef.current = false;
+      return;
+    }
+
+    if (hasRunExitHideRef.current) return;
+    hasRunExitHideRef.current = true;
+    void engineRef.current?.hideCurrent(exitHideDuration);
+  }, [exitHideDuration, isExiting]);
 
   return <div ref={containerRef} className={classNames} aria-hidden="true" />;
 }

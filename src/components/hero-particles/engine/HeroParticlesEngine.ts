@@ -9,6 +9,8 @@ import type { EngineOptions, HeroTransitionPhase, ShapeName } from './types';
 
 export class HeroParticlesEngine {
   private container: HTMLDivElement;
+  private initialSampleIndex: number;
+  private lockSample: boolean;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
@@ -34,6 +36,8 @@ export class HeroParticlesEngine {
 
   constructor({
     container,
+    initialSampleIndex = 0,
+    lockSample = false,
     onShapeChange,
     onSampleChange,
     onTransitionPhaseChange,
@@ -41,6 +45,8 @@ export class HeroParticlesEngine {
     onBeforeShapeTransition,
   }: EngineOptions) {
     this.container = container;
+    this.initialSampleIndex = Math.min(Math.max(initialSampleIndex, 0), this.samples.length - 1);
+    this.lockSample = lockSample;
     this.onShapeChange = onShapeChange;
     this.onSampleChange = onSampleChange;
     this.onTransitionPhaseChange = onTransitionPhaseChange;
@@ -70,11 +76,13 @@ export class HeroParticlesEngine {
   }
 
   async init() {
-    await this.goto(0, false);
+    await this.goTo(this.initialSampleIndex, false);
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
     this.container.addEventListener('pointermove', this.handlePointerMove);
-    this.container.addEventListener('click', this.handleClick);
+    if (!this.lockSample) {
+      this.container.addEventListener('click', this.handleClick);
+    }
     this.tick();
   }
 
@@ -144,11 +152,18 @@ export class HeroParticlesEngine {
     await this.wait(1150);
   }
 
-  private async goto(index: number, animated = true) {
+  public async goTo(
+    index: number,
+    animated = true,
+    options?: {
+      skipFinalSampleLoad?: boolean;
+    },
+  ) {
     if (this.isTransitioning || this.isDestroyed) return;
 
     const nextShape: ShapeName = index === 0 ? 'fjr' : 'profile';
     const isFjrToProfileTransition = animated && this.currentSample === 0 && index === 1;
+    const shouldSkipFinalSampleLoad = Boolean(options?.skipFinalSampleLoad) && isFjrToProfileTransition;
     const isProfileSampleExit = animated && this.currentSample >= 1;
     const hideDurationSeconds = 0.8;
     const profileGuideTriggerLeadMs = 280;
@@ -197,6 +212,11 @@ export class HeroParticlesEngine {
         if (this.isDestroyed) return;
       }
 
+      if (shouldSkipFinalSampleLoad) {
+        this.setTransitionPhase('idle');
+        return;
+      }
+
       await this.particles.init(this.samples[index]);
       if (this.isDestroyed) return;
 
@@ -213,10 +233,26 @@ export class HeroParticlesEngine {
     }
   }
 
+  public async goto(
+    index: number,
+    animated = true,
+    options?: {
+      skipFinalSampleLoad?: boolean;
+    },
+  ) {
+    return this.goTo(index, animated, options);
+  }
+
+  public hideCurrent(time = 0.8) {
+    if (this.isDestroyed) return Promise.resolve();
+    return this.particles.hide(time);
+  }
+
   private handleClick() {
+    if (this.lockSample) return;
     if (this.isTransitioning) return;
     const next = this.currentSample < this.samples.length - 1 ? this.currentSample + 1 : 0;
-    this.goto(next, true);
+    this.goTo(next, true);
   }
 
   private handleResize() {
@@ -257,7 +293,9 @@ export class HeroParticlesEngine {
     this.clearTransitionTimers();
     window.removeEventListener('resize', this.handleResize);
     this.container.removeEventListener('pointermove', this.handlePointerMove);
-    this.container.removeEventListener('click', this.handleClick);
+    if (!this.lockSample) {
+      this.container.removeEventListener('click', this.handleClick);
+    }
 
     if (this.frameId !== null) {
       window.cancelAnimationFrame(this.frameId);
