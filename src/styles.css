@@ -3,7 +3,7 @@
 :root {
   font-family: 'Alexandria', sans-serif;
   color: #fff;
-  background: #000;
+  background: #111;
 }
 
 * {
@@ -1105,35 +1105,46 @@ body::-webkit-scrollbar {
   animation: subtitle-caret-blink 1s steps(1) infinite;
 }
 
-.hero-profile-bio {
+.hero-profile-bio-stack {
   position: absolute;
   left: clamp(1.2rem, 4vw, 4rem);
-  top: 7%;
-  transform: none;
+  top: 6%;
   z-index: 6;
-  width: min(46vw, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.1rem, 3vh, 2rem);
+  width: min(48vw, 720px);
+  max-height: 86vh;
+  overflow: hidden;
   pointer-events: none;
 }
 
-.hero-profile-bio--right {
-  left: auto;
-  right: clamp(1.2rem, 4vw, 4rem);
-  width: min(28vw, 420px);
-  text-align: right;
+.hero-profile-bio {
+  position: relative;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.hero-profile-bio--lower {
+  text-align: left;
 }
 
 .hero-profile-bio-line {
-  margin: 0 0 0.48rem;
+  margin: 0 0 0.42rem;
   color: rgba(255, 255, 255, 0.95);
-  font-size: clamp(0.7rem, 1.02vw, 0.95rem);
+  font-size: clamp(0.62rem, 0.86vw, 0.88rem);
   letter-spacing: 0.04em;
-  line-height: 1.45;
-  white-space: nowrap;
+  line-height: 1.36;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   pointer-events: none;
 }
 
 
-.hero-profile-bio--right .hero-profile-bio-line {
+.hero-profile-bio--lower .hero-profile-bio-line {
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1150,12 +1161,23 @@ body::-webkit-scrollbar {
   font-weight: 200;
   color: rgba(255, 255, 255, 0.98);
   text-shadow: 0 0 0 rgba(110, 188, 255, 0);
+  filter: brightness(1);
   cursor: default;
   pointer-events: auto;
+  white-space: pre-line;
+  transition:
+    color 0.72s ease,
+    filter 0.92s ease,
+    text-shadow 0.92s ease;
 }
 
 .hero-profile-bio-value--glow {
-  animation: profile-text-glow-pulse 0.7s ease-out 1;
+  color: rgba(255, 255, 255, 1);
+  filter: brightness(1.18);
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.54),
+    0 0 18px rgba(255, 255, 255, 0.34),
+    0 0 28px rgba(255, 255, 255, 0.14);
 }
 
 .social-icons {
@@ -1266,25 +1288,25 @@ body::-webkit-scrollbar {
     bottom: 5rem;
   }
 
-  .hero-profile-bio {
+  .hero-profile-bio-stack {
     width: min(90vw, 420px);
     left: 50%;
-    top: auto;
-    bottom: 8.4rem;
+    top: 4.4rem;
+    bottom: auto;
+    gap: 0.85rem;
+    max-height: calc(100vh - 6.2rem);
     transform: translateX(-50%);
   }
 
-  .hero-profile-bio--right {
-    right: auto;
-    left: 50%;
-    bottom: 2.2rem;
-    width: min(90vw, 420px);
+  .hero-profile-bio--lower {
     text-align: left;
   }
 
   .hero-profile-bio-line {
     white-space: normal;
-    font-size: clamp(0.72rem, 2.4vw, 0.9rem);
+    font-size: 0.68rem;
+    line-height: 1.28;
+    margin-bottom: 0.28rem;
   }
 
   .social-icons {

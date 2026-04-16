@@ -369,16 +369,18 @@ export default function App() {
       return;
     }
 
+    if (isSharedAgentPanelVisible) {
+      clearSharedProfileAmbientTimers();
+      setSharedProfileAmbientPhase('active');
+      setIsSharedProfileBioVisible(false);
+      return;
+    }
+
     if (!isSharedProfileTypingComplete) {
       sharedProfileAmbientSequenceRef.current += 1;
       clearSharedProfileAmbientTimers();
       setSharedProfileAmbientPhase('active');
       setIsSharedProfileBioVisible(true);
-      return;
-    }
-
-    if (isSharedAgentPanelVisible) {
-      setSharedProfileAmbientActive(false);
       return;
     }
 
@@ -439,16 +441,18 @@ export default function App() {
     if (!showMain || !isSharedProfileSection) return;
     if (isSectionParticleExitActive) return;
 
+    if (isSharedAgentPanelVisible) {
+      clearSharedProfileAmbientTimers();
+      setSharedProfileAmbientPhase('active');
+      setIsSharedProfileBioVisible(false);
+      return;
+    }
+
     if (!isSharedProfileTypingComplete) {
       sharedProfileAmbientSequenceRef.current += 1;
       clearSharedProfileAmbientTimers();
       setSharedProfileAmbientPhase('active');
       setIsSharedProfileBioVisible(true);
-      return;
-    }
-
-    if (isSharedAgentPanelVisible) {
-      setSharedProfileAmbientActive(false);
       return;
     }
 

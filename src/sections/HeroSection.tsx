@@ -107,25 +107,158 @@ const searchIntroMessage = 'Olá, Sejam Bem vindos!';
 
 const profileGuideMoveDurationMs = 340;
 const profileGuideProfileCount = 4;
+const bioHoverGlowExitDelayMs = 3000;
 
-const heroBioLines = [
-  { label: 'Beginning in technology', value: 'since 2012' },
-  { label: 'Profile', value: 'bold in the face of technological advances' },
-  { label: 'Journey', value: 'marked by constant challenges' },
-  { label: 'Learning method', value: 'self-taught' },
-  { label: 'Area of interest', value: 'computer science' },
-  { label: 'Source of knowledge', value: 'research on the World Wide Web' },
-  { label: 'Current profession', value: 'private security' },
-  { label: 'Professional role', value: 'monitoring through technology' },
-] as const;
+type HeroBioLine = {
+  label: string;
+  value: string;
+};
 
-const heroBioRightLines = [
-  {
-    label: 'Responsibility',
-    value:
-      'prevention and resolution of security-related problems currently in the 2nd semester of Systems Analysis and Development, while studying and developing personal projects.',
+const heroBioContent: Record<number, { left: HeroBioLine[]; right: HeroBioLine[] }> = {
+  1: {
+    left: [
+      { label: 'Idade', value: '26 anos' },
+      { label: 'País', value: 'Brasil' },
+      { label: 'Estado', value: 'São Paulo' },
+      { label: 'Cidade', value: 'São Bernardo do Campo' },
+      { label: 'Método de aprendizado', value: 'Autodidata' },
+      { label: 'Área de interesse', value: 'Tecnologia da Informação e Ciência da computação' },
+      { label: 'Profissão atual', value: 'Segurança privada' },
+      { label: 'Função profissional', value: 'Monitoramento por meio da tecnologia' },
+      { label: 'Experiência profissional', value: '4 anos' },
+    ],
+    right: [
+      {
+        label: 'Responsabilidades',
+        value:
+          'Desenvolvimento e manutenção de aplicações utilizando JavaScript, TypeScript, React, Next.js, HTML5, CSS3 e Tailwind CSS no frontend, com integração via REST e GraphQL. No backend, atuação com Python, Node.js, Express.js, Django e FastAPI, além de gerenciamento de dados com PostgreSQL, MySQL e MongoDB e implementação de segurança com JWT e OAuth. Experiência em CI/CD (GitHub Actions, GitLab CI), Docker, Kubernetes, AWS, Azure, Terraform e automação de processos com n8n e Python.',
+      },
+    ],
   },
-] as const;
+  2: {
+    left: [
+      {
+        label: 'Frontend',
+        value: ['JavaScript \u2022 TypeScript', 'React \u2022 Next.js', 'HTML5 \u2022 CSS3 \u2022 Tailwind CSS', 'REST \u2022 GraphQL'].join('\n'),
+      },
+      {
+        label: 'Backend',
+        value: [
+          'Python',
+          'Node.js \u2022 Express.js',
+          'Django \u2022 FastAPI',
+          'PostgreSQL \u2022 MySQL \u2022 MongoDB',
+          'JWT \u2022 OAuth',
+          'APIs \u2022 RESTful',
+        ].join('\n'),
+      },
+      {
+        label: 'DevOps',
+        value: ['CI/CD \u2022 GitHub Actions \u2022 GitLab CI', 'Docker \u2022 Kubernetes', 'AWS \u2022 Azure', 'Terraform', 'n8n'].join('\n'),
+      },
+      {
+        label: 'Automation & Machine Learning',
+        value: [
+          'Python Automation',
+          'Scripts \u2022 Web Scraping \u2022 Data Processing',
+          'Task Automation \u2022 Workflow Automation',
+          'API Integration \u2022 Log Parsing',
+          'Machine Learning \u2022 Model Training',
+          'Data Analysis \u2022 Pattern Detection',
+          'Model Handling \u2022 Prediction Systems',
+        ].join('\n'),
+      },
+    ],
+    right: [
+      {
+        label: 'Acess',
+        value:
+          'Projeto voltado ao controle e gerenciamento de acessos em portarias e ambientes privados, com foco em triagem, organização e reforço da segurança operacional.',
+      },
+      {
+        label: 'Aut-A',
+        value:
+          'Projeto desenvolvido para automações inteligentes em chats, utilizando agentes capazes de otimizar fluxos de atendimento, interação e execução de tarefas automatizadas.',
+      },
+      {
+        label: 'Prom-Pt',
+        value:
+          'Projeto voltado à curadoria e disponibilização de prompts estratégicos para desenvolvimento com Inteligência Artificial, facilitando a produtividade, experimentação e criação de soluções assistidas por IA.',
+      },
+    ],
+  },
+  3: {
+    left: [
+      { label: 'Área', value: 'Automações e desenvolvimento seguro' },
+      { label: 'Foco profissional', value: 'DevSecOps, automação e infraestrutura segura' },
+      { label: 'Especialidade técnica', value: 'Monitoramento, gestão de vulnerabilidades e proteção de ambientes' },
+      { label: 'Modelo de atuação', value: 'Integração entre desenvolvimento, operações e segurança' },
+      {
+        label: 'Stacks utilizadas',
+        value:
+          'Detection Stack \u2022 Security Operations \u2022 Attack Surface Management \u2022 Secure Network Architecture',
+      },
+      {
+        label: 'Objetivo técnico',
+        value:
+          'Construção de sistemas, redes e ambientes resilientes, escaláveis e seguros utilizando automações',
+      },
+    ],
+    right: [
+      {
+        label: 'Responsabilidades',
+        value:
+          'Desenvolvedor com foco em automação de segurança, cibersegurança e Machine Learning, utilizando Python para integração entre ferramentas, análise de dados, detecção de padrões, resposta a incidentes e construção de soluções inteligentes voltadas à segurança.',
+      },
+    ],
+  },
+  4: {
+    left: [
+      {
+        label: 'Detection Stack',
+        value: [
+          'SIEM \u2022 EDR/XDR \u2022 SOAR',
+          'Threat Intelligence \u2022 IOC Feeds',
+          'Splunk \u2022 Microsoft Sentinel',
+          'CrowdStrike \u2022 Microsoft Defender',
+          'Automação \u2022 Orquestração',
+        ].join('\n'),
+      },
+      {
+        label: 'Security Operations',
+        value: [
+          'CI/CD \u2022 GitHub Actions \u2022 GitLab CI',
+          'SAST \u2022 DAST \u2022 SCA',
+          'IaC Scanning \u2022 Container Scanning',
+          'Policy as Code \u2022 Secrets Scanning',
+          'Segurança em Pipeline',
+        ].join('\n'),
+      },
+      {
+        label: 'SOC Automation & ML Stack',
+        value: [
+          'Python \u2022 Machine Learning \u2022 SIEM \u2022 SOAR',
+          'Log Analysis \u2022 Alert Enrichment',
+          'Threat Intelligence \u2022 IOC Correlation',
+          'Anomaly Detection \u2022 Pattern Detection',
+          'Incident Response \u2022 Playbook Automation',
+        ].join('\n'),
+      },
+    ],
+    right: [
+      {
+        label: 'IDS-ML Private',
+        value:
+          'Projeto voltado ao desenvolvimento de um Sistema de Detecção de Intrusos (IDS) baseado em técnicas de Machine Learning, com foco na identificação de padrões suspeitos, análise de tráfego e apoio à detecção de ameaças em ambientes privados.',
+      },
+      {
+        label: 'D-ML Private',
+        value:
+          'Projeto desenvolvido para detecção de malware com Machine Learning, utilizando modelos capazes de analisar comportamentos, identificar arquivos maliciosos e fortalecer os processos de prevenção e resposta a ameaças digitais.',
+      },
+    ],
+  },
+};
 
 export function HeroSection({
   sectionId = 'inicio',
@@ -149,6 +282,9 @@ export function HeroSection({
 }: HeroSectionProps) {
   const resolvedSampleIndex = Math.min(Math.max(sampleIndex, 0), profileGuideProfileCount);
   const initialShape: ShapeName = resolvedSampleIndex === 0 ? 'fjr' : 'profile';
+  const activeBioContent = heroBioContent[resolvedSampleIndex] ?? heroBioContent[1];
+  const activeHeroBioLines = activeBioContent.left;
+  const activeHeroBioRightLines = activeBioContent.right;
   const heroRef = useRef<HTMLElement | null>(null);
   const heroStageRef = useRef<HTMLDivElement | null>(null);
   const profileGuideParticleRef = useRef<HTMLDivElement | null>(null);
@@ -281,7 +417,9 @@ export function HeroSection({
   const agentPanelRoute =
     [...agentTurns].reverse().find((turn) => turn.route !== null)?.route ?? null;
   const effectiveProfileBioVisible =
-    (disableAmbientAutoHide ? externalProfileBioVisible : isProfileBioVisible) && !isProfileExitActive;
+    (disableAmbientAutoHide ? externalProfileBioVisible : isProfileBioVisible) &&
+    !isProfileExitActive &&
+    !shouldShowAgentPanel;
   const searchSceneClassName = [
     'hero-search-scene',
     shouldShowSearchBar ? 'hero-search-scene--visible' : '',
@@ -472,7 +610,7 @@ export function HeroSection({
     };
   }, [showDetails]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const shouldShowBio = isSectionActive && !hideFixedTitle && currentShape === 'profile';
 
     if (!shouldShowBio) {
@@ -531,13 +669,13 @@ export function HeroSection({
     }
 
     setVisibleBioLabels(0);
-    setTypedBioLabels(new Array(heroBioLines.length).fill(''));
-    setDisplayBioValues(new Array(heroBioLines.length).fill(''));
+    setTypedBioLabels(new Array(activeHeroBioLines.length).fill(''));
+    setDisplayBioValues(new Array(activeHeroBioLines.length).fill(''));
     setGlowingBioIndexes(new Set());
     setIsInitialBioGlowActive(false);
     setVisibleBioRightLabels(0);
-    setTypedBioRightLabels(new Array(heroBioRightLines.length).fill(''));
-    setDisplayBioRightValues(new Array(heroBioRightLines.length).fill(''));
+    setTypedBioRightLabels(new Array(activeHeroBioRightLines.length).fill(''));
+    setDisplayBioRightValues(new Array(activeHeroBioRightLines.length).fill(''));
     setGlowingBioRightIndexes(new Set());
     setIsInitialBioRightGlowActive(false);
     setIsProfileTypingComplete(false);
@@ -553,7 +691,7 @@ export function HeroSection({
       const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
       const duration = 760;
       const startedAt = performance.now();
-      const targetValue = heroBioLines[lineIndex].value;
+      const targetValue = activeHeroBioLines[lineIndex].value;
 
       const scrambleFrame = (now: number) => {
         const progress = Math.min(1, (now - startedAt) / duration);
@@ -561,7 +699,7 @@ export function HeroSection({
         const scrambled = targetValue
           .split('')
           .map((char, charIndex) => {
-            if (char === ' ') return ' ';
+            if (char === ' ' || char === '\n') return char;
             if (charIndex < revealCount) return targetValue[charIndex];
             return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
           })
@@ -591,7 +729,7 @@ export function HeroSection({
 
     let rightLabelIndex = 0;
     const typeRightLine = () => {
-      if (rightLabelIndex >= heroBioRightLines.length) {
+      if (rightLabelIndex >= activeHeroBioRightLines.length) {
         setIsInitialBioRightGlowActive(true);
         bioRightInitialGlowTimerRef.current = window.setTimeout(() => {
           setIsInitialBioRightGlowActive(false);
@@ -602,7 +740,7 @@ export function HeroSection({
         return;
       }
 
-      const fullLabel = heroBioRightLines[rightLabelIndex].label;
+      const fullLabel = activeHeroBioRightLines[rightLabelIndex].label;
       setVisibleBioRightLabels(rightLabelIndex + 1);
       let charIndex = 0;
 
@@ -619,7 +757,8 @@ export function HeroSection({
           return;
         }
 
-        const fullValue = heroBioRightLines[rightLabelIndex].value;
+        const fullValue = activeHeroBioRightLines[rightLabelIndex].value;
+        const valueCharDelay = Math.max(3, Math.min(charDelay, Math.floor(1800 / Math.max(fullValue.length, 1))));
         let valueCharIndex = 0;
         const typeRightValue = () => {
           valueCharIndex += 1;
@@ -630,7 +769,7 @@ export function HeroSection({
           });
 
           if (valueCharIndex < fullValue.length) {
-            bioRightTypingTimerRef.current = window.setTimeout(typeRightValue, charDelay);
+            bioRightTypingTimerRef.current = window.setTimeout(typeRightValue, valueCharDelay);
             return;
           }
 
@@ -646,12 +785,12 @@ export function HeroSection({
 
     let labelIndex = 0;
     const typeLine = () => {
-      if (labelIndex >= heroBioLines.length) {
+      if (labelIndex >= activeHeroBioLines.length) {
         bioTypingTimerRef.current = null;
         return;
       }
 
-      const fullLabel = heroBioLines[labelIndex].label;
+      const fullLabel = activeHeroBioLines[labelIndex].label;
       setVisibleBioLabels(labelIndex + 1);
       let charIndex = 0;
 
@@ -669,7 +808,7 @@ export function HeroSection({
         }
 
         runLineValueScramble(labelIndex, () => {
-          if (labelIndex >= heroBioLines.length - 1) {
+          if (labelIndex >= activeHeroBioLines.length - 1) {
             setIsInitialBioGlowActive(true);
             bioInitialGlowTimerRef.current = window.setTimeout(() => {
               setIsInitialBioGlowActive(false);
@@ -724,7 +863,7 @@ export function HeroSection({
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
     };
-  }, [currentShape, hideFixedTitle, isSectionActive]);
+  }, [activeHeroBioLines, activeHeroBioRightLines, currentShape, hideFixedTitle, isSectionActive]);
 
   useEffect(() => {
     if (!isSectionActive || currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
@@ -847,17 +986,14 @@ export function HeroSection({
   }, []);
 
   const runBioValueScramble = useCallback((index: number) => {
-    const targetValue = heroBioLines[index].value;
+    const targetValue = activeHeroBioLines[index]?.value ?? '';
+    if (!targetValue) return;
+
     const scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
     const duration = 720;
     const runningRaf = bioScrambleRafRefs.current.get(index);
 
     if (runningRaf) window.cancelAnimationFrame(runningRaf);
-    setGlowingBioIndexes((prev) => {
-      const next = new Set(prev);
-      next.delete(index);
-      return next;
-    });
 
     const startedAt = performance.now();
     const scrambleFrame = (now: number) => {
@@ -866,7 +1002,7 @@ export function HeroSection({
       const scrambled = targetValue
         .split('')
         .map((char, charIndex) => {
-          if (char === ' ') return ' ';
+          if (char === ' ' || char === '\n') return char;
           if (charIndex < revealCount) return targetValue[charIndex];
           return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
         })
@@ -895,38 +1031,43 @@ export function HeroSection({
         next.add(index);
         return next;
       });
-      const runningGlowTimer = bioHoverGlowTimerRefs.current.get(index);
-      if (runningGlowTimer) window.clearTimeout(runningGlowTimer);
-      const glowTimer = window.setTimeout(() => {
-        setGlowingBioIndexes((prev) => {
-          const next = new Set(prev);
-          next.delete(index);
-          return next;
-        });
-        bioHoverGlowTimerRefs.current.delete(index);
-      }, 700);
-      bioHoverGlowTimerRefs.current.set(index, glowTimer);
     };
 
     const rafId = window.requestAnimationFrame(scrambleFrame);
     bioScrambleRafRefs.current.set(index, rafId);
-  }, []);
+  }, [activeHeroBioLines]);
 
   const handleBioValueMouseEnter = useCallback((index: number) => {
-    runBioValueScramble(index);
-  }, [runBioValueScramble]);
-
-  const handleBioValueMouseLeave = useCallback((index: number) => {
-    setGlowingBioIndexes((prev) => {
-      const next = new Set(prev);
-      next.delete(index);
-      return next;
-    });
     const runningGlowTimer = bioHoverGlowTimerRefs.current.get(index);
     if (runningGlowTimer) {
       window.clearTimeout(runningGlowTimer);
       bioHoverGlowTimerRefs.current.delete(index);
     }
+
+    setGlowingBioIndexes((prev) => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    runBioValueScramble(index);
+  }, [runBioValueScramble]);
+
+  const handleBioValueMouseLeave = useCallback((index: number) => {
+    const runningGlowTimer = bioHoverGlowTimerRefs.current.get(index);
+    if (runningGlowTimer) {
+      window.clearTimeout(runningGlowTimer);
+      bioHoverGlowTimerRefs.current.delete(index);
+    }
+
+    const glowTimer = window.setTimeout(() => {
+      setGlowingBioIndexes((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+      bioHoverGlowTimerRefs.current.delete(index);
+    }, bioHoverGlowExitDelayMs);
+    bioHoverGlowTimerRefs.current.set(index, glowTimer);
   }, []);
 
   const handleShapeChange = useCallback((shape: ShapeName) => {
@@ -1573,13 +1714,26 @@ export function HeroSection({
   }, []);
 
   const handleBioRightValueMouseEnter = useCallback((index: number) => {
+    const runningGlowTimer = bioRightHoverGlowTimerRefs.current.get(index);
+    if (runningGlowTimer) {
+      window.clearTimeout(runningGlowTimer);
+      bioRightHoverGlowTimerRefs.current.delete(index);
+    }
+
     setGlowingBioRightIndexes((prev) => {
       const next = new Set(prev);
       next.add(index);
       return next;
     });
+  }, []);
+
+  const handleBioRightValueMouseLeave = useCallback((index: number) => {
     const runningGlowTimer = bioRightHoverGlowTimerRefs.current.get(index);
-    if (runningGlowTimer) window.clearTimeout(runningGlowTimer);
+    if (runningGlowTimer) {
+      window.clearTimeout(runningGlowTimer);
+      bioRightHoverGlowTimerRefs.current.delete(index);
+    }
+
     const glowTimer = window.setTimeout(() => {
       setGlowingBioRightIndexes((prev) => {
         const next = new Set(prev);
@@ -1587,21 +1741,8 @@ export function HeroSection({
         return next;
       });
       bioRightHoverGlowTimerRefs.current.delete(index);
-    }, 700);
+    }, bioHoverGlowExitDelayMs);
     bioRightHoverGlowTimerRefs.current.set(index, glowTimer);
-  }, []);
-
-  const handleBioRightValueMouseLeave = useCallback((index: number) => {
-    setGlowingBioRightIndexes((prev) => {
-      const next = new Set(prev);
-      next.delete(index);
-      return next;
-    });
-    const runningGlowTimer = bioRightHoverGlowTimerRefs.current.get(index);
-    if (runningGlowTimer) {
-      window.clearTimeout(runningGlowTimer);
-      bioRightHoverGlowTimerRefs.current.delete(index);
-    }
   }, []);
 
   return (
@@ -1791,10 +1932,10 @@ export function HeroSection({
 
           <AnimatePresence>
             {!hideFixedTitle && currentShape === 'profile' && (
-              <>
+              <div className="hero-profile-bio-stack">
                 <motion.div
                   key="hero-profile-bio-left"
-                  className="hero-profile-bio"
+                  className="hero-profile-bio hero-profile-bio--upper"
                   initial={{ opacity: 0, x: '-6%', filter: 'blur(8px)' }}
                   animate={
                     effectiveProfileBioVisible
@@ -1804,12 +1945,12 @@ export function HeroSection({
                   exit={{ opacity: 0, x: '-6%', filter: 'blur(10px)' }}
                   transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {heroBioLines.map((line, index) => {
+                  {activeHeroBioLines.map((line, index) => {
                     if (index >= visibleBioLabels) return null;
 
                     return (
                       <motion.p
-                        key={line.label}
+                        key={`${line.label}-${index}`}
                         className="hero-profile-bio-line"
                         initial={{ opacity: 0, y: 18 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1833,22 +1974,22 @@ export function HeroSection({
 
                 <motion.div
                   key="hero-profile-bio-right"
-                  className="hero-profile-bio hero-profile-bio--right"
-                  initial={{ opacity: 0, x: '6%', filter: 'blur(8px)' }}
+                  className="hero-profile-bio hero-profile-bio--lower"
+                  initial={{ opacity: 0, x: '-6%', filter: 'blur(8px)' }}
                   animate={
                     effectiveProfileBioVisible
                       ? { opacity: 1, x: '0%', filter: 'blur(0px)' }
-                      : { opacity: 0, x: '112%', filter: 'blur(10px)' }
+                      : { opacity: 0, x: '-112%', filter: 'blur(10px)' }
                   }
-                  exit={{ opacity: 0, x: '6%', filter: 'blur(10px)' }}
+                  exit={{ opacity: 0, x: '-6%', filter: 'blur(10px)' }}
                   transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {heroBioRightLines.map((line, index) => {
+                  {activeHeroBioRightLines.map((line, index) => {
                     if (index >= visibleBioRightLabels) return null;
 
                     return (
                       <motion.p
-                        key={line.label}
+                        key={`${line.label}-${index}`}
                         className="hero-profile-bio-line"
                         initial={{ opacity: 0, y: 18 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1869,7 +2010,7 @@ export function HeroSection({
                     );
                   })}
                 </motion.div>
-              </>
+              </div>
             )}
           </AnimatePresence>
         </motion.div>
