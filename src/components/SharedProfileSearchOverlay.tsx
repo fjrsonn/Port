@@ -152,6 +152,7 @@ export function SharedProfileSearchOverlay({
   const searchSceneClassName = [
     'hero-search-scene',
     'hero-search-scene--visible',
+    isReady ? 'hero-search-scene--section-overlay' : '',
     scenePhase ? `hero-search-scene--${scenePhase}` : '',
     shouldShowSearchIntroText ? 'hero-search-scene--intro-visible' : '',
     isReady && ambientPhase === 'controlsHiding' ? 'hero-search-scene--ambient-controls-hide' : '',

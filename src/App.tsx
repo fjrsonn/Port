@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import type { HeroAgentTurn } from './components/hero-agent/HeroAgentPanel';
 import { SharedProfileSearchOverlay } from './components/SharedProfileSearchOverlay';
 import { IntroSection } from './sections/IntroSection';
@@ -24,6 +24,14 @@ const sharedProfileParticleHoldDurationMs = 3000;
 const sharedProfileParticleExitDurationMs = 820;
 const sharedProfileParticleReturnDurationMs = 820;
 const sharedProfileRematerializeDurationMs = 1150;
+const sharedProfileRematerializeOnSectionEntryPhases = new Set([
+  'dematerializing',
+  'particleHold',
+  'particleExit',
+  'hidden',
+  'particleReturn',
+  'rematerializing',
+]);
 const sectionNavBlockSelector = [
   'a',
   'button',
@@ -102,6 +110,158 @@ const sectionTransitionVariants = {
 };
 
 const sharedProfileGuideMoveDurationMs = 340;
+const skillImageModules = import.meta.glob('./assets/skills/*.png', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
+
+type SkillAmbientImage = {
+  fileName: string;
+  label: string;
+  src: string;
+};
+
+const getSkillImageUrl = (fileName: string) => skillImageModules[`./assets/skills/${fileName}`] ?? '';
+
+const getSkillImage = ({
+  fileName,
+  label,
+}: {
+  fileName: string;
+  label: string;
+}): SkillAmbientImage | null => {
+  const src = getSkillImageUrl(fileName);
+  return src.length > 0 ? { fileName, label, src } : null;
+};
+
+const isSkillAmbientImage = (image: SkillAmbientImage | null): image is SkillAmbientImage => image !== null;
+
+const fullstackSkillImages = [
+  { fileName: 'frontend1.png', label: 'JAVA SCRIPT' },
+  { fileName: 'frontend2.png', label: 'TYPE SCRIPT' },
+  { fileName: 'frontend3.png', label: 'HTML5' },
+  { fileName: 'frontend4.png', label: 'CSS3' },
+  { fileName: 'frontend5.png', label: 'REACT' },
+  { fileName: 'frontend6.png', label: 'NEXT.JS' },
+  { fileName: 'backend2.png', label: 'PYTHON' },
+  { fileName: 'backend3.png', label: 'NODE.JS' },
+  { fileName: 'backend4.png', label: 'MYSQL' },
+  { fileName: 'backend5.png', label: 'DOCKER' },
+].map(getSkillImage).filter(isSkillAmbientImage);
+
+const securitySkillImages = [
+  { fileName: 'SEC1.png', label: 'PYTHON' },
+  { fileName: 'SEC2.png', label: 'NUMPY' },
+  { fileName: 'SEC3.png', label: 'PANDAS' },
+  { fileName: 'SEC4.png', label: 'SEABORN' },
+  { fileName: 'SEC5.png', label: 'SCIKIT LEARN' },
+  { fileName: 'SEC6.png', label: 'TENSOR FLOW' },
+  { fileName: 'SEC7.png', label: 'PYTORCH' },
+  { fileName: 'SEC8.png', label: 'MLFLOW' },
+  { fileName: 'SEC9.png', label: 'MYSQL' },
+  { fileName: 'SEC10.png', label: 'AWS' },
+  { fileName: 'SEC11.png', label: 'AZURE' },
+  { fileName: 'SEC12.png', label: 'CISCO' },
+  { fileName: 'SEC13.png', label: 'PFSENSE' },
+  { fileName: 'SEC14.png', label: 'SURICATA' },
+  { fileName: 'SEC15.png', label: 'NMAP' },
+  { fileName: 'SEC16.png', label: 'WIRESHARK' },
+  { fileName: 'SEC17.png', label: 'WAZUH' },
+  { fileName: 'SEC18.png', label: 'SPLUNK' },
+  { fileName: 'SEC19.png', label: 'LINUX' },
+  { fileName: 'SEC20.png', label: 'WINDOWS SERVER' },
+  { fileName: 'SEC21.png', label: 'BASH' },
+  { fileName: 'SEC22.png', label: 'POWERSHEL' },
+  { fileName: 'SEC23.png', label: 'APACHE' },
+  { fileName: 'SEC24.png', label: 'VMWEARE' },
+  { fileName: 'SEC25.png', label: 'MICROSOFT HYPER-V' },
+  { fileName: 'SEC26.png', label: 'VIRTUALBOX' },
+  { fileName: 'SEC27.png', label: 'GIT' },
+].map(getSkillImage).filter(isSkillAmbientImage);
+
+type SkillAmbientContent = {
+  title: string;
+  images: SkillAmbientImage[];
+};
+
+const scrambleCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
+
+function ScrambleSkillTitle({
+  text,
+  isVisible,
+  triggerKey,
+}: {
+  text: string;
+  isVisible: boolean;
+  triggerKey: number;
+}) {
+  const [displayText, setDisplayText] = useState(text);
+  const rafRef = useRef<number | null>(null);
+
+  const stopScramble = useCallback(() => {
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  const runScramble = useCallback(() => {
+    stopScramble();
+
+    const duration = 940;
+    const startedAt = performance.now();
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const revealCount = Math.floor(progress * text.length);
+      const nextText = text
+        .split('')
+        .map((char, index) => {
+          if (char === ' ') return char;
+          if (index < revealCount) return text[index];
+          return scrambleCharacters[Math.floor(Math.random() * scrambleCharacters.length)];
+        })
+        .join('');
+
+      setDisplayText(progress >= 1 ? text : nextText);
+
+      if (progress < 1) {
+        rafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      rafRef.current = null;
+    };
+
+    rafRef.current = window.requestAnimationFrame(tick);
+  }, [stopScramble, text]);
+
+  useEffect(() => {
+    stopScramble();
+    setDisplayText(text);
+
+    if (!isVisible) return;
+
+    const timer = window.setTimeout(runScramble, 220);
+    return () => {
+      window.clearTimeout(timer);
+      stopScramble();
+    };
+  }, [isVisible, runScramble, stopScramble, text]);
+
+  useEffect(() => stopScramble, [stopScramble]);
+
+  useEffect(() => {
+    if (!isVisible || triggerKey === 0) return;
+    runScramble();
+  }, [isVisible, runScramble, triggerKey]);
+
+  return (
+    <span className="skill-section-heading">
+      {displayText}
+    </span>
+  );
+}
 
 export default function App() {
   const totalSections = 6;
@@ -109,6 +269,8 @@ export default function App() {
   const [showMain, setShowMain] = useState(false);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [navigationDirection, setNavigationDirection] = useState<1 | -1>(1);
+  const skillHeadingShellRef = useRef<HTMLDivElement | null>(null);
+  const isPointerOverSkillHeadingRef = useRef(false);
 
   // Mantidos para compatibilidade com a HeroSection nova
   const [isVideoHovering] = useState(false);
@@ -117,7 +279,10 @@ export default function App() {
   const deferredSectionTransitionTimerRef = useRef<number | null>(null);
   const wheelIntentRef = useRef(0);
   const isHeroTransitionInProgressRef = useRef(false);
+  const activeSectionIndexRef = useRef(activeSectionIndex);
+  const previousSharedProfileSectionIndexRef = useRef(activeSectionIndex);
   const sharedProfileAmbientSequenceRef = useRef(0);
+  const shouldRematerializeSharedProfileAfterNavigationRef = useRef(false);
   const sharedProfileIdleTimerRef = useRef<number | null>(null);
   const sharedProfileControlsHideTimerRef = useRef<number | null>(null);
   const sharedProfileDematerializeTimerRef = useRef<number | null>(null);
@@ -145,6 +310,20 @@ export default function App() {
   const [isSharedProfileTypingComplete, setIsSharedProfileTypingComplete] = useState(false);
   const [isSharedProfileBioVisible, setIsSharedProfileBioVisible] = useState(true);
   const [isSectionParticleExitActive, setIsSectionParticleExitActive] = useState(false);
+  const [skillTitleScrambleTrigger, setSkillTitleScrambleTrigger] = useState(0);
+  const [skillHeadingOverride, setSkillHeadingOverride] = useState<string | null>(null);
+  const [activeSkillImageKey, setActiveSkillImageKey] = useState<string | null>(null);
+  const skillHoverLabelRef = useRef<string | null>(null);
+  const skillHoverKeyRef = useRef<string | null>(null);
+  const skillStripPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const skillStripRafRef = useRef<number | null>(null);
+  const isSharedProfileSection = isSharedProfileSectionIndex(activeSectionIndex);
+  const isSharedAgentPanelVisible =
+    isSharedProfileSection &&
+    !isSharedAgentPanelDismissed &&
+    sharedAgentTurns.length > 0;
+
+  activeSectionIndexRef.current = activeSectionIndex;
 
   const sharedProfileUiState: HeroSharedProfileUiState = {
     searchQuery: sharedSearchQuery,
@@ -159,6 +338,109 @@ export default function App() {
   const sharedProfileGuideLayerStyle = {
     '--hero-profile-guide-move-duration': `${sharedProfileGuideMoveDurationMs}ms`,
   } as CSSProperties;
+  const activeSkillAmbientContent: SkillAmbientContent | null =
+    activeSectionIndex === 2
+      ? { title: 'FULLSTACK', images: fullstackSkillImages }
+      : activeSectionIndex === 4
+        ? { title: 'SECURITY', images: securitySkillImages }
+        : null;
+  const activeSkillImageItems = activeSkillAmbientContent?.images ?? [];
+  const activeSkillHeadingText = skillHeadingOverride ?? activeSkillAmbientContent?.title ?? '';
+  const isSkillAmbientSection = activeSkillAmbientContent !== null;
+  const shouldShowSkillAmbient =
+    showMain &&
+    isSkillAmbientSection &&
+    isSharedProfileTypingComplete &&
+    !isSectionParticleExitActive &&
+    !isSharedAgentPanelVisible &&
+    (
+      sharedProfileAmbientPhase === 'active' ||
+      sharedProfileAmbientPhase === 'controlsHiding' ||
+      sharedProfileAmbientPhase === 'dematerializing' ||
+      sharedProfileAmbientPhase === 'particleHold'
+    );
+  const shouldSinkSkillAmbient =
+    isSkillAmbientSection &&
+    (
+      isSectionParticleExitActive ||
+      sharedProfileAmbientPhase === 'particleExit' ||
+      sharedProfileAmbientPhase === 'hidden'
+    );
+
+  const setSkillHoverItem = useCallback((label: string | null, itemKey: string | null) => {
+    if (skillHoverLabelRef.current === label && skillHoverKeyRef.current === itemKey) return;
+
+    skillHoverLabelRef.current = label;
+    skillHoverKeyRef.current = itemKey;
+    setSkillHeadingOverride(label);
+    setActiveSkillImageKey(itemKey);
+  }, []);
+
+  const updateSkillHeadingFromPoint = useCallback(
+    (x: number, y: number) => {
+      const skillItems = document.querySelectorAll<HTMLElement>('.hero-skill-image-strip__item');
+      const skillItem = Array.from(skillItems).find((item) => {
+        const rect = item.getBoundingClientRect();
+
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      });
+
+      setSkillHoverItem(skillItem?.dataset.skillLabel ?? null, skillItem?.dataset.skillKey ?? null);
+    },
+    [setSkillHoverItem],
+  );
+
+  const clearSkillHover = useCallback(() => {
+    skillStripPointerRef.current = null;
+    setSkillHoverItem(null, null);
+  }, [setSkillHoverItem]);
+
+  const handleSkillStripPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      skillStripPointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+      updateSkillHeadingFromPoint(event.clientX, event.clientY);
+    },
+    [updateSkillHeadingFromPoint],
+  );
+
+  const handleSkillStripPointerLeave = useCallback(() => {
+    clearSkillHover();
+  }, [clearSkillHover]);
+
+  const handleSkillImagePointerEnter = useCallback((label: string, itemKey: string) => {
+    setSkillHoverItem(label, itemKey);
+  }, [setSkillHoverItem]);
+
+  useEffect(() => {
+    isPointerOverSkillHeadingRef.current = false;
+    clearSkillHover();
+  }, [activeSkillAmbientContent?.title, clearSkillHover, shouldShowSkillAmbient]);
+
+  useEffect(() => {
+    if (!shouldShowSkillAmbient) return;
+
+    const tick = () => {
+      const pointer = skillStripPointerRef.current;
+
+      if (pointer) {
+        updateSkillHeadingFromPoint(pointer.x, pointer.y);
+      }
+
+      skillStripRafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    skillStripRafRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      if (skillStripRafRef.current !== null) {
+        window.cancelAnimationFrame(skillStripRafRef.current);
+        skillStripRafRef.current = null;
+      }
+    };
+  }, [shouldShowSkillAmbient, updateSkillHeadingFromPoint]);
 
   useEffect(() => {
     const introTextTimelineMs = 2900;
@@ -218,12 +500,6 @@ export default function App() {
       }
     };
   }, []);
-
-  const isSharedProfileSection = isSharedProfileSectionIndex(activeSectionIndex);
-  const isSharedAgentPanelVisible =
-    isSharedProfileSection &&
-    !isSharedAgentPanelDismissed &&
-    sharedAgentTurns.length > 0;
 
   const clearSharedProfileAmbientTimers = useCallback(() => {
     if (sharedProfileIdleTimerRef.current !== null) {
@@ -354,8 +630,31 @@ export default function App() {
     setHeroTransitionRequestId((prev) => prev + 1);
   }, []);
 
+  const handleSharedProfileTypingCompleteChange = useCallback((sectionIndex: number, isComplete: boolean) => {
+    if (sectionIndex !== activeSectionIndexRef.current) return;
+    setIsSharedProfileTypingComplete(isComplete);
+  }, []);
+
+  useEffect(() => {
+    const previousSectionIndex = previousSharedProfileSectionIndexRef.current;
+    previousSharedProfileSectionIndexRef.current = activeSectionIndex;
+
+    const movedBetweenSharedProfileSections =
+      previousSectionIndex !== activeSectionIndex &&
+      isSharedProfileSectionIndex(previousSectionIndex) &&
+      isSharedProfileSectionIndex(activeSectionIndex);
+
+    if (
+      movedBetweenSharedProfileSections &&
+      sharedProfileRematerializeOnSectionEntryPhases.has(sharedProfileAmbientPhase)
+    ) {
+      shouldRematerializeSharedProfileAfterNavigationRef.current = true;
+    }
+  }, [activeSectionIndex, sharedProfileAmbientPhase]);
+
   useEffect(() => {
     if (!showMain || !isSharedProfileSection) {
+      shouldRematerializeSharedProfileAfterNavigationRef.current = false;
       sharedProfileAmbientSequenceRef.current += 1;
       clearSharedProfileAmbientTimers();
       setSharedProfileAmbientPhase('active');
@@ -376,7 +675,20 @@ export default function App() {
       return;
     }
 
+    if (shouldRematerializeSharedProfileAfterNavigationRef.current) {
+      shouldRematerializeSharedProfileAfterNavigationRef.current = false;
+      startSharedProfileAmbientReturn();
+      return;
+    }
+
     if (!isSharedProfileTypingComplete) {
+      if (
+        sharedProfileAmbientPhase === 'particleReturn' ||
+        sharedProfileAmbientPhase === 'rematerializing'
+      ) {
+        return;
+      }
+
       sharedProfileAmbientSequenceRef.current += 1;
       clearSharedProfileAmbientTimers();
       setSharedProfileAmbientPhase('active');
@@ -396,6 +708,7 @@ export default function App() {
     setSharedProfileAmbientActive,
     showMain,
     sharedProfileAmbientPhase,
+    startSharedProfileAmbientReturn,
   ]);
 
   const navigateSections = useCallback(
@@ -404,13 +717,20 @@ export default function App() {
 
       const directionValue = direction === 'next' ? 1 : -1;
       const shouldWaitForParticleExit = isSharedProfileSectionIndex(activeSectionIndex);
+      const nextSectionIndex = (activeSectionIndex + directionValue + totalSections) % totalSections;
+      const shouldReplayAmbientReturnAfterNavigation =
+        shouldWaitForParticleExit &&
+        isSharedProfileSectionIndex(nextSectionIndex) &&
+        sharedProfileRematerializeOnSectionEntryPhases.has(sharedProfileAmbientPhase);
+      const isMovingBetweenSharedProfileSections =
+        shouldWaitForParticleExit && isSharedProfileSectionIndex(nextSectionIndex);
       setNavigationDirection(directionValue);
 
       const completeSectionNavigation = () => {
-        setActiveSectionIndex((currentIndex) => {
-          const nextIndex = (currentIndex + directionValue + totalSections) % totalSections;
-          return nextIndex;
-        });
+        if (isMovingBetweenSharedProfileSections) {
+          setIsSharedProfileTypingComplete(false);
+        }
+        setActiveSectionIndex(nextSectionIndex);
       };
 
       wheelIntentRef.current = 0;
@@ -425,6 +745,10 @@ export default function App() {
       }
 
       clearSharedProfileAmbientTimers();
+      shouldRematerializeSharedProfileAfterNavigationRef.current = shouldReplayAmbientReturnAfterNavigation;
+      if (shouldReplayAmbientReturnAfterNavigation) {
+        setSharedProfileAmbientPhase('hidden');
+      }
       setIsSharedProfileBioVisible(false);
       setIsSectionParticleExitActive(true);
 
@@ -434,7 +758,7 @@ export default function App() {
         completeSectionNavigation();
       }, sectionParticleExitDurationMs);
     },
-    [activeSectionIndex, clearSharedProfileAmbientTimers, showMain, totalSections],
+    [activeSectionIndex, clearSharedProfileAmbientTimers, sharedProfileAmbientPhase, showMain, totalSections],
   );
 
   const registerSharedProfileInteraction = useCallback(() => {
@@ -553,10 +877,42 @@ export default function App() {
     ],
   );
 
-  const handleMainPointerMove = useCallback(() => {
+  const handleMainPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const headingShell = skillHeadingShellRef.current;
+
+    if (shouldShowSkillAmbient && headingShell) {
+      const rect = headingShell.getBoundingClientRect();
+      const isPointerInsideHeading =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+
+      if (isPointerInsideHeading && !isPointerOverSkillHeadingRef.current) {
+        setSkillTitleScrambleTrigger((current) => current + 1);
+      }
+
+      isPointerOverSkillHeadingRef.current = isPointerInsideHeading;
+    } else {
+      isPointerOverSkillHeadingRef.current = false;
+    }
+
+    if (shouldShowSkillAmbient) {
+      skillStripPointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+      updateSkillHeadingFromPoint(event.clientX, event.clientY);
+    }
+
     if (!showMain || !isSharedProfileSection) return;
     registerSharedProfileInteraction();
-  }, [isSharedProfileSection, registerSharedProfileInteraction, showMain]);
+  }, [isSharedProfileSection, registerSharedProfileInteraction, shouldShowSkillAmbient, showMain, updateSkillHeadingFromPoint]);
+
+  const handleMainPointerLeave = useCallback(() => {
+    isPointerOverSkillHeadingRef.current = false;
+    clearSkillHover();
+  }, [clearSkillHover]);
 
   const handleMainKeyDown = useCallback(() => {
     if (!showMain || !isSharedProfileSection) return;
@@ -599,7 +955,7 @@ export default function App() {
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
-          onProfileTypingCompleteChange={setIsSharedProfileTypingComplete}
+          onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(1, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -614,7 +970,7 @@ export default function App() {
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
-          onProfileTypingCompleteChange={setIsSharedProfileTypingComplete}
+          onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(2, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -629,7 +985,7 @@ export default function App() {
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
-          onProfileTypingCompleteChange={setIsSharedProfileTypingComplete}
+          onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(3, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -644,7 +1000,7 @@ export default function App() {
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
-          onProfileTypingCompleteChange={setIsSharedProfileTypingComplete}
+          onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(4, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -676,10 +1032,67 @@ export default function App() {
         className={`main-content ${showMain ? 'main-visible' : 'main-hidden'}`}
         onClick={handleMainClick}
         onKeyDown={handleMainKeyDown}
+        onPointerLeave={handleMainPointerLeave}
         onPointerMove={handleMainPointerMove}
         onWheel={handleMainWheel}
       >
         <div className="main-content__viewport">
+          {activeSkillAmbientContent && (
+            <div className="main-content__skill-layer">
+              <div
+                ref={skillHeadingShellRef}
+                className={[
+                  'skill-section-heading-shell',
+                  shouldShowSkillAmbient ? 'skill-section-heading-shell--visible' : '',
+                  shouldSinkSkillAmbient ? 'skill-section-heading-shell--sink' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                <ScrambleSkillTitle
+                  key={activeSkillAmbientContent.title}
+                  text={activeSkillHeadingText}
+                  isVisible={shouldShowSkillAmbient}
+                  triggerKey={skillTitleScrambleTrigger}
+                />
+              </div>
+
+              {activeSkillImageItems.length > 0 && (
+                <div
+                  className={[
+                    'hero-skill-image-strip',
+                    activeSkillAmbientContent.title === 'SECURITY' ? 'hero-skill-image-strip--security' : '',
+                    shouldShowSkillAmbient ? 'hero-skill-image-strip--visible' : '',
+                    shouldSinkSkillAmbient ? 'hero-skill-image-strip--sink' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerLeave={handleSkillStripPointerLeave}
+                  onPointerMove={handleSkillStripPointerMove}
+                  aria-hidden="true"
+                >
+                  <div className="hero-skill-image-strip__track">
+                    {[...activeSkillImageItems, ...activeSkillImageItems].map((image, index) => {
+                      const skillItemKey = `${image.fileName}-${index}`;
+
+                      return (
+                        <span
+                          className={[
+                            'hero-skill-image-strip__item',
+                            activeSkillImageKey === skillItemKey ? 'hero-skill-image-strip__item--active' : '',
+                          ].filter(Boolean).join(' ')}
+                          data-skill-key={skillItemKey}
+                          data-skill-label={image.label}
+                          key={skillItemKey}
+                          onPointerEnter={() => handleSkillImagePointerEnter(image.label, skillItemKey)}
+                        >
+                          <img className="hero-skill-image-strip__image" src={image.src} alt="" />
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {isSharedProfileSection && (
             <div className="main-content__guide-layer" aria-hidden="true">
               <div

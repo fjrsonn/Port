@@ -107,3 +107,43 @@ npm.cmd run dev
 http://localhost:5173/
 http://localhost:5173/api/health
 http://127.0.0.1:8000/
+
+beckend2.png = PYTHON
+beckend3.png = NODE.JS
+beckend4.png = MYSQL
+beckend5.png = DOCKER
+frontend1.png = JAVA SCRIPT
+frontend2.png = TYPE SCRIPT
+frontend3.png = HTML5
+frontend4.png = CSS3
+frontend5.png = REACT
+frontend6.png = NEXT.JS
+SEC1.png = PYTHON
+SEC2.png = NUMPY
+SEC3.png = PANDAS
+SEC4.png = SEABORN
+SEC5.png = SCIKIT LEARN
+SEC6.png = TENSOR FLOW
+SEC7.png = PYTORCH
+SEC8.png = MLFLOW
+SEC9.png = MYSQL
+SEC10.png = AWS
+SEC11.png = AZURE
+SEC12.png = CISCO
+SEC13.png = PFSENSE
+SEC14.png = SURICATA
+SEC15.png = NMAP
+SEC16.png = WIRESHARK
+SEC17.png = WAZUH
+SEC18.png = SPLUNK
+SEC19.png = LINUX
+SEC20.png = WINDOWS SERVER
+SEC21.png = BASH
+SEC22.png = POWERSHEL
+SEC23.png = APACHE
+SEC24.png = VMWEARE
+SEC25.png = MICROSOFT HYPER-V
+SEC26.png = VIRTUALBOX
+SEC27.png = GIT
+
+

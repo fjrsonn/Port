@@ -189,7 +189,7 @@ const heroBioContent: Record<number, { left: HeroBioLine[]; right: HeroBioLine[]
   },
   3: {
     left: [
-      { label: 'Área', value: 'Automações e desenvolvimento seguro' },
+      { label: 'Área de interesse', value: 'Desenvolvimento seguro e cibersegurança' },
       { label: 'Foco profissional', value: 'DevSecOps, automação e infraestrutura segura' },
       { label: 'Especialidade técnica', value: 'Monitoramento, gestão de vulnerabilidades e proteção de ambientes' },
       { label: 'Modelo de atuação', value: 'Integração entre desenvolvimento, operações e segurança' },
@@ -201,7 +201,7 @@ const heroBioContent: Record<number, { left: HeroBioLine[]; right: HeroBioLine[]
       {
         label: 'Objetivo técnico',
         value:
-          'Construção de sistemas, redes e ambientes resilientes, escaláveis e seguros utilizando automações',
+          'Construção de sistemas, redes e ambientes resilientes, escaláveis e seguros',
       },
     ],
     right: [
@@ -260,6 +260,16 @@ const heroBioContent: Record<number, { left: HeroBioLine[]; right: HeroBioLine[]
   },
 };
 
+const emptyHeroBioContent: { left: HeroBioLine[]; right: HeroBioLine[] } = {
+  left: [],
+  right: [],
+};
+
+const profileTwoBioContent: { left: HeroBioLine[]; right: HeroBioLine[] } = {
+  left: heroBioContent[3].left,
+  right: [],
+};
+
 export function HeroSection({
   sectionId = 'inicio',
   sampleIndex = 0,
@@ -282,9 +292,15 @@ export function HeroSection({
 }: HeroSectionProps) {
   const resolvedSampleIndex = Math.min(Math.max(sampleIndex, 0), profileGuideProfileCount);
   const initialShape: ShapeName = resolvedSampleIndex === 0 ? 'fjr' : 'profile';
-  const activeBioContent = heroBioContent[resolvedSampleIndex] ?? heroBioContent[1];
+  const activeBioContent =
+    resolvedSampleIndex === 1
+      ? heroBioContent[1]
+      : resolvedSampleIndex === 3
+        ? profileTwoBioContent
+        : emptyHeroBioContent;
   const activeHeroBioLines = activeBioContent.left;
   const activeHeroBioRightLines = activeBioContent.right;
+  const hasProfileBioContent = activeHeroBioLines.length > 0 || activeHeroBioRightLines.length > 0;
   const heroRef = useRef<HTMLElement | null>(null);
   const heroStageRef = useRef<HTMLDivElement | null>(null);
   const profileGuideParticleRef = useRef<HTMLDivElement | null>(null);
@@ -611,7 +627,7 @@ export function HeroSection({
   }, [showDetails]);
 
   useLayoutEffect(() => {
-    const shouldShowBio = isSectionActive && !hideFixedTitle && currentShape === 'profile';
+    const shouldShowBio = isSectionActive && !hideFixedTitle && currentShape === 'profile' && hasProfileBioContent;
 
     if (!shouldShowBio) {
       setVisibleBioLabels(0);
@@ -624,7 +640,7 @@ export function HeroSection({
       setDisplayBioRightValues([]);
       setGlowingBioRightIndexes(new Set());
       setIsInitialBioRightGlowActive(false);
-      setIsProfileTypingComplete(false);
+      setIsProfileTypingComplete(!hasProfileBioContent && isSectionActive && currentShape === 'profile');
       setIsProfileBioVisible(true);
       setIsSearchBarRestVisible(true);
       setIsProfileSceneExiting(false);
@@ -863,7 +879,7 @@ export function HeroSection({
       bioRightHoverGlowTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
       bioRightHoverGlowTimerRefs.current.clear();
     };
-  }, [activeHeroBioLines, activeHeroBioRightLines, currentShape, hideFixedTitle, isSectionActive]);
+  }, [activeHeroBioLines, activeHeroBioRightLines, currentShape, hasProfileBioContent, hideFixedTitle, isSectionActive]);
 
   useEffect(() => {
     if (!isSectionActive || currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
@@ -1931,7 +1947,7 @@ export function HeroSection({
         </div>
 
           <AnimatePresence>
-            {!hideFixedTitle && currentShape === 'profile' && (
+            {!hideFixedTitle && currentShape === 'profile' && hasProfileBioContent && (
               <div className="hero-profile-bio-stack">
                 <motion.div
                   key="hero-profile-bio-left"

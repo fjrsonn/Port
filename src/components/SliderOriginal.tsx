@@ -336,6 +336,7 @@ class Slider {
   onScrollBound: () => void;
   onReachEnd?: () => void;
   onReachStart?: () => void;
+  snapTimer: number | null;
 
   constructor(el: HTMLElement, gl: Gl, opts: SliderOptions = {}, callbacks: SliderCallbacks = {}) {
     this.el = el;
@@ -386,6 +387,7 @@ class Slider {
     this.onUp = this.onUp.bind(this);
     this.onResizeBound = this.handleResize.bind(this);
     this.onScrollBound = this.handleScroll.bind(this);
+    this.snapTimer = null;
 
     this.init();
   }
@@ -397,6 +399,7 @@ class Slider {
 
   destroy() {
     this.off();
+    this.clearSnapTimer();
     this.items.forEach((item) => {
       item.tl.kill();
       this.gl.scene.remove(item.plane);
@@ -454,14 +457,18 @@ class Slider {
 
     if (!items.length) return;
 
-    const { width: wrapWidth, left: wrapDiff } = this.el.getBoundingClientRect();
+    const { width: wrapWidth } = this.el.getBoundingClientRect();
+    const slideRects = Array.from(items).map((item) => item.getBoundingClientRect());
+    const snapPoints = slideRects.map(({ left, width }) => {
+      const slideCenter = left + width / 2;
+      return ww / 2 - slideCenter;
+    });
 
-    state.max = -(
-      items[items.length - 1].getBoundingClientRect().right -
-      wrapWidth -
-      wrapDiff
-    );
-    state.min = 0;
+    state.min = Math.max(...snapPoints);
+    state.max = Math.min(...snapPoints);
+    state.snap.points = snapPoints.map((point) => this.clampPosition(point));
+    state.target = this.clampPosition(state.target);
+    state.current = this.clampPosition(state.current);
 
     this.tl?.kill();
 
@@ -535,12 +542,15 @@ class Slider {
   calc() {
     const state = this.state;
     state.target = this.clampPosition(state.target);
-    state.current += (state.target - state.current) * this.opts.ease;
+    const nextCurrent = state.current + (state.target - state.current) * this.opts.ease;
+    state.current = Math.abs(state.target - nextCurrent) < 0.5 ? state.target : nextCurrent;
     state.current = this.clampPosition(state.current);
     state.currentRounded = Math.round(this.clampPosition(state.current) * 100) / 100;
     state.diff = (state.target - state.current) * 0.0005;
     state.progress =
-      state.max !== 0 ? gsap.utils.clamp(0, 1, state.currentRounded / state.max) : 0;
+      state.max !== state.min
+        ? gsap.utils.clamp(0, 1, (state.currentRounded - state.min) / (state.max - state.min))
+        : 0;
 
     this.tl?.progress(state.progress);
   }
@@ -598,6 +608,40 @@ class Slider {
     return Math.min(this.state.min, Math.max(this.state.max, value));
   }
 
+  clearSnapTimer() {
+    if (this.snapTimer === null) return;
+    window.clearTimeout(this.snapTimer);
+    this.snapTimer = null;
+  }
+
+  getClosestSnapPoint(value: number) {
+    const points = this.state.snap.points;
+
+    if (!points.length) {
+      return this.clampPosition(value);
+    }
+
+    return points.reduce((closestPoint, point) => (
+      Math.abs(point - value) < Math.abs(closestPoint - value) ? point : closestPoint
+    ));
+  }
+
+  snapToClosestSlide() {
+    const snapPoint = this.getClosestSnapPoint(this.state.target);
+    this.state.target = snapPoint;
+    this.state.off = snapPoint;
+  }
+
+  scheduleSnapToClosestSlide(delay = 260) {
+    this.clearSnapTimer();
+    this.snapTimer = window.setTimeout(() => {
+      this.snapTimer = null;
+
+      if (this.state.flags.dragging) return;
+      this.snapToClosestSlide();
+    }, delay);
+  }
+
   isAtEnd(threshold = 14) {
     return this.clampPosition(Math.min(this.state.currentRounded, this.state.target)) <= this.state.max + threshold;
   }
@@ -621,6 +665,7 @@ class Slider {
 
     this.state.off = this.state.target;
     this.state.target = this.clampPosition(this.state.target - deltaY * this.opts.speed * 0.9);
+    this.scheduleSnapToClosestSlide();
     return true;
   }
 
@@ -646,15 +691,17 @@ class Slider {
     const { x, y } = this.getPos(e);
     const { flags, on } = this.state;
 
+    this.clearSnapTimer();
     flags.dragging = true;
     on.x = x;
     on.y = y;
+    this.state.off = this.state.target;
   }
 
   onUp() {
     const state = this.state;
     state.flags.dragging = false;
-    state.off = state.target;
+    this.snapToClosestSlide();
   }
 
   onMove(e: PointerLikeEvent) {
@@ -676,80 +723,32 @@ class Slider {
   }
 }
 
-const slides: SlideMedia[] = [
+const projectSlides: Array<Pick<SlideMedia, 'title' | 'image'>> = [
   {
-    title: 'Moonrocket',
+    title: 'Acess',
     image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg',
-    left: '0%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
   },
   {
-    title: 'Spaceman',
+    title: 'Prompt',
     image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg',
-    left: '120%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
   },
   {
-    title: 'Moonrocket',
+    title: 'AutoAgente',
     image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg',
-    left: '240%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Spaceman',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg',
-    left: '360%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Moonrocket',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg',
-    left: '480%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Spaceman',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg',
-    left: '600%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Moonrocket',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg',
-    left: '720%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Spaceman',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex2.jpg',
-    left: '840%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
-  },
-  {
-    title: 'Moonrocket',
-    image: 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/58281/tex1.jpg',
-    left: '960%',
-    useVideo: false,
-    previewVideo: '',
-    fullVideo: '',
   },
 ];
+
+const slides: SlideMedia[] = Array.from({ length: projectSlides.length * 3 }, (_, index) => {
+  const slide = projectSlides[index % projectSlides.length];
+
+  return {
+    ...slide,
+    left: `${index * 120}%`,
+    useVideo: false,
+    previewVideo: '',
+    fullVideo: '',
+  };
+});
 
 type RootWithCleanup = HTMLDivElement & {
   __sliderCleanup?: () => void;
@@ -884,7 +883,7 @@ export default function SliderOriginal({
     <div ref={rootRef} className="slider-original-root" onWheel={handleWheel}>
       <div className="slider js-drag-area">
         <div ref={sliderRef} className="slider__inner js-slider">
-          {slides.slice(0, 8).map((slide, index) => {
+          {slides.map((slide, index) => {
             const shouldUseVideo =
               ENABLE_VIDEO_MODE && slide.useVideo && !!slide.previewVideo;
 
@@ -924,7 +923,7 @@ export default function SliderOriginal({
 
       <div className="slider-titles">
         <div className="slider-titles__title slider-titles__title--proxy">
-          Lorem ipsum
+          AutoAgente
         </div>
         <div className="slider-titles__list js-titles">
           {slides.map((slide, index) => (
