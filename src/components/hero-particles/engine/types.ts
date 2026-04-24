@@ -27,6 +27,8 @@ export type LoadedShape = {
 export type EngineOptions = {
   container: HTMLDivElement;
   initialSampleIndex?: number;
+  initialLoadRevealMode?: 'animated' | 'settled';
+  initialLoadRevealDelayMs?: number;
   lockSample?: boolean;
   onShapeChange?: (shape: ShapeName) => void;
   onSampleChange?: (sampleIndex: number) => void;

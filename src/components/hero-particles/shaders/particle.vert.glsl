@@ -3,6 +3,7 @@ precision highp float;
 attribute float pindex;
 attribute vec3 position;
 attribute vec3 offset;
+attribute vec3 targetOffset;
 attribute vec2 uv;
 attribute float angle;
 
@@ -13,11 +14,14 @@ uniform float uTime;
 uniform float uRandom;
 uniform float uDepth;
 uniform float uSize;
+uniform float uMorphProgress;
 uniform vec2 uTextureSize;
 uniform sampler2D uTexture;
+uniform sampler2D uTargetTexture;
 uniform sampler2D uTouch;
 
 varying vec2 vPUv;
+varying vec2 vTargetPUv;
 varying vec2 vUv;
 
 float random(float n) {
@@ -58,19 +62,31 @@ void main() {
   vUv = uv;
 
   vec2 puv = offset.xy / uTextureSize;
+  vec2 targetPuv = targetOffset.xy / uTextureSize;
+  float morphProgress = smoothstep(0.0, 1.0, uMorphProgress);
   vPUv = puv;
+  vTargetPUv = targetPuv;
 
-  vec4 colA = texture2D(uTexture, puv);
-  float grey = colA.r * 0.21 + colA.g * 0.71 + colA.b * 0.07;
+  vec4 sourceColor = texture2D(uTexture, puv);
+  vec4 targetColor = texture2D(uTargetTexture, targetPuv);
+  float sourceGrey = sourceColor.r * 0.21 + sourceColor.g * 0.71 + sourceColor.b * 0.07;
+  float targetGrey = targetColor.r * 0.21 + targetColor.g * 0.71 + targetColor.b * 0.07;
+  float grey = mix(sourceGrey, targetGrey, smoothstep(0.12, 0.74, morphProgress));
 
-  vec3 displaced = offset;
-  displaced.y = uTextureSize.y - displaced.y;
+  vec3 sourceDisplaced = offset;
+  sourceDisplaced.y = uTextureSize.y - sourceDisplaced.y;
+
+  vec3 targetDisplaced = targetOffset;
+  targetDisplaced.y = uTextureSize.y - targetDisplaced.y;
+
+  vec3 displaced = mix(sourceDisplaced, targetDisplaced, morphProgress);
   displaced.xy += vec2(random(pindex) - 0.5, random(offset.x + pindex) - 0.5) * uRandom;
   float rndz = random(pindex) + snoise(vec2(pindex * 0.1, uTime * 0.1));
   displaced.z += rndz * (random(pindex) * 2.0 * uDepth);
   displaced.xy -= uTextureSize * 0.5;
 
-  float t = texture2D(uTouch, puv).r;
+  vec2 touchPuv = mix(puv, targetPuv, morphProgress);
+  float t = texture2D(uTouch, touchPuv).r;
   displaced.z += t * 20.0 * rndz;
   displaced.x += cos(angle) * t * 20.0 * rndz;
   displaced.y += sin(angle) * t * 20.0 * rndz;

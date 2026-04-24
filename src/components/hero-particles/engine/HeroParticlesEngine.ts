@@ -10,6 +10,8 @@ import type { EngineOptions, HeroTransitionPhase, ShapeName } from './types';
 export class HeroParticlesEngine {
   private container: HTMLDivElement;
   private initialSampleIndex: number;
+  private initialLoadRevealMode: 'animated' | 'settled';
+  private initialLoadRevealDelayMs: number;
   private lockSample: boolean;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -28,6 +30,7 @@ export class HeroParticlesEngine {
   private onBeforeShapeTransition?: (from: ShapeName, to: ShapeName) => Promise<void> | void;
   private isTransitioning = false;
   private isDestroyed = false;
+  private activeSkillImageSrc: string | null = null;
   private transitionTimers = new Set<number>();
   private transitionResolvers = new Map<number, () => void>();
 
@@ -37,6 +40,8 @@ export class HeroParticlesEngine {
   constructor({
     container,
     initialSampleIndex = 0,
+    initialLoadRevealMode = 'animated',
+    initialLoadRevealDelayMs = 0,
     lockSample = false,
     onShapeChange,
     onSampleChange,
@@ -46,6 +51,8 @@ export class HeroParticlesEngine {
   }: EngineOptions) {
     this.container = container;
     this.initialSampleIndex = Math.min(Math.max(initialSampleIndex, 0), this.samples.length - 1);
+    this.initialLoadRevealMode = initialLoadRevealMode;
+    this.initialLoadRevealDelayMs = Math.max(0, initialLoadRevealDelayMs);
     this.lockSample = lockSample;
     this.onShapeChange = onShapeChange;
     this.onSampleChange = onSampleChange;
@@ -76,7 +83,18 @@ export class HeroParticlesEngine {
   }
 
   async init() {
-    await this.goTo(this.initialSampleIndex, false);
+    await this.particles.init(this.samples[this.initialSampleIndex], {
+      revealMode: this.initialLoadRevealMode,
+      revealDelayMs: this.initialLoadRevealDelayMs,
+    });
+    if (this.isDestroyed) return;
+
+    this.activeSkillImageSrc = null;
+    this.currentSample = this.initialSampleIndex;
+    this.currentShape = this.initialSampleIndex === 0 ? 'fjr' : 'profile';
+    this.onShapeChange?.(this.currentShape);
+    this.onSampleChange?.(this.currentSample);
+
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
     this.container.addEventListener('pointermove', this.handlePointerMove);
@@ -220,6 +238,7 @@ export class HeroParticlesEngine {
       await this.particles.init(this.samples[index]);
       if (this.isDestroyed) return;
 
+      this.activeSkillImageSrc = null;
       this.currentSample = index;
       this.currentShape = nextShape;
       this.onShapeChange?.(this.currentShape);
@@ -246,6 +265,67 @@ export class HeroParticlesEngine {
   public hideCurrent(time = 0.8) {
     if (this.isDestroyed) return Promise.resolve();
     return this.particles.hide(time);
+  }
+
+  public dissolveCurrentProfileParticles(time = 0.72) {
+    if (this.isDestroyed || this.isTransitioning) return Promise.resolve(false);
+
+    this.activeSkillImageSrc = null;
+    this.particles.setObjectVisible(true);
+    this.particles.setObjectOpacity(1);
+    return this.particles.hide(time);
+  }
+
+  public materializeCurrentProfileParticles(time = 0.72) {
+    if (this.isDestroyed || this.isTransitioning) return Promise.resolve(false);
+
+    this.activeSkillImageSrc = null;
+    this.particles.setObjectVisible(true);
+    this.particles.setObjectOpacity(1);
+    return this.particles.show(time);
+  }
+
+  public showSkillImage(src: string) {
+    if (this.isDestroyed || this.isTransitioning) return Promise.resolve(false);
+
+    const normalizedSrc = src.trim();
+    if (!normalizedSrc) return Promise.resolve(false);
+
+    this.particles.setObjectVisible(true);
+    this.particles.setObjectOpacity(1);
+    if (this.activeSkillImageSrc === normalizedSrc) return Promise.resolve(true);
+    this.activeSkillImageSrc = normalizedSrc;
+    return this.particles.transitionToSkillImage(normalizedSrc);
+  }
+
+  public clearSkillImage() {
+    if (this.isDestroyed || this.isTransitioning) return Promise.resolve(false);
+    if (this.activeSkillImageSrc === null) return Promise.resolve(true);
+
+    this.activeSkillImageSrc = null;
+    this.particles.setObjectVisible(true);
+    this.particles.setObjectOpacity(1);
+    return this.particles.transitionToImage(this.samples[this.currentSample]);
+  }
+
+  public setSkillParticlesVisible(isVisible: boolean) {
+    if (this.isDestroyed) return;
+    this.particles.setObjectVisible(isVisible);
+  }
+
+  public setSkillParticlesOpacity(opacity: number) {
+    if (this.isDestroyed) return;
+    this.particles.setObjectOpacity(opacity);
+  }
+
+  public setSkillParticlesDissolveProgress(progress: number) {
+    if (this.isDestroyed) return;
+    this.particles.setObjectDissolveProgress(progress);
+  }
+
+  public fadeSkillParticlesOpacity(opacity: number, time = 0.24) {
+    if (this.isDestroyed) return Promise.resolve(false);
+    return this.particles.fadeObjectOpacity(opacity, time);
   }
 
   private handleClick() {

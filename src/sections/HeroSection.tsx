@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type Dispatch,
   type FormEvent,
+  type AnimationEvent as ReactAnimationEvent,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
 } from 'react';
@@ -17,6 +18,7 @@ import { FaGithub, FaLinkedin, FaMicrophone, FaPaperPlane, FaSearch } from 'reac
 import { HeroAgentPanel, type HeroAgentTurn } from '../components/hero-agent/HeroAgentPanel';
 import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
 import type { HeroTransitionPhase, ShapeName } from '../components/hero-particles/engine/types';
+import heroWordmarkTextureUrl from '../assets/hero/fjr-last-judgement-wordmark-2.jpg';
 import { sendAgentMessage } from '../lib/agentApi';
 
 export type HeroSharedProfileUiState = {
@@ -33,6 +35,7 @@ export type HeroSharedProfileUiState = {
 export type HeroSectionProps = {
   sectionId?: string;
   sampleIndex?: number;
+  initialParticleRevealMode?: 'animated' | 'settled';
   renderSearchUi?: boolean;
   renderProfileGuideParticle?: boolean;
   transitionTargetSampleIndex?: number | null;
@@ -44,6 +47,10 @@ export type HeroSectionProps = {
   isVideoHovering?: boolean;
   isMainVisible?: boolean;
   isProjectCardVisible?: boolean;
+  particleImageTarget?: string | null;
+  particleOpacity?: number;
+  particleDissolveProgress?: number;
+  onParticleImageVisualStateChange?: (state: 'idle' | 'morphing' | 'returning') => void;
   sharedProfileUiState?: HeroSharedProfileUiState;
   onExternalSampleChange?: (sampleIndex: number) => void;
   onExternalShapeChange?: (shape: ShapeName) => void;
@@ -270,9 +277,37 @@ const profileTwoBioContent: { left: HeroBioLine[]; right: HeroBioLine[] } = {
   right: [],
 };
 
+const heroWordmarkGlyphs = ['F', 'J', 'R', '.'] as const;
+const heroWordmarkLetterScrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const heroWordmarkInteractiveIndexes = [0, 1, 2] as const;
+const heroWordmarkScrambleDurationMs = 560;
+const heroWordmarkIntroScrambleDelayMs = 1000;
+const heroWordmarkIntroScrambleStaggerMs = 220;
+const heroWordmarkDotPulseDurationMs = 3000;
+const heroWordmarkLettersFadeDurationMs = 680;
+const heroWordmarkDotShrinkDurationMs = 440;
+const heroWordmarkDotFlightDurationMs = 980;
+const heroWordmarkTextureImageWidth = 802;
+const heroWordmarkTextureImageHeight = 320;
+const heroWordmarkTextureZoom = 1.06;
+const heroWordmarkTextureFocusX = 0.5;
+const heroWordmarkTextureFocusY = 0.5;
+
+type HeroWordmarkSceneTransitionPhase = 'idle' | 'dotPulse' | 'lettersFade' | 'dotShrink' | 'dotFlight';
+
+type HeroWordmarkDotFlightMetrics = {
+  deltaX: number;
+  deltaY: number;
+  scale: number;
+  sourceX: number;
+  sourceY: number;
+  sourceSize: number;
+};
+
 export function HeroSection({
   sectionId = 'inicio',
   sampleIndex = 0,
+  initialParticleRevealMode = 'animated',
   renderSearchUi = true,
   renderProfileGuideParticle = true,
   transitionTargetSampleIndex = null,
@@ -284,6 +319,10 @@ export function HeroSection({
   isVideoHovering = false,
   isMainVisible = true,
   isProjectCardVisible = false,
+  particleImageTarget = null,
+  particleOpacity = 1,
+  particleDissolveProgress = 0,
+  onParticleImageVisualStateChange,
   sharedProfileUiState,
   onExternalSampleChange,
   onExternalShapeChange,
@@ -303,6 +342,9 @@ export function HeroSection({
   const hasProfileBioContent = activeHeroBioLines.length > 0 || activeHeroBioRightLines.length > 0;
   const heroRef = useRef<HTMLElement | null>(null);
   const heroStageRef = useRef<HTMLDivElement | null>(null);
+  const heroWordmarkInnerRef = useRef<HTMLDivElement | null>(null);
+  const heroWordmarkTextureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const heroWordmarkTextureImageRef = useRef<HTMLImageElement | null>(null);
   const profileGuideParticleRef = useRef<HTMLDivElement | null>(null);
   const searchBarShellRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -319,6 +361,22 @@ export function HeroSection({
   const [currentShape, setCurrentShape] = useState<ShapeName>(initialShape);
   const [currentParticleSampleIndex, setCurrentParticleSampleIndex] = useState(resolvedSampleIndex);
   const [particleTransitionPhase, setParticleTransitionPhase] = useState<HeroTransitionPhase>('idle');
+  const [heroWordmarkDisplayGlyphs, setHeroWordmarkDisplayGlyphs] = useState<string[]>([...heroWordmarkGlyphs]);
+  const [activeHeroWordmarkGlyphIndex, setActiveHeroWordmarkGlyphIndex] = useState<number | null>(null);
+  const [isHeroWordmarkGlowVisible, setIsHeroWordmarkGlowVisible] = useState(false);
+  const [isHeroWordmarkScrambleReady, setIsHeroWordmarkScrambleReady] = useState(false);
+  const [hasHeroWordmarkIntroCompleted, setHasHeroWordmarkIntroCompleted] = useState(resolvedSampleIndex !== 0);
+  const [heroWordmarkSceneTransitionPhase, setHeroWordmarkSceneTransitionPhase] =
+    useState<HeroWordmarkSceneTransitionPhase>('idle');
+  const [heroWordmarkDotFlightMetrics, setHeroWordmarkDotFlightMetrics] = useState<HeroWordmarkDotFlightMetrics>({
+    deltaX: 0,
+    deltaY: 0,
+    scale: 1,
+    sourceX: 0,
+    sourceY: 0,
+    sourceSize: 0,
+  });
+  const [forwardedHeroTransitionRequestId, setForwardedHeroTransitionRequestId] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [isListeningToSearch, setIsListeningToSearch] = useState(false);
   const [activeSearchPromptIndex, setActiveSearchPromptIndex] = useState(0);
@@ -366,6 +424,14 @@ export function HeroSection({
   const profileAmbientHideTimerRef = useRef<number | null>(null);
   const wasProfileAmbientActiveRef = useRef(false);
   const isBottomEdgeTriggerReadyRef = useRef(true);
+  const heroWordmarkGlyphRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const heroWordmarkScrambleRafRefs = useRef<Map<number, number>>(new Map());
+  const heroWordmarkHoveredIndexRef = useRef<number | null>(null);
+  const heroWordmarkIntroTimerRefs = useRef<Set<number>>(new Set());
+  const heroWordmarkIntroSequenceRef = useRef(0);
+  const heroWordmarkSceneTimerRefs = useRef<Set<number>>(new Set());
+  const heroWordmarkSceneSequenceRef = useRef(0);
+  const heroWordmarkSceneRequestIdRef = useRef(0);
   const profileGuideDragRafRef = useRef<number | null>(null);
   const searchBarDragRafRef = useRef<number | null>(null);
   const agentRequestAbortRef = useRef<AbortController | null>(null);
@@ -395,7 +461,21 @@ export function HeroSection({
   const isSectionActive = isMainVisible && hasEnteredViewport;
   const shouldHideFixedTitle = hideFixedTitle || isVideoHovering;
   const isParticleSceneActive = particleTransitionPhase !== 'idle';
+  const isHeroWordmarkSceneTransitionActive = heroWordmarkSceneTransitionPhase !== 'idle';
   const isProfileExitActive = isProfileSceneExiting || isPresenceExiting || isSectionParticleExitActive;
+  const hasHeroWordmarkTransitionBeenHandedOff =
+    resolvedSampleIndex === 0 &&
+    transitionTargetSampleIndex !== null &&
+    transitionRequestId > 0 &&
+    forwardedHeroTransitionRequestId === transitionRequestId &&
+    !isHeroWordmarkSceneTransitionActive;
+  const shouldShowHeroWordmark =
+    currentShape === 'fjr' &&
+    particleTransitionPhase === 'idle' &&
+    !hasHeroWordmarkTransitionBeenHandedOff;
+  const shouldHideHeroParticleStage = resolvedSampleIndex === 0;
+  const shouldSkipStageMotionIntro = resolvedSampleIndex === 0 || resolvedSampleIndex === 2;
+  const initialParticleRevealDelayMs = 0;
   const shouldShowSearchBar = shouldRenderEmbeddedSearchUi && (currentShape === 'profile' || isParticleSceneActive);
   const isSearchBarElasticReady =
     shouldRenderEmbeddedSearchUi &&
@@ -448,11 +528,558 @@ export function HeroSection({
     .filter(Boolean)
     .join(' ');
 
+  const waitForHeroWordmarkIntroStep = useCallback((delayMs: number) => {
+    if (delayMs <= 0) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      const timerId = window.setTimeout(() => {
+        heroWordmarkIntroTimerRefs.current.delete(timerId);
+        resolve();
+      }, delayMs);
+
+      heroWordmarkIntroTimerRefs.current.add(timerId);
+    });
+  }, []);
+
+  const clearHeroWordmarkSceneTimers = useCallback(() => {
+    heroWordmarkSceneTimerRefs.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    heroWordmarkSceneTimerRefs.current.clear();
+  }, []);
+
+  const waitForHeroWordmarkSceneStep = useCallback((delayMs: number) => {
+    if (delayMs <= 0) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      const timerId = window.setTimeout(() => {
+        heroWordmarkSceneTimerRefs.current.delete(timerId);
+        resolve();
+      }, delayMs);
+
+      heroWordmarkSceneTimerRefs.current.add(timerId);
+    });
+  }, []);
+
+  const resolveHeroWordmarkDotFlightMetrics = useCallback(() => {
+    const dotGlyph = heroWordmarkGlyphRefs.current[heroWordmarkGlyphs.length - 1];
+
+    if (!dotGlyph) {
+      return {
+        deltaX: 0,
+        deltaY: 0,
+        scale: 1,
+        sourceX: 0,
+        sourceY: 0,
+        sourceSize: 0,
+      };
+    }
+
+    const dotRect = dotGlyph.getBoundingClientRect();
+    const currentDotSizePx = Math.max(Math.min(dotRect.width, dotRect.height), 1);
+    const dotCenterX = dotRect.left + (dotRect.width / 2);
+    const dotCenterY = dotRect.bottom - (currentDotSizePx / 2);
+    const measurementHost = heroStageRef.current ?? heroRef.current ?? dotGlyph.parentElement;
+    let targetDotSizePx = 0;
+
+    if (measurementHost instanceof HTMLElement) {
+      const measurementElement = document.createElement('div');
+      measurementElement.style.position = 'absolute';
+      measurementElement.style.width = 'var(--search-bar-height)';
+      measurementElement.style.height = '0';
+      measurementElement.style.padding = '0';
+      measurementElement.style.border = '0';
+      measurementElement.style.opacity = '0';
+      measurementElement.style.pointerEvents = 'none';
+      measurementElement.style.visibility = 'hidden';
+      measurementHost.appendChild(measurementElement);
+      targetDotSizePx = measurementElement.getBoundingClientRect().width * 0.2;
+      measurementHost.removeChild(measurementElement);
+    }
+
+    if (!Number.isFinite(targetDotSizePx) || targetDotSizePx <= 0) {
+      targetDotSizePx = Math.max(12, Math.min(16, window.innerWidth * 0.0095));
+    }
+
+    return {
+      deltaX: (window.innerWidth / 2) - dotCenterX,
+      deltaY: (window.innerHeight / 2) - dotCenterY,
+      scale: Math.max(0.026, Math.min(1, targetDotSizePx / currentDotSizePx)),
+      sourceX: dotCenterX,
+      sourceY: dotCenterY,
+      sourceSize: currentDotSizePx,
+    };
+  }, []);
+
+  const runHeroWordmarkScramble = useCallback((index: number) => {
+    const targetCharacter = heroWordmarkGlyphs[index];
+    if (!targetCharacter || !heroWordmarkInteractiveIndexes.includes(index as (typeof heroWordmarkInteractiveIndexes)[number])) {
+      return Promise.resolve();
+    }
+
+    const runningRaf = heroWordmarkScrambleRafRefs.current.get(index);
+    if (runningRaf) {
+      window.cancelAnimationFrame(runningRaf);
+      heroWordmarkScrambleRafRefs.current.delete(index);
+    }
+
+    const scrambleChars = heroWordmarkLetterScrambleChars;
+    const duration = heroWordmarkScrambleDurationMs;
+    const startedAt = window.performance.now();
+
+    return new Promise<void>((resolve) => {
+      const resolveOnce = () => {
+        heroWordmarkScrambleRafRefs.current.delete(index);
+        setHeroWordmarkDisplayGlyphs((prev) => {
+          const next = [...prev];
+          next[index] = targetCharacter;
+          return next;
+        });
+        resolve();
+      };
+
+      const scrambleFrame = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const shouldRevealTarget = progress >= 0.76;
+
+        setHeroWordmarkDisplayGlyphs((prev) => {
+          const next = [...prev];
+          next[index] =
+            progress >= 1
+              ? targetCharacter
+              : shouldRevealTarget
+                ? targetCharacter
+                : scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+          return next;
+        });
+
+        if (progress < 1) {
+          const rafId = window.requestAnimationFrame(scrambleFrame);
+          heroWordmarkScrambleRafRefs.current.set(index, rafId);
+          return;
+        }
+
+        resolveOnce();
+      };
+
+      const rafId = window.requestAnimationFrame(scrambleFrame);
+      heroWordmarkScrambleRafRefs.current.set(index, rafId);
+    });
+  }, []);
+
+  const syncHeroWordmarkTextureAlignment = useCallback(() => {
+    const inner = heroWordmarkInnerRef.current;
+    const glyphs = heroWordmarkGlyphRefs.current.filter((glyph): glyph is HTMLSpanElement => glyph instanceof HTMLSpanElement);
+
+    if (!inner || glyphs.length === 0) return;
+
+    const innerRect = inner.getBoundingClientRect();
+    if (innerRect.width <= 0 || innerRect.height <= 0) return;
+
+    const coverScale = Math.max(
+      innerRect.width / heroWordmarkTextureImageWidth,
+      innerRect.height / heroWordmarkTextureImageHeight,
+    );
+    const textureWidth = heroWordmarkTextureImageWidth * coverScale * heroWordmarkTextureZoom;
+    const textureHeight = heroWordmarkTextureImageHeight * coverScale * heroWordmarkTextureZoom;
+    const textureOriginX = (innerRect.width - textureWidth) * heroWordmarkTextureFocusX;
+    const textureOriginY = (innerRect.height - textureHeight) * heroWordmarkTextureFocusY;
+
+    glyphs.forEach((glyph) => {
+      const glyphRect = glyph.getBoundingClientRect();
+      const glyphOffsetX = glyphRect.left - innerRect.left;
+      const glyphOffsetY = glyphRect.top - innerRect.top;
+      glyph.style.setProperty('--hero-fjr-glyph-bg-size', `${textureWidth.toFixed(2)}px ${textureHeight.toFixed(2)}px`);
+      glyph.style.setProperty(
+        '--hero-fjr-glyph-bg-position',
+        `${(textureOriginX - glyphOffsetX).toFixed(2)}px ${(textureOriginY - glyphOffsetY).toFixed(2)}px`,
+      );
+    });
+  }, []);
+
+  const drawHeroWordmarkTexture = useCallback(() => {
+    const canvas = heroWordmarkTextureCanvasRef.current;
+    const inner = heroWordmarkInnerRef.current;
+    const image = heroWordmarkTextureImageRef.current;
+    const glyphs = heroWordmarkGlyphRefs.current.filter((glyph): glyph is HTMLSpanElement => glyph instanceof HTMLSpanElement);
+
+    if (!canvas || !inner) return;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const innerRect = inner.getBoundingClientRect();
+    if (
+      !shouldShowHeroWordmark ||
+      isHeroWordmarkSceneTransitionActive ||
+      !image ||
+      !image.complete ||
+      innerRect.width <= 0 ||
+      innerRect.height <= 0 ||
+      glyphs.length === 0
+    ) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = innerRect.width;
+    const height = innerRect.height;
+    const nextWidth = Math.max(1, Math.round(width * dpr));
+    const nextHeight = Math.max(1, Math.round(height * dpr));
+
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      canvas.width = nextWidth;
+      canvas.height = nextHeight;
+    }
+
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.clearRect(0, 0, width, height);
+
+    const coverScale = Math.max(width / image.naturalWidth, height / image.naturalHeight) * heroWordmarkTextureZoom;
+    const textureWidth = image.naturalWidth * coverScale;
+    const textureHeight = image.naturalHeight * coverScale;
+    const textureOriginX = (width - textureWidth) * heroWordmarkTextureFocusX;
+    const textureOriginY = (height - textureHeight) * heroWordmarkTextureFocusY;
+
+    context.save();
+    context.fillStyle = '#f8f8f8';
+    context.fillRect(0, 0, width, height);
+    context.globalCompositeOperation = 'multiply';
+    context.globalAlpha = 0.98;
+    context.filter = 'grayscale(1) brightness(2.8) contrast(2.6)';
+    context.drawImage(image, textureOriginX, textureOriginY, textureWidth, textureHeight);
+    context.globalAlpha = 0.62;
+    context.filter = 'grayscale(1) brightness(1.55) contrast(3.4)';
+    context.drawImage(image, textureOriginX, textureOriginY, textureWidth, textureHeight);
+    context.restore();
+
+    context.save();
+    context.globalCompositeOperation = 'screen';
+    context.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    context.fillRect(0, 0, width, height);
+    context.restore();
+
+    context.save();
+    context.globalCompositeOperation = 'destination-in';
+
+    glyphs.forEach((glyph) => {
+      const character = glyph.dataset.char ?? glyph.textContent ?? '';
+      if (!character) return;
+
+      const glyphRect = glyph.getBoundingClientRect();
+      const glyphStyles = window.getComputedStyle(glyph);
+      const fontSize = Number.parseFloat(glyphStyles.fontSize) || height;
+      const fontFamily = glyphStyles.fontFamily;
+      const fontWeight = glyphStyles.fontWeight;
+      const fontStyle = glyphStyles.fontStyle;
+
+      context.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+      context.textBaseline = 'alphabetic';
+      context.textAlign = 'left';
+      context.fillStyle = '#000000';
+
+      const glyphX = glyphRect.left - innerRect.left;
+      const metrics = context.measureText(character);
+      const ascent = metrics.actualBoundingBoxAscent || (glyphRect.height * 0.82);
+      const glyphY = (glyphRect.top - innerRect.top) + ascent;
+
+      context.fillText(character, glyphX, glyphY);
+    });
+
+    context.restore();
+  }, [isHeroWordmarkSceneTransitionActive, shouldShowHeroWordmark]);
+
+  const handleHeroWordmarkPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!shouldShowHeroWordmark || !isHeroWordmarkScrambleReady) return;
+
+    const hoveredIndex = heroWordmarkGlyphRefs.current.findIndex((glyph) => {
+      if (!glyph) return false;
+      const rect = glyph.getBoundingClientRect();
+      return (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      );
+    });
+
+    const resolvedHoveredIndex =
+      hoveredIndex >= 0 &&
+      heroWordmarkInteractiveIndexes.includes(hoveredIndex as (typeof heroWordmarkInteractiveIndexes)[number])
+        ? hoveredIndex
+        : null;
+    if (heroWordmarkHoveredIndexRef.current === resolvedHoveredIndex) return;
+
+    heroWordmarkHoveredIndexRef.current = resolvedHoveredIndex;
+    setActiveHeroWordmarkGlyphIndex(resolvedHoveredIndex);
+
+    if (resolvedHoveredIndex !== null) {
+      void runHeroWordmarkScramble(resolvedHoveredIndex);
+    }
+  }, [isHeroWordmarkScrambleReady, runHeroWordmarkScramble, shouldShowHeroWordmark]);
+
+  const handleHeroWordmarkPointerLeave = useCallback(() => {
+    heroWordmarkHoveredIndexRef.current = null;
+    setActiveHeroWordmarkGlyphIndex(null);
+  }, []);
+
+  const handleHeroWordmarkInnerAnimationEnd = useCallback((event: ReactAnimationEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.animationName !== 'hero-fjr-wordmark-inner-enter') return;
+    if (isHeroWordmarkSceneTransitionActive) return;
+    if (resolvedSampleIndex !== 0 || !shouldShowHeroWordmark) return;
+    setHasHeroWordmarkIntroCompleted(true);
+  }, [isHeroWordmarkSceneTransitionActive, resolvedSampleIndex, shouldShowHeroWordmark]);
+
+  const clearHeroWordmarkIntroTimers = useCallback(() => {
+    heroWordmarkIntroTimerRefs.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    heroWordmarkIntroTimerRefs.current.clear();
+  }, []);
+
+  const clearHeroWordmarkIntroAnimation = useCallback(() => {
+    heroWordmarkIntroSequenceRef.current += 1;
+    clearHeroWordmarkIntroTimers();
+  }, [clearHeroWordmarkIntroTimers]);
+
+  const resetHeroWordmarkSceneTransition = useCallback(() => {
+    heroWordmarkSceneSequenceRef.current += 1;
+    clearHeroWordmarkSceneTimers();
+    setHeroWordmarkSceneTransitionPhase('idle');
+    setHeroWordmarkDotFlightMetrics({
+      deltaX: 0,
+      deltaY: 0,
+      scale: 1,
+      sourceX: 0,
+      sourceY: 0,
+      sourceSize: 0,
+    });
+  }, [clearHeroWordmarkSceneTimers]);
+
+  const triggerHeroWordmarkIntroScramble = useCallback(() => {
+    clearHeroWordmarkIntroTimers();
+    const sequenceId = heroWordmarkIntroSequenceRef.current;
+
+    void (async () => {
+      for (const [sequenceIndex, index] of heroWordmarkInteractiveIndexes.entries()) {
+        if (sequenceId !== heroWordmarkIntroSequenceRef.current) return;
+        if (sequenceIndex > 0) {
+          await waitForHeroWordmarkIntroStep(heroWordmarkIntroScrambleStaggerMs);
+          if (sequenceId !== heroWordmarkIntroSequenceRef.current) return;
+        }
+        void runHeroWordmarkScramble(index);
+      }
+    })();
+  }, [clearHeroWordmarkIntroTimers, runHeroWordmarkScramble, waitForHeroWordmarkIntroStep]);
+
+  const startHeroWordmarkSceneTransition = useCallback((requestId: number) => {
+    heroWordmarkSceneRequestIdRef.current = requestId;
+    resetHeroWordmarkSceneTransition();
+    clearHeroWordmarkIntroAnimation();
+    heroWordmarkScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+    heroWordmarkScrambleRafRefs.current.clear();
+    heroWordmarkHoveredIndexRef.current = null;
+    setHeroWordmarkDisplayGlyphs([...heroWordmarkGlyphs]);
+    setActiveHeroWordmarkGlyphIndex(null);
+    setIsHeroWordmarkGlowVisible(false);
+    setIsHeroWordmarkScrambleReady(false);
+    setHeroWordmarkSceneTransitionPhase('dotPulse');
+
+    const sequenceId = heroWordmarkSceneSequenceRef.current;
+
+    void (async () => {
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotPulseDurationMs);
+      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
+
+      setHeroWordmarkSceneTransitionPhase('lettersFade');
+      await waitForHeroWordmarkSceneStep(heroWordmarkLettersFadeDurationMs);
+      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
+
+      setHeroWordmarkDotFlightMetrics(resolveHeroWordmarkDotFlightMetrics());
+      setHeroWordmarkSceneTransitionPhase('dotShrink');
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotShrinkDurationMs);
+      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
+
+      setHeroWordmarkSceneTransitionPhase('dotFlight');
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotFlightDurationMs);
+      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
+
+      setForwardedHeroTransitionRequestId(requestId);
+      resetHeroWordmarkSceneTransition();
+    })();
+  }, [
+    clearHeroWordmarkIntroAnimation,
+    resetHeroWordmarkSceneTransition,
+    resolveHeroWordmarkDotFlightMetrics,
+    waitForHeroWordmarkSceneStep,
+  ]);
+
   useEffect(() => {
     onProfileTypingCompleteChange?.(isProfileTypingComplete);
   }, [isProfileTypingComplete, onProfileTypingCompleteChange]);
 
   useEffect(() => {
+    if (shouldShowHeroWordmark) {
+      setHeroWordmarkDisplayGlyphs([...heroWordmarkGlyphs]);
+      if (resolvedSampleIndex !== 0) {
+        setIsHeroWordmarkGlowVisible(true);
+        setIsHeroWordmarkScrambleReady(true);
+        setHasHeroWordmarkIntroCompleted(true);
+        setForwardedHeroTransitionRequestId(0);
+        heroWordmarkSceneRequestIdRef.current = 0;
+      } else {
+        setIsHeroWordmarkGlowVisible(false);
+        setIsHeroWordmarkScrambleReady(false);
+        setHasHeroWordmarkIntroCompleted(false);
+      }
+      return;
+    }
+
+    clearHeroWordmarkIntroAnimation();
+    resetHeroWordmarkSceneTransition();
+    heroWordmarkScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+    heroWordmarkScrambleRafRefs.current.clear();
+    heroWordmarkHoveredIndexRef.current = null;
+    setActiveHeroWordmarkGlyphIndex(null);
+    setHeroWordmarkDisplayGlyphs([...heroWordmarkGlyphs]);
+    setIsHeroWordmarkGlowVisible(false);
+    setIsHeroWordmarkScrambleReady(false);
+    setHasHeroWordmarkIntroCompleted(false);
+    heroWordmarkSceneRequestIdRef.current = 0;
+  }, [clearHeroWordmarkIntroAnimation, resetHeroWordmarkSceneTransition, resolvedSampleIndex, shouldShowHeroWordmark]);
+
+  useEffect(() => {
+    return () => {
+      clearHeroWordmarkIntroAnimation();
+      resetHeroWordmarkSceneTransition();
+      heroWordmarkScrambleRafRefs.current.forEach((rafId) => window.cancelAnimationFrame(rafId));
+      heroWordmarkScrambleRafRefs.current.clear();
+    };
+  }, [clearHeroWordmarkIntroAnimation, resetHeroWordmarkSceneTransition]);
+
+  useEffect(() => {
+    if (
+      !shouldShowHeroWordmark ||
+      resolvedSampleIndex !== 0 ||
+      !hasHeroWordmarkIntroCompleted ||
+      isHeroWordmarkSceneTransitionActive
+    ) {
+      return;
+    }
+
+    clearHeroWordmarkIntroTimers();
+    heroWordmarkHoveredIndexRef.current = null;
+    setActiveHeroWordmarkGlyphIndex(null);
+    setIsHeroWordmarkGlowVisible(true);
+
+    const sequenceId = heroWordmarkIntroSequenceRef.current;
+    void (async () => {
+      await waitForHeroWordmarkIntroStep(heroWordmarkIntroScrambleDelayMs);
+      if (sequenceId !== heroWordmarkIntroSequenceRef.current) return;
+      setIsHeroWordmarkScrambleReady(true);
+      triggerHeroWordmarkIntroScramble();
+    })();
+  }, [
+    clearHeroWordmarkIntroTimers,
+    hasHeroWordmarkIntroCompleted,
+    resolvedSampleIndex,
+    shouldShowHeroWordmark,
+    triggerHeroWordmarkIntroScramble,
+    waitForHeroWordmarkIntroStep,
+    isHeroWordmarkSceneTransitionActive,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!shouldShowHeroWordmark) return;
+
+    syncHeroWordmarkTextureAlignment();
+  }, [
+    heroWordmarkDisplayGlyphs,
+    isHeroWordmarkSceneTransitionActive,
+    shouldShowHeroWordmark,
+    syncHeroWordmarkTextureAlignment,
+  ]);
+
+  useEffect(() => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = heroWordmarkTextureUrl;
+
+    const handleLoad = () => {
+      heroWordmarkTextureImageRef.current = image;
+      drawHeroWordmarkTexture();
+    };
+
+    if (image.complete) {
+      heroWordmarkTextureImageRef.current = image;
+      drawHeroWordmarkTexture();
+      return undefined;
+    }
+
+    image.addEventListener('load', handleLoad);
+    return () => {
+      image.removeEventListener('load', handleLoad);
+    };
+  }, [drawHeroWordmarkTexture]);
+
+  useLayoutEffect(() => {
+    drawHeroWordmarkTexture();
+  }, [
+    drawHeroWordmarkTexture,
+    heroWordmarkDisplayGlyphs,
+    isHeroWordmarkGlowVisible,
+    isHeroWordmarkSceneTransitionActive,
+    shouldShowHeroWordmark,
+  ]);
+
+  useEffect(() => {
+    if (!shouldShowHeroWordmark) return;
+
+    const handleResize = () => {
+      syncHeroWordmarkTextureAlignment();
+      drawHeroWordmarkTexture();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [drawHeroWordmarkTexture, shouldShowHeroWordmark, syncHeroWordmarkTextureAlignment]);
+
+  useEffect(() => {
+    const shouldRunHeroWordmarkSceneTransition =
+      resolvedSampleIndex === 0 &&
+      transitionRequestId > 0 &&
+      transitionTargetSampleIndex !== null &&
+      particleTransitionPhase === 'idle';
+
+    if (!shouldRunHeroWordmarkSceneTransition) return;
+    if (transitionRequestId === heroWordmarkSceneRequestIdRef.current) return;
+    if (transitionRequestId === forwardedHeroTransitionRequestId) return;
+
+    startHeroWordmarkSceneTransition(transitionRequestId);
+  }, [
+    forwardedHeroTransitionRequestId,
+    particleTransitionPhase,
+    resolvedSampleIndex,
+    startHeroWordmarkSceneTransition,
+    transitionRequestId,
+    transitionTargetSampleIndex,
+  ]);
+
+  useEffect(() => {
+    if (resolvedSampleIndex === 0 && isMainVisible && !hasEnteredViewport) {
+      setHasEnteredViewport(true);
+      return;
+    }
+
+    if (resolvedSampleIndex === 0) return;
+
     const element = heroRef.current;
     if (!element || hasEnteredViewport) return;
 
@@ -474,7 +1101,7 @@ export function HeroSection({
     return () => {
       observer.disconnect();
     };
-  }, [hasEnteredViewport]);
+  }, [hasEnteredViewport, isMainVisible, resolvedSampleIndex]);
 
   useEffect(() => {
     const el = heroRef.current;
@@ -544,7 +1171,14 @@ export function HeroSection({
   }, [isSectionActive, revealDetails]);
 
   useLayoutEffect(() => {
-    if (!isSectionActive || hasPlayedHeroRevealRef.current || !heroStageRef.current) return;
+    if (
+      !isSectionActive ||
+      hasPlayedHeroRevealRef.current ||
+      !heroStageRef.current ||
+      shouldSkipStageMotionIntro
+    ) {
+      return;
+    }
     hasPlayedHeroRevealRef.current = true;
 
     const stageEl = heroStageRef.current;
@@ -563,7 +1197,7 @@ export function HeroSection({
       tl.kill();
       gsap.set(stageEl, { clearProps: 'opacity,scale,y,filter' });
     };
-  }, [isSectionActive]);
+  }, [isSectionActive, shouldSkipStageMotionIntro]);
 
   useEffect(() => {
     return () => {
@@ -1767,24 +2401,123 @@ export function HeroSection({
         <motion.div
           ref={heroStageRef}
           className="hero-title-wrapper hero-title-wrapper--particles"
-          initial={{ opacity: 0, filter: 'blur(6px)' }}
-          animate={{
-            opacity: shouldHideFixedTitle ? 0 : 1,
-            filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
-          }}
+          initial={shouldSkipStageMotionIntro ? false : { opacity: 0, filter: 'blur(6px)' }}
+          animate={
+            shouldShowHeroWordmark
+              ? {
+                  opacity: shouldHideFixedTitle ? 0 : 1,
+                  filter: shouldHideFixedTitle ? 'blur(6px)' : 'none',
+                }
+              : {
+                  opacity: shouldHideFixedTitle ? 0 : 1,
+                  filter: shouldHideFixedTitle ? 'blur(6px)' : 'blur(0px)',
+                }
+          }
+          onPointerLeave={handleHeroWordmarkPointerLeave}
+          onPointerMove={handleHeroWordmarkPointerMove}
           style={{
             pointerEvents: shouldHideFixedTitle ? 'none' : 'auto',
             visibility: shouldHideFixedTitle ? 'hidden' : 'visible',
           }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
+          <div
+            className={[
+              'hero-fjr-wordmark',
+              shouldShowHeroWordmark ? 'is-visible' : '',
+              isHeroWordmarkGlowVisible ? 'hero-fjr-wordmark--glow-active' : '',
+              isHeroWordmarkSceneTransitionActive ? 'hero-fjr-wordmark--transition-active' : '',
+              heroWordmarkSceneTransitionPhase === 'dotPulse' ? 'hero-fjr-wordmark--transition-dot-pulse' : '',
+              heroWordmarkSceneTransitionPhase === 'lettersFade' ? 'hero-fjr-wordmark--transition-letters-fade' : '',
+              heroWordmarkSceneTransitionPhase === 'dotShrink' ? 'hero-fjr-wordmark--transition-dot-shrink' : '',
+              heroWordmarkSceneTransitionPhase === 'dotFlight' ? 'hero-fjr-wordmark--transition-dot-flight' : '',
+              shouldShowHeroWordmark && resolvedSampleIndex === 0 ? 'hero-fjr-wordmark--intro' : '',
+            ].filter(Boolean).join(' ')}
+            style={{
+              '--hero-fjr-dot-flight-x': `${heroWordmarkDotFlightMetrics.deltaX.toFixed(2)}px`,
+              '--hero-fjr-dot-flight-y': `${heroWordmarkDotFlightMetrics.deltaY.toFixed(2)}px`,
+              '--hero-fjr-dot-flight-scale': heroWordmarkDotFlightMetrics.scale.toFixed(4),
+            } as CSSProperties}
+            aria-hidden="true"
+          >
+            <div
+              ref={heroWordmarkInnerRef}
+              className="hero-fjr-wordmark__inner"
+              onAnimationEnd={handleHeroWordmarkInnerAnimationEnd}
+            >
+              {heroWordmarkGlyphs.map((character, index) => (
+                <span
+                  key={`${character}-${index}`}
+                  ref={(element) => {
+                    heroWordmarkGlyphRefs.current[index] = element;
+                  }}
+                  data-char={heroWordmarkDisplayGlyphs[index] ?? character}
+                  className={[
+                    'hero-fjr-wordmark__glyph',
+                    character === '.' ? 'hero-fjr-wordmark__glyph--dot' : '',
+                    character === '.' && (
+                      heroWordmarkSceneTransitionPhase === 'dotShrink' ||
+                      heroWordmarkSceneTransitionPhase === 'dotFlight'
+                    )
+                      ? 'hero-fjr-wordmark__glyph--dot-flight-hidden'
+                      : '',
+                    activeHeroWordmarkGlyphIndex === index ? 'hero-fjr-wordmark__glyph--active' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <span className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--base" aria-hidden="true">
+                    {heroWordmarkDisplayGlyphs[index] ?? character}
+                  </span>
+                  <span
+                    className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--ink"
+                    style={{
+                      '--hero-fjr-wordmark-texture-image': `url(${heroWordmarkTextureUrl})`,
+                    } as CSSProperties}
+                    aria-hidden="true"
+                  >
+                    {heroWordmarkDisplayGlyphs[index] ?? character}
+                  </span>
+                  <span className="hero-fjr-wordmark__glyph-char">{heroWordmarkDisplayGlyphs[index] ?? character}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {(heroWordmarkSceneTransitionPhase === 'dotShrink' || heroWordmarkSceneTransitionPhase === 'dotFlight') &&
+            heroWordmarkDotFlightMetrics.sourceSize > 0 && (
+            <div
+              className={[
+                'hero-fjr-flight-particle-anchor',
+                heroWordmarkSceneTransitionPhase === 'dotShrink'
+                  ? 'hero-fjr-flight-particle-anchor--shrink'
+                  : 'hero-fjr-flight-particle-anchor--flight',
+              ].filter(Boolean).join(' ')}
+              style={{
+                '--hero-fjr-flight-source-x': `${heroWordmarkDotFlightMetrics.sourceX.toFixed(2)}px`,
+                '--hero-fjr-flight-source-y': `${heroWordmarkDotFlightMetrics.sourceY.toFixed(2)}px`,
+                '--hero-fjr-flight-source-size': `${heroWordmarkDotFlightMetrics.sourceSize.toFixed(2)}px`,
+                '--hero-fjr-flight-delta-x': `${heroWordmarkDotFlightMetrics.deltaX.toFixed(2)}px`,
+                '--hero-fjr-flight-delta-y': `${heroWordmarkDotFlightMetrics.deltaY.toFixed(2)}px`,
+                '--hero-fjr-flight-scale': heroWordmarkDotFlightMetrics.scale.toFixed(4),
+              } as CSSProperties}
+              aria-hidden="true"
+            >
+              <div className="hero-fjr-flight-particle" />
+            </div>
+          )}
+
           <HeroParticlesAdvanced
+            className={shouldHideHeroParticleStage ? 'hero-particle-stage--hidden' : ''}
             isExiting={isProfileExitActive && resolvedSampleIndex > 0}
             initialSampleIndex={resolvedSampleIndex}
+            initialLoadRevealMode={initialParticleRevealMode}
+            initialLoadRevealDelayMs={initialParticleRevealDelayMs}
             lockSample
-            transitionRequestId={transitionRequestId}
+            transitionRequestId={resolvedSampleIndex === 0 ? forwardedHeroTransitionRequestId : transitionRequestId}
             transitionSkipFinalSampleLoad={transitionSkipFinalSampleLoad}
             transitionTargetSampleIndex={transitionTargetSampleIndex}
+            imageTarget={particleImageTarget}
+            particleOpacity={particleOpacity}
+            particleDissolveProgress={particleDissolveProgress}
+            onImageVisualStateChange={onParticleImageVisualStateChange}
             onBeforeSampleTransition={handleBeforeParticleSampleTransition}
             onBeforeShapeTransition={handleBeforeShapeTransition}
             onSampleChange={handleParticleSampleChange}
@@ -1930,7 +2663,11 @@ export function HeroSection({
 
         <div className="hero-subtitle-reveal hero-subtitle-reveal--particles">
           <AnimatePresence mode="wait">
-            {showDetails && !hideFixedTitle && currentShape === 'fjr' && !isParticleSceneActive && (
+            {showDetails &&
+              !hideFixedTitle &&
+              currentShape === 'fjr' &&
+              !isParticleSceneActive &&
+              !isHeroWordmarkSceneTransitionActive && (
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
@@ -2033,7 +2770,11 @@ export function HeroSection({
       )}
 
       <AnimatePresence>
-        {showDetails && !shouldHideFixedTitle && !isParticleSceneActive && !isProfileExitActive && (
+        {showDetails &&
+          !shouldHideFixedTitle &&
+          !isParticleSceneActive &&
+          !isHeroWordmarkSceneTransitionActive &&
+          !isProfileExitActive && (
           <motion.div
             className="social-icons"
             initial={{ y: 100, opacity: 0 }}

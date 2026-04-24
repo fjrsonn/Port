@@ -10,6 +10,7 @@ import { SkillsOneSection } from './sections/SkillsOneSection';
 import { ProfileTwoSection } from './sections/ProfileTwoSection';
 import { SkillsTwoSection } from './sections/SkillsTwoSection';
 import { ProjectSliderSection } from './sections/ProjectSliderSection';
+import skillsOneAccessVideoSrc from './assets/skills/Acess-UI-UX.mp4';
 
 const sectionParticleExitDurationMs = 820;
 const sectionTransitionBaseDurationMs = 520;
@@ -46,6 +47,7 @@ const sectionNavBlockSelector = [
   '[data-search-control="true"]',
   '.hero-search-scene__bar-shell',
   '.hero-profile-guide-particle',
+  '.hero-black-sphere',
   '.hero-agent-panel',
   '.slider-original-root',
   '.video-overlay',
@@ -75,9 +77,26 @@ type SectionTransitionCustom = {
   direction: 1 | -1;
 };
 
+type SkillGuideVisualState = 'idle' | 'morphing' | 'returning';
+
 const sectionTransitionEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const skillsOneVideoRevealSectionIndex = 2;
+const skillsOneVideoRevealScrollDistance = 3200;
+const skillsOneVideoElementExitThreshold = 0.5;
+const skillsOneVideoStripFeedbackStart = 0.22;
+const skillsOneVideoStripFeedbackEnd = 0.84;
+const skillsOneVideoQuickReturnDurationMs = 360;
+const skillsOneVideoQuickRematerializeDurationMs = 560;
+const skillsOneVideoRestoreDurationMs =
+  skillsOneVideoQuickReturnDurationMs + skillsOneVideoQuickRematerializeDurationMs;
 
 const isSharedProfileSectionIndex = (index: number) => index >= 1 && index <= 4;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const smoothstep = (value: number) => {
+  const progress = clamp(value, 0, 1);
+  return progress * progress * (3 - (2 * progress));
+};
 
 const sectionTransitionVariants = {
   enter: ({ direction }: SectionTransitionCustom) => ({
@@ -180,88 +199,9 @@ const securitySkillImages = [
 ].map(getSkillImage).filter(isSkillAmbientImage);
 
 type SkillAmbientContent = {
-  title: string;
+  variant: 'fullstack' | 'security';
   images: SkillAmbientImage[];
 };
-
-const scrambleCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*';
-
-function ScrambleSkillTitle({
-  text,
-  isVisible,
-  triggerKey,
-}: {
-  text: string;
-  isVisible: boolean;
-  triggerKey: number;
-}) {
-  const [displayText, setDisplayText] = useState(text);
-  const rafRef = useRef<number | null>(null);
-
-  const stopScramble = useCallback(() => {
-    if (rafRef.current !== null) {
-      window.cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
-
-  const runScramble = useCallback(() => {
-    stopScramble();
-
-    const duration = 940;
-    const startedAt = performance.now();
-
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      const revealCount = Math.floor(progress * text.length);
-      const nextText = text
-        .split('')
-        .map((char, index) => {
-          if (char === ' ') return char;
-          if (index < revealCount) return text[index];
-          return scrambleCharacters[Math.floor(Math.random() * scrambleCharacters.length)];
-        })
-        .join('');
-
-      setDisplayText(progress >= 1 ? text : nextText);
-
-      if (progress < 1) {
-        rafRef.current = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      rafRef.current = null;
-    };
-
-    rafRef.current = window.requestAnimationFrame(tick);
-  }, [stopScramble, text]);
-
-  useEffect(() => {
-    stopScramble();
-    setDisplayText(text);
-
-    if (!isVisible) return;
-
-    const timer = window.setTimeout(runScramble, 220);
-    return () => {
-      window.clearTimeout(timer);
-      stopScramble();
-    };
-  }, [isVisible, runScramble, stopScramble, text]);
-
-  useEffect(() => stopScramble, [stopScramble]);
-
-  useEffect(() => {
-    if (!isVisible || triggerKey === 0) return;
-    runScramble();
-  }, [isVisible, runScramble, triggerKey]);
-
-  return (
-    <span className="skill-section-heading">
-      {displayText}
-    </span>
-  );
-}
 
 export default function App() {
   const totalSections = 6;
@@ -269,8 +209,6 @@ export default function App() {
   const [showMain, setShowMain] = useState(false);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [navigationDirection, setNavigationDirection] = useState<1 | -1>(1);
-  const skillHeadingShellRef = useRef<HTMLDivElement | null>(null);
-  const isPointerOverSkillHeadingRef = useRef(false);
 
   // Mantidos para compatibilidade com a HeroSection nova
   const [isVideoHovering] = useState(false);
@@ -310,11 +248,22 @@ export default function App() {
   const [isSharedProfileTypingComplete, setIsSharedProfileTypingComplete] = useState(false);
   const [isSharedProfileBioVisible, setIsSharedProfileBioVisible] = useState(true);
   const [isSectionParticleExitActive, setIsSectionParticleExitActive] = useState(false);
-  const [skillTitleScrambleTrigger, setSkillTitleScrambleTrigger] = useState(0);
-  const [skillHeadingOverride, setSkillHeadingOverride] = useState<string | null>(null);
+  const [skillGuideVisualState, setSkillGuideVisualState] = useState<SkillGuideVisualState>('idle');
+  const [skillParticleImageSrc, setSkillParticleImageSrc] = useState<string | null>(null);
   const [activeSkillImageKey, setActiveSkillImageKey] = useState<string | null>(null);
+  const [skillsOneVideoRevealProgress, setSkillsOneVideoRevealProgress] = useState(0);
+  const [isSkillsOneVideoHiddenAfterReveal, setIsSkillsOneVideoHiddenAfterReveal] = useState(false);
+  const [isSkillsOneVideoRestoringAfterReveal, setIsSkillsOneVideoRestoringAfterReveal] = useState(false);
+  const [skillsOneVideoRestoreProgress, setSkillsOneVideoRestoreProgress] = useState(1);
+  const skillsOneVideoRevealProgressRef = useRef(0);
+  const isSkillsOneVideoHiddenAfterRevealRef = useRef(false);
+  const isSkillsOneVideoRestoringAfterRevealRef = useRef(false);
+  const skillsOneVideoRestoreProgressRef = useRef(1);
+  const skillsOneVideoRestoreRafRef = useRef<number | null>(null);
+  const hasStartedSkillsOneVideoSearchExitRef = useRef(false);
   const skillHoverLabelRef = useRef<string | null>(null);
   const skillHoverKeyRef = useRef<string | null>(null);
+  const skillHoverSrcRef = useRef<string | null>(null);
   const skillStripPointerRef = useRef<{ x: number; y: number } | null>(null);
   const skillStripRafRef = useRef<number | null>(null);
   const isSharedProfileSection = isSharedProfileSectionIndex(activeSectionIndex);
@@ -335,18 +284,65 @@ export default function App() {
     isAgentPanelDismissed: isSharedAgentPanelDismissed,
     setIsAgentPanelDismissed: setIsSharedAgentPanelDismissed,
   };
-  const sharedProfileGuideLayerStyle = {
-    '--hero-profile-guide-move-duration': `${sharedProfileGuideMoveDurationMs}ms`,
-  } as CSSProperties;
   const activeSkillAmbientContent: SkillAmbientContent | null =
     activeSectionIndex === 2
-      ? { title: 'FULLSTACK', images: fullstackSkillImages }
+      ? { variant: 'fullstack', images: fullstackSkillImages }
       : activeSectionIndex === 4
-        ? { title: 'SECURITY', images: securitySkillImages }
+        ? { variant: 'security', images: securitySkillImages }
         : null;
   const activeSkillImageItems = activeSkillAmbientContent?.images ?? [];
-  const activeSkillHeadingText = skillHeadingOverride ?? activeSkillAmbientContent?.title ?? '';
   const isSkillAmbientSection = activeSkillAmbientContent !== null;
+  const isSkillsOneVideoRevealSection = activeSectionIndex === skillsOneVideoRevealSectionIndex;
+  const isSkillsOneVideoElementExitActive =
+    isSkillsOneVideoRevealSection && skillsOneVideoRevealProgress >= skillsOneVideoElementExitThreshold;
+  const shouldKeepSkillStripVisibleForSkillsOneVideo =
+    isSkillsOneVideoElementExitActive && !isSectionParticleExitActive;
+  const skillsOneVideoElementExitProgress = isSkillsOneVideoRevealSection && !isSkillsOneVideoHiddenAfterReveal
+    ? smoothstep(
+        (skillsOneVideoRevealProgress - skillsOneVideoElementExitThreshold) /
+          (1 - skillsOneVideoElementExitThreshold),
+      )
+    : 0;
+  const skillsOneVideoRestoreRevealProgress = isSkillsOneVideoRevealSection && isSkillsOneVideoHiddenAfterReveal
+    ? smoothstep(skillsOneVideoRestoreProgress)
+    : 1;
+  const skillsOneVideoGuideRestoreRevealProgress = isSkillsOneVideoRevealSection && isSkillsOneVideoHiddenAfterReveal
+    ? smoothstep((skillsOneVideoRestoreProgress - 0.12) / 0.88)
+    : 1;
+  const skillsOneVideoProfileParticleDissolveProgress = isSkillsOneVideoRevealSection
+    ? (
+        isSkillsOneVideoHiddenAfterReveal
+          ? 1 - skillsOneVideoRestoreRevealProgress
+          : skillsOneVideoElementExitProgress
+      )
+    : 0;
+  const skillsOneVideoGuideDissolveProgress = isSkillsOneVideoRevealSection
+    ? (
+        isSkillsOneVideoHiddenAfterReveal
+          ? 1 - skillsOneVideoGuideRestoreRevealProgress
+          : skillsOneVideoElementExitProgress
+      )
+    : 0;
+  const isSkillsOneVideoGuideDissolving =
+    isSkillsOneVideoRevealSection && skillsOneVideoGuideDissolveProgress > 0;
+  const skillsOneVideoGuideParticleOpacity = clamp(1 - skillsOneVideoGuideDissolveProgress, 0, 1);
+  const skillsOneVideoGuideParticleScale = clamp(1 - (skillsOneVideoGuideDissolveProgress * 0.78), 0.22, 1);
+  const skillsOneVideoGuideParticleBlur = `${(skillsOneVideoGuideDissolveProgress * 7).toFixed(2)}px`;
+  const skillsOneVideoOpacityProgress = isSkillsOneVideoHiddenAfterReveal
+    ? 0
+    : smoothstep(skillsOneVideoRevealProgress);
+  const skillsOneVideoStripFeedbackProgress = isSkillsOneVideoRevealSection && !isSkillsOneVideoHiddenAfterReveal
+    ? smoothstep(
+        (skillsOneVideoRevealProgress - skillsOneVideoStripFeedbackStart) /
+          (skillsOneVideoStripFeedbackEnd - skillsOneVideoStripFeedbackStart),
+      )
+    : 0;
+  const sharedProfileGuideLayerStyle = {
+    '--hero-profile-guide-move-duration': `${sharedProfileGuideMoveDurationMs}ms`,
+    '--hero-profile-guide-video-dissolve-opacity': skillsOneVideoGuideParticleOpacity.toFixed(3),
+    '--hero-profile-guide-video-dissolve-scale': skillsOneVideoGuideParticleScale.toFixed(3),
+    '--hero-profile-guide-video-dissolve-blur': skillsOneVideoGuideParticleBlur,
+  } as CSSProperties;
   const shouldShowSkillAmbient =
     showMain &&
     isSkillAmbientSection &&
@@ -357,22 +353,38 @@ export default function App() {
       sharedProfileAmbientPhase === 'active' ||
       sharedProfileAmbientPhase === 'controlsHiding' ||
       sharedProfileAmbientPhase === 'dematerializing' ||
-      sharedProfileAmbientPhase === 'particleHold'
+      sharedProfileAmbientPhase === 'particleHold' ||
+      shouldKeepSkillStripVisibleForSkillsOneVideo
     );
+  const activeSkillParticleImageSrc = shouldShowSkillAmbient ? skillParticleImageSrc : null;
   const shouldSinkSkillAmbient =
     isSkillAmbientSection &&
+    !shouldKeepSkillStripVisibleForSkillsOneVideo &&
     (
       isSectionParticleExitActive ||
       sharedProfileAmbientPhase === 'particleExit' ||
       sharedProfileAmbientPhase === 'hidden'
     );
+  const sharedProfileGuideLayerClassName = [
+    'main-content__guide-layer',
+    skillGuideVisualState === 'morphing' ? 'main-content__guide-layer--skill-morphing' : '',
+    skillGuideVisualState === 'returning' ? 'main-content__guide-layer--skill-returning' : '',
+    isSkillsOneVideoGuideDissolving ? 'main-content__guide-layer--video-dissolving' : '',
+  ].filter(Boolean).join(' ');
 
-  const setSkillHoverItem = useCallback((label: string | null, itemKey: string | null) => {
-    if (skillHoverLabelRef.current === label && skillHoverKeyRef.current === itemKey) return;
+  const setSkillHoverItem = useCallback((label: string | null, itemKey: string | null, src: string | null) => {
+    if (
+      skillHoverLabelRef.current === label &&
+      skillHoverKeyRef.current === itemKey &&
+      skillHoverSrcRef.current === src
+    ) {
+      return;
+    }
 
     skillHoverLabelRef.current = label;
     skillHoverKeyRef.current = itemKey;
-    setSkillHeadingOverride(label);
+    skillHoverSrcRef.current = src;
+    setSkillParticleImageSrc(src);
     setActiveSkillImageKey(itemKey);
   }, []);
 
@@ -385,15 +397,50 @@ export default function App() {
         return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
       });
 
-      setSkillHoverItem(skillItem?.dataset.skillLabel ?? null, skillItem?.dataset.skillKey ?? null);
+      setSkillHoverItem(
+        skillItem?.dataset.skillLabel ?? null,
+        skillItem?.dataset.skillKey ?? null,
+        skillItem?.dataset.skillSrc ?? null,
+      );
     },
     [setSkillHoverItem],
   );
 
   const clearSkillHover = useCallback(() => {
     skillStripPointerRef.current = null;
-    setSkillHoverItem(null, null);
+    setSkillHoverItem(null, null, null);
   }, [setSkillHoverItem]);
+
+  const setSkillsOneVideoRevealProgressValue = useCallback((progress: number) => {
+    const nextProgress = clamp(progress, 0, 1);
+    skillsOneVideoRevealProgressRef.current = nextProgress;
+    setSkillsOneVideoRevealProgress(nextProgress);
+  }, []);
+
+  const setSkillsOneVideoHiddenAfterRevealValue = useCallback((isHidden: boolean) => {
+    isSkillsOneVideoHiddenAfterRevealRef.current = isHidden;
+    setIsSkillsOneVideoHiddenAfterReveal(isHidden);
+  }, []);
+
+  const setSkillsOneVideoRestoringAfterRevealValue = useCallback((isRestoring: boolean) => {
+    isSkillsOneVideoRestoringAfterRevealRef.current = isRestoring;
+    setIsSkillsOneVideoRestoringAfterReveal(isRestoring);
+  }, []);
+
+  const setSkillsOneVideoRestoreProgressValue = useCallback((progress: number) => {
+    const nextProgress = clamp(progress, 0, 1);
+    skillsOneVideoRestoreProgressRef.current = nextProgress;
+    setSkillsOneVideoRestoreProgress(nextProgress);
+  }, []);
+
+  const clearSkillsOneVideoRestoreAnimation = useCallback(() => {
+    if (skillsOneVideoRestoreRafRef.current !== null) {
+      window.cancelAnimationFrame(skillsOneVideoRestoreRafRef.current);
+      skillsOneVideoRestoreRafRef.current = null;
+    }
+    isSkillsOneVideoRestoringAfterRevealRef.current = false;
+    setIsSkillsOneVideoRestoringAfterReveal(false);
+  }, []);
 
   const handleSkillStripPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -410,14 +457,13 @@ export default function App() {
     clearSkillHover();
   }, [clearSkillHover]);
 
-  const handleSkillImagePointerEnter = useCallback((label: string, itemKey: string) => {
-    setSkillHoverItem(label, itemKey);
+  const handleSkillImagePointerEnter = useCallback((label: string, itemKey: string, src: string) => {
+    setSkillHoverItem(label, itemKey, src);
   }, [setSkillHoverItem]);
 
   useEffect(() => {
-    isPointerOverSkillHeadingRef.current = false;
     clearSkillHover();
-  }, [activeSkillAmbientContent?.title, clearSkillHover, shouldShowSkillAmbient]);
+  }, [activeSkillAmbientContent?.variant, clearSkillHover, shouldShowSkillAmbient]);
 
   useEffect(() => {
     if (!shouldShowSkillAmbient) return;
@@ -497,6 +543,9 @@ export default function App() {
       }
       if (sharedProfileRematerializeTimerRef.current !== null) {
         window.clearTimeout(sharedProfileRematerializeTimerRef.current);
+      }
+      if (skillsOneVideoRestoreRafRef.current !== null) {
+        window.cancelAnimationFrame(skillsOneVideoRestoreRafRef.current);
       }
     };
   }, []);
@@ -622,6 +671,155 @@ export default function App() {
     }, sharedProfileRematerializeDurationMs);
   }, [clearSharedProfileAmbientTimers]);
 
+  const startSkillsOneVideoRestoreSequence = useCallback(() => {
+    const sequence = sharedProfileAmbientSequenceRef.current + 1;
+
+    sharedProfileAmbientSequenceRef.current = sequence;
+    hasStartedSkillsOneVideoSearchExitRef.current = false;
+    clearSkillHover();
+    clearSkillsOneVideoRestoreAnimation();
+    clearSharedProfileAmbientTimers();
+    setSkillsOneVideoRestoreProgressValue(0);
+    setSkillsOneVideoRestoringAfterRevealValue(true);
+    setSkillsOneVideoHiddenAfterRevealValue(true);
+    setSharedProfileAmbientPhase('particleReturn');
+    setIsSharedProfileBioVisible(true);
+    wheelIntentRef.current = 0;
+
+    const restoreStartedAt = window.performance.now();
+    const animateRestore = (timestamp: number) => {
+      const elapsed = timestamp - restoreStartedAt;
+      const nextProgress = clamp(elapsed / skillsOneVideoRestoreDurationMs, 0, 1);
+
+      setSkillsOneVideoRestoreProgressValue(nextProgress);
+
+      if (nextProgress < 1) {
+        skillsOneVideoRestoreRafRef.current = window.requestAnimationFrame(animateRestore);
+        return;
+      }
+
+      skillsOneVideoRestoreRafRef.current = null;
+    };
+
+    skillsOneVideoRestoreRafRef.current = window.requestAnimationFrame(animateRestore);
+
+    sharedProfileParticleReturnTimerRef.current = window.setTimeout(() => {
+      if (sequence !== sharedProfileAmbientSequenceRef.current) return;
+
+      setSharedProfileAmbientPhase('rematerializing');
+      setIsSharedProfileBioVisible(true);
+      sharedProfileParticleReturnTimerRef.current = null;
+    }, skillsOneVideoQuickReturnDurationMs);
+
+    sharedProfileRematerializeTimerRef.current = window.setTimeout(() => {
+      if (sequence !== sharedProfileAmbientSequenceRef.current) return;
+
+      setSharedProfileAmbientPhase('active');
+      setIsSharedProfileBioVisible(true);
+      setSkillsOneVideoRestoreProgressValue(1);
+      setSkillsOneVideoRestoringAfterRevealValue(false);
+      sharedProfileRematerializeTimerRef.current = null;
+    }, skillsOneVideoRestoreDurationMs);
+  }, [
+    clearSharedProfileAmbientTimers,
+    clearSkillHover,
+    clearSkillsOneVideoRestoreAnimation,
+    setSkillsOneVideoHiddenAfterRevealValue,
+    setSkillsOneVideoRestoringAfterRevealValue,
+    setSkillsOneVideoRestoreProgressValue,
+  ]);
+
+  useEffect(() => {
+    if (activeSectionIndex === skillsOneVideoRevealSectionIndex) return;
+    if (skillsOneVideoRevealProgressRef.current <= 0) return;
+
+    hasStartedSkillsOneVideoSearchExitRef.current = false;
+    clearSkillsOneVideoRestoreAnimation();
+    setSkillsOneVideoRestoreProgressValue(1);
+    setSkillsOneVideoRevealProgressValue(0);
+    setSkillsOneVideoHiddenAfterRevealValue(false);
+  }, [
+    activeSectionIndex,
+    clearSkillsOneVideoRestoreAnimation,
+    setSkillsOneVideoHiddenAfterRevealValue,
+    setSkillsOneVideoRestoreProgressValue,
+    setSkillsOneVideoRevealProgressValue,
+  ]);
+
+  useEffect(() => {
+    if (activeSectionIndex === skillsOneVideoRevealSectionIndex) return;
+
+    hasStartedSkillsOneVideoSearchExitRef.current = false;
+    clearSkillsOneVideoRestoreAnimation();
+    setSkillsOneVideoRestoreProgressValue(1);
+    setSkillsOneVideoHiddenAfterRevealValue(false);
+  }, [
+    activeSectionIndex,
+    clearSkillsOneVideoRestoreAnimation,
+    setSkillsOneVideoHiddenAfterRevealValue,
+    setSkillsOneVideoRestoreProgressValue,
+  ]);
+
+  useEffect(() => {
+    if (activeSectionIndex !== skillsOneVideoRevealSectionIndex) return;
+
+    if (skillsOneVideoRevealProgress < skillsOneVideoElementExitThreshold) {
+      if (hasStartedSkillsOneVideoSearchExitRef.current) {
+        hasStartedSkillsOneVideoSearchExitRef.current = false;
+        startSharedProfileAmbientReturn();
+      }
+      return;
+    }
+
+    if (hasStartedSkillsOneVideoSearchExitRef.current) return;
+    hasStartedSkillsOneVideoSearchExitRef.current = true;
+
+    const sequence = sharedProfileAmbientSequenceRef.current + 1;
+    sharedProfileAmbientSequenceRef.current = sequence;
+    clearSharedProfileAmbientTimers();
+    setSharedProfileAmbientPhase('dematerializing');
+    setIsSharedProfileBioVisible(true);
+
+    sharedProfileDematerializeTimerRef.current = window.setTimeout(() => {
+      if (sequence !== sharedProfileAmbientSequenceRef.current) return;
+      setSharedProfileAmbientPhase('particleExit');
+      setIsSharedProfileBioVisible(false);
+
+      sharedProfileParticleExitTimerRef.current = window.setTimeout(() => {
+        if (sequence !== sharedProfileAmbientSequenceRef.current) return;
+        setSharedProfileAmbientPhase('hidden');
+        setIsSharedProfileBioVisible(false);
+        sharedProfileParticleExitTimerRef.current = null;
+      }, sharedProfileParticleExitDurationMs);
+
+      sharedProfileDematerializeTimerRef.current = null;
+    }, sharedProfileDematerializeDurationMs);
+  }, [
+    activeSectionIndex,
+    clearSharedProfileAmbientTimers,
+    skillsOneVideoRevealProgress,
+    startSharedProfileAmbientReturn,
+  ]);
+
+  useEffect(() => {
+    if (activeSectionIndex !== skillsOneVideoRevealSectionIndex) return;
+    if (skillsOneVideoRevealProgress <= 0) return;
+
+    if (
+      skillsOneVideoRevealProgress < skillsOneVideoElementExitThreshold &&
+      sharedProfileAmbientPhase === 'active'
+    ) {
+      clearSharedProfileAmbientTimers();
+      setSharedProfileAmbientPhase('active');
+      setIsSharedProfileBioVisible(true);
+    }
+  }, [
+    activeSectionIndex,
+    clearSharedProfileAmbientTimers,
+    sharedProfileAmbientPhase,
+    skillsOneVideoRevealProgress,
+  ]);
+
   const startHeroForwardTransition = useCallback(() => {
     setNavigationDirection(1);
     isHeroTransitionInProgressRef.current = true;
@@ -696,6 +894,10 @@ export default function App() {
       return;
     }
 
+    if (isSkillsOneVideoElementExitActive) {
+      return;
+    }
+
     if (sharedProfileAmbientPhase === 'active') {
       setSharedProfileAmbientActive(true);
     }
@@ -706,6 +908,9 @@ export default function App() {
     isSharedProfileTypingComplete,
     isSectionParticleExitActive,
     setSharedProfileAmbientActive,
+    activeSectionIndex,
+    isSkillsOneVideoElementExitActive,
+    skillsOneVideoRevealProgress,
     showMain,
     sharedProfileAmbientPhase,
     startSharedProfileAmbientReturn,
@@ -758,12 +963,102 @@ export default function App() {
         completeSectionNavigation();
       }, sectionParticleExitDurationMs);
     },
-    [activeSectionIndex, clearSharedProfileAmbientTimers, sharedProfileAmbientPhase, showMain, totalSections],
+    [
+      activeSectionIndex,
+      clearSharedProfileAmbientTimers,
+      sharedProfileAmbientPhase,
+      showMain,
+      totalSections,
+    ],
+  );
+
+  const handleSkillsOneVideoRevealWheel = useCallback(
+    (deltaY: number) => {
+      const isRevealSection = activeSectionIndex === skillsOneVideoRevealSectionIndex;
+      const currentProgress = skillsOneVideoRevealProgressRef.current;
+      const isActive = currentProgress > 0;
+
+      if (!isRevealSection && !isActive) return false;
+
+      if (isSkillsOneVideoRestoringAfterRevealRef.current) {
+        wheelIntentRef.current = 0;
+        return true;
+      }
+
+      if (deltaY > 0) {
+        if (currentProgress >= 1) {
+          if (!isSkillsOneVideoHiddenAfterRevealRef.current) {
+            startSkillsOneVideoRestoreSequence();
+            return true;
+          }
+
+          return false;
+        }
+
+        if (!isRevealSection) return false;
+
+        const nextProgress = clamp(
+          currentProgress + (deltaY / skillsOneVideoRevealScrollDistance),
+          isActive ? 0 : 0.02,
+          1,
+        );
+        if (nextProgress < 1) {
+          setSkillsOneVideoHiddenAfterRevealValue(false);
+        }
+        setSkillsOneVideoRevealProgressValue(nextProgress);
+        wheelIntentRef.current = 0;
+        return true;
+      }
+
+      if (deltaY < 0 && isActive) {
+        if (isSkillsOneVideoHiddenAfterRevealRef.current) {
+          clearSkillsOneVideoRestoreAnimation();
+          clearSharedProfileAmbientTimers();
+          hasStartedSkillsOneVideoSearchExitRef.current = true;
+          setSharedProfileAmbientPhase('hidden');
+          setIsSharedProfileBioVisible(false);
+          setSkillsOneVideoRestoreProgressValue(1);
+          setSkillsOneVideoHiddenAfterRevealValue(false);
+          wheelIntentRef.current = 0;
+          return true;
+        }
+
+        const nextProgress = clamp(
+          currentProgress + (deltaY / skillsOneVideoRevealScrollDistance),
+          0,
+          1,
+        );
+
+        if (nextProgress < 1) {
+          setSkillsOneVideoHiddenAfterRevealValue(false);
+        }
+        setSkillsOneVideoRevealProgressValue(nextProgress);
+        wheelIntentRef.current = 0;
+        return true;
+      }
+
+      return false;
+    },
+    [
+      activeSectionIndex,
+      clearSharedProfileAmbientTimers,
+      clearSkillsOneVideoRestoreAnimation,
+      setSkillsOneVideoHiddenAfterRevealValue,
+      setSkillsOneVideoRevealProgressValue,
+      setSkillsOneVideoRestoreProgressValue,
+      startSkillsOneVideoRestoreSequence,
+    ],
   );
 
   const registerSharedProfileInteraction = useCallback(() => {
     if (!showMain || !isSharedProfileSection) return;
     if (isSectionParticleExitActive) return;
+    if (
+      activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+      skillsOneVideoRevealProgressRef.current >= skillsOneVideoElementExitThreshold
+    ) {
+      return;
+    }
 
     if (isSharedAgentPanelVisible) {
       clearSharedProfileAmbientTimers();
@@ -817,6 +1112,7 @@ export default function App() {
     isSharedProfileSection,
     isSharedProfileTypingComplete,
     isSectionParticleExitActive,
+    activeSectionIndex,
     setSharedProfileAmbientActive,
     sharedProfileAmbientPhase,
     showMain,
@@ -834,6 +1130,30 @@ export default function App() {
         return;
       }
 
+      if (
+        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        isSkillsOneVideoRestoringAfterRevealRef.current
+      ) {
+        return;
+      }
+
+      if (
+        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        skillsOneVideoRevealProgressRef.current > 0 &&
+        skillsOneVideoRevealProgressRef.current < 1
+      ) {
+        return;
+      }
+
+      if (
+        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        skillsOneVideoRevealProgressRef.current >= 1 &&
+        !isSkillsOneVideoHiddenAfterRevealRef.current
+      ) {
+        startSkillsOneVideoRestoreSequence();
+        return;
+      }
+
       if (isHeroTransitionInProgress) return;
       navigateSections('next');
     },
@@ -843,6 +1163,7 @@ export default function App() {
       navigateSections,
       showMain,
       startHeroForwardTransition,
+      startSkillsOneVideoRestoreSequence,
     ],
   );
 
@@ -850,6 +1171,10 @@ export default function App() {
     (event: ReactWheelEvent<HTMLElement>) => {
       if (!showMain) return;
       if (isWheelNavigationBlockedTarget(event.target)) return;
+
+      if (handleSkillsOneVideoRevealWheel(event.deltaY)) {
+        return;
+      }
 
       wheelIntentRef.current += event.deltaY;
 
@@ -870,6 +1195,7 @@ export default function App() {
     },
     [
       activeSectionIndex,
+      handleSkillsOneVideoRevealWheel,
       isHeroTransitionInProgress,
       navigateSections,
       showMain,
@@ -878,25 +1204,6 @@ export default function App() {
   );
 
   const handleMainPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    const headingShell = skillHeadingShellRef.current;
-
-    if (shouldShowSkillAmbient && headingShell) {
-      const rect = headingShell.getBoundingClientRect();
-      const isPointerInsideHeading =
-        event.clientX >= rect.left &&
-        event.clientX <= rect.right &&
-        event.clientY >= rect.top &&
-        event.clientY <= rect.bottom;
-
-      if (isPointerInsideHeading && !isPointerOverSkillHeadingRef.current) {
-        setSkillTitleScrambleTrigger((current) => current + 1);
-      }
-
-      isPointerOverSkillHeadingRef.current = isPointerInsideHeading;
-    } else {
-      isPointerOverSkillHeadingRef.current = false;
-    }
-
     if (shouldShowSkillAmbient) {
       skillStripPointerRef.current = {
         x: event.clientX,
@@ -907,10 +1214,15 @@ export default function App() {
 
     if (!showMain || !isSharedProfileSection) return;
     registerSharedProfileInteraction();
-  }, [isSharedProfileSection, registerSharedProfileInteraction, shouldShowSkillAmbient, showMain, updateSkillHeadingFromPoint]);
+  }, [
+    isSharedProfileSection,
+    registerSharedProfileInteraction,
+    shouldShowSkillAmbient,
+    showMain,
+    updateSkillHeadingFromPoint,
+  ]);
 
   const handleMainPointerLeave = useCallback(() => {
-    isPointerOverSkillHeadingRef.current = false;
     clearSkillHover();
   }, [clearSkillHover]);
 
@@ -919,11 +1231,18 @@ export default function App() {
     registerSharedProfileInteraction();
   }, [isSharedProfileSection, registerSharedProfileInteraction, showMain]);
 
+  const handleParticleImageVisualStateChange = useCallback((state: SkillGuideVisualState) => {
+    setSkillGuideVisualState(state);
+  }, []);
+  const activeHeroTransitionRequestId =
+    activeSectionIndex === 0 && isHeroTransitionInProgress ? heroTransitionRequestId : 0;
+
   const sections = [
     {
       key: 'hero',
       element: (
         <HeroSection
+          initialParticleRevealMode="settled"
           onExternalTransitionPhaseChange={(phase) => {
             if (activeSectionIndex !== 0) return;
             setHeroSharedScenePhase(phase === 'idle' && !isHeroTransitionInProgressRef.current ? null : phase);
@@ -936,7 +1255,7 @@ export default function App() {
           }}
           renderProfileGuideParticle={false}
           renderSearchUi={false}
-          transitionRequestId={heroTransitionRequestId}
+          transitionRequestId={activeHeroTransitionRequestId}
           transitionSkipFinalSampleLoad
           transitionTargetSampleIndex={1}
           isVideoHovering={isVideoHovering}
@@ -971,6 +1290,9 @@ export default function App() {
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(2, isComplete)}
+          particleImageTarget={activeSectionIndex === 2 ? activeSkillParticleImageSrc : null}
+          particleDissolveProgress={skillsOneVideoProfileParticleDissolveProgress}
+          onParticleImageVisualStateChange={handleParticleImageVisualStateChange}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -1001,6 +1323,8 @@ export default function App() {
           isMainVisible={showMain}
           isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(4, isComplete)}
+          particleImageTarget={activeSectionIndex === 4 ? activeSkillParticleImageSrc : null}
+          onParticleImageVisualStateChange={handleParticleImageVisualStateChange}
           sharedProfileUiState={sharedProfileUiState}
         />
       ),
@@ -1023,6 +1347,25 @@ export default function App() {
   const showSharedProfileOverlay =
     isSharedProfileSection ||
     (activeSectionIndex === 0 && isHeroTransitionInProgress);
+  const skillsOneVideoRevealStyle = {
+    '--skills-one-video-opacity': skillsOneVideoOpacityProgress.toFixed(3),
+  } as CSSProperties;
+  const mainViewportStyle = isSkillsOneVideoRevealSection
+    ? {
+        '--skills-one-video-progress': skillsOneVideoRevealProgress.toFixed(3),
+        '--skills-one-video-strip-feedback': skillsOneVideoStripFeedbackProgress.toFixed(3),
+      } as CSSProperties
+    : undefined;
+  const skillsOneVideoBackgroundClassName = [
+    'skills-one-video-background',
+    isSkillsOneVideoHiddenAfterReveal ? 'skills-one-video-background--hidden' : '',
+  ].filter(Boolean).join(' ');
+  const mainViewportClassName = [
+    'main-content__viewport',
+    activeSkillAmbientContent ? 'main-content__viewport--skill-layout' : '',
+    isSkillsOneVideoRevealSection ? 'main-content__viewport--skills-one-video' : '',
+    isSkillsOneVideoRestoringAfterReveal ? 'main-content__viewport--skills-one-video-restoring' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <>
@@ -1036,30 +1379,32 @@ export default function App() {
         onPointerMove={handleMainPointerMove}
         onWheel={handleMainWheel}
       >
-        <div className="main-content__viewport">
+        <div className={mainViewportClassName} style={mainViewportStyle}>
+          {isSkillsOneVideoRevealSection && (
+            <div
+              className={skillsOneVideoBackgroundClassName}
+              style={skillsOneVideoRevealStyle}
+              aria-hidden="true"
+            >
+              <video
+                className="skills-one-video-background__media"
+                src={skillsOneAccessVideoSrc}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              />
+            </div>
+          )}
+
           {activeSkillAmbientContent && (
             <div className="main-content__skill-layer">
-              <div
-                ref={skillHeadingShellRef}
-                className={[
-                  'skill-section-heading-shell',
-                  shouldShowSkillAmbient ? 'skill-section-heading-shell--visible' : '',
-                  shouldSinkSkillAmbient ? 'skill-section-heading-shell--sink' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                <ScrambleSkillTitle
-                  key={activeSkillAmbientContent.title}
-                  text={activeSkillHeadingText}
-                  isVisible={shouldShowSkillAmbient}
-                  triggerKey={skillTitleScrambleTrigger}
-                />
-              </div>
-
               {activeSkillImageItems.length > 0 && (
                 <div
                   className={[
                     'hero-skill-image-strip',
-                    activeSkillAmbientContent.title === 'SECURITY' ? 'hero-skill-image-strip--security' : '',
+                    activeSkillAmbientContent.variant === 'security' ? 'hero-skill-image-strip--security' : '',
                     shouldShowSkillAmbient ? 'hero-skill-image-strip--visible' : '',
                     shouldSinkSkillAmbient ? 'hero-skill-image-strip--sink' : '',
                   ].filter(Boolean).join(' ')}
@@ -1080,8 +1425,9 @@ export default function App() {
                           ].filter(Boolean).join(' ')}
                           data-skill-key={skillItemKey}
                           data-skill-label={image.label}
+                          data-skill-src={image.src}
                           key={skillItemKey}
-                          onPointerEnter={() => handleSkillImagePointerEnter(image.label, skillItemKey)}
+                          onPointerEnter={() => handleSkillImagePointerEnter(image.label, skillItemKey, image.src)}
                         >
                           <img className="hero-skill-image-strip__image" src={image.src} alt="" />
                         </span>
@@ -1094,7 +1440,7 @@ export default function App() {
           )}
 
           {isSharedProfileSection && (
-            <div className="main-content__guide-layer" aria-hidden="true">
+            <div className={sharedProfileGuideLayerClassName} aria-hidden="true">
               <div
                 className="hero-profile-guide-particle-layer hero-profile-guide-particle-layer--visible"
                 data-profile={String(activeSectionIndex)}
@@ -1142,6 +1488,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+
         </div>
       </main>
     </>
