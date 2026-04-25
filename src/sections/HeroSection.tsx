@@ -18,6 +18,7 @@ import { FaGithub, FaLinkedin, FaMicrophone, FaPaperPlane, FaSearch } from 'reac
 import { HeroAgentPanel, type HeroAgentTurn } from '../components/hero-agent/HeroAgentPanel';
 import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
 import type { HeroTransitionPhase, ShapeName } from '../components/hero-particles/engine/types';
+import heroBackdropImageUrl from '../assets/hero/fjr-last-judgement.jpg';
 import heroWordmarkTextureUrl from '../assets/hero/fjr-last-judgement-wordmark-2.jpg';
 import { sendAgentMessage } from '../lib/agentApi';
 
@@ -289,7 +290,7 @@ const heroWordmarkDotShrinkDurationMs = 440;
 const heroWordmarkDotFlightDurationMs = 980;
 const heroWordmarkTextureImageWidth = 802;
 const heroWordmarkTextureImageHeight = 320;
-const heroWordmarkTextureZoom = 1.06;
+const heroWordmarkTextureZoom = 1.24;
 const heroWordmarkTextureFocusX = 0.5;
 const heroWordmarkTextureFocusY = 0.5;
 
@@ -2423,6 +2424,21 @@ export function HeroSection({
         >
           <div
             className={[
+              'hero-fjr-backdrop',
+              shouldShowHeroWordmark ? 'is-visible' : '',
+              shouldShowHeroWordmark && resolvedSampleIndex === 0 ? 'hero-fjr-backdrop--intro' : '',
+            ].filter(Boolean).join(' ')}
+            aria-hidden="true"
+          >
+            <div
+              className="hero-fjr-backdrop__image"
+              style={{
+                '--hero-fjr-backdrop-image': `url(${heroBackdropImageUrl})`,
+              } as CSSProperties}
+            />
+          </div>
+          <div
+            className={[
               'hero-fjr-wordmark',
               shouldShowHeroWordmark ? 'is-visible' : '',
               isHeroWordmarkGlowVisible ? 'hero-fjr-wordmark--glow-active' : '',
@@ -2440,6 +2456,35 @@ export function HeroSection({
             } as CSSProperties}
             aria-hidden="true"
           >
+            <svg
+              className="hero-fjr-wordmark__filter-defs"
+              width="0"
+              height="0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <defs>
+                <filter
+                  id="hero-fjr-wordmark-face"
+                  x="-36%"
+                  y="-36%"
+                  width="172%"
+                  height="172%"
+                  colorInterpolationFilters="sRGB"
+                >
+                  <feMorphology in="SourceAlpha" operator="erode" radius="1.4" result="inner-core" />
+                  <feGaussianBlur in="inner-core" stdDeviation="3" result="inner-core-blur" />
+                  <feFlood floodColor="#ffffff" floodOpacity="0.86" result="inner-core-color" />
+                  <feComposite in="inner-core-color" in2="inner-core-blur" operator="in" result="inner-core-glow" />
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="0.7" result="edge-soften" />
+                  <feComposite in="SourceGraphic" in2="edge-soften" operator="over" result="base-graphic" />
+                  <feMerge>
+                    <feMergeNode in="base-graphic" />
+                    <feMergeNode in="inner-core-glow" />
+                  </feMerge>
+                </filter>
+              </defs>
+            </svg>
             <div
               ref={heroWordmarkInnerRef}
               className="hero-fjr-wordmark__inner"
@@ -2464,17 +2509,13 @@ export function HeroSection({
                     activeHeroWordmarkGlyphIndex === index ? 'hero-fjr-wordmark__glyph--active' : '',
                   ].filter(Boolean).join(' ')}
                 >
-                  <span className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--base" aria-hidden="true">
-                    {heroWordmarkDisplayGlyphs[index] ?? character}
-                  </span>
-                  <span
-                    className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--ink"
-                    style={{
-                      '--hero-fjr-wordmark-texture-image': `url(${heroWordmarkTextureUrl})`,
-                    } as CSSProperties}
-                    aria-hidden="true"
-                  >
-                    {heroWordmarkDisplayGlyphs[index] ?? character}
+                  <span className="hero-fjr-wordmark__glyph-face" aria-hidden="true">
+                    <span className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--base">
+                      {heroWordmarkDisplayGlyphs[index] ?? character}
+                    </span>
+                    <span className="hero-fjr-wordmark__glyph-fill hero-fjr-wordmark__glyph-fill--glow">
+                      {heroWordmarkDisplayGlyphs[index] ?? character}
+                    </span>
                   </span>
                   <span className="hero-fjr-wordmark__glyph-char">{heroWordmarkDisplayGlyphs[index] ?? character}</span>
                 </span>
