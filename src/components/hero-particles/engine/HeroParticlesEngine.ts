@@ -138,28 +138,16 @@ export class HeroParticlesEngine {
     this.transitionResolvers.clear();
   }
 
-  private async runFjrToProfileTransition(
-    particleHoldBeforeGrowMs: number,
-    particleGrowDurationMs: number,
-    particlePulseDurationMs: number,
-  ) {
+  private async runFjrToProfileTransition(initialDelayMs: number) {
+    const searchMaterializeDurationMs = 1150;
     const searchGlowDurationMs = 2500;
 
-    if (particleHoldBeforeGrowMs > 0) {
-      await this.wait(particleHoldBeforeGrowMs);
+    this.setTransitionPhase('searchMaterialize');
+    if (searchMaterializeDurationMs > initialDelayMs) {
+      await this.wait(searchMaterializeDurationMs - initialDelayMs);
       if (this.isDestroyed) return;
     }
 
-    this.setTransitionPhase('particleGrow');
-    await this.wait(particleGrowDurationMs);
-    if (this.isDestroyed) return;
-
-    this.setTransitionPhase('particlePulse');
-    await this.wait(particlePulseDurationMs);
-    if (this.isDestroyed) return;
-
-    this.setTransitionPhase('searchMaterialize');
-    await this.wait(1150);
     if (this.isDestroyed) return;
 
     this.setTransitionPhase('searchGlow');
@@ -185,9 +173,7 @@ export class HeroParticlesEngine {
     const isProfileSampleExit = animated && this.currentSample >= 1;
     const hideDurationSeconds = 0.8;
     const profileGuideTriggerLeadMs = 280;
-    const particleSmallDurationMs = 2000;
-    const particleGrowDurationMs = 1000;
-    const particlePulseDurationMs = 4000;
+    let fjrToProfileTransitionPromise: Promise<void> | null = null;
     this.isTransitioning = true;
 
     try {
@@ -198,9 +184,8 @@ export class HeroParticlesEngine {
 
       if (animated && this.particles.object3D) {
         if (isFjrToProfileTransition) {
-          this.setTransitionPhase('particle');
+          fjrToProfileTransitionPromise = this.runFjrToProfileTransition(hideDurationSeconds * 1000);
         }
-
         const hidePromise = this.particles.hide(hideDurationSeconds);
 
         if (isProfileSampleExit) {
@@ -217,16 +202,7 @@ export class HeroParticlesEngine {
       }
 
       if (isFjrToProfileTransition) {
-        const particleHoldBeforeGrowMs = Math.max(
-          0,
-          particleSmallDurationMs - hideDurationSeconds * 1000,
-        );
-
-        await this.runFjrToProfileTransition(
-          particleHoldBeforeGrowMs,
-          particleGrowDurationMs,
-          particlePulseDurationMs,
-        );
+        await (fjrToProfileTransitionPromise ?? this.runFjrToProfileTransition(0));
         if (this.isDestroyed) return;
       }
 

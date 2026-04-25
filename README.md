@@ -100,7 +100,7 @@ npm run preview
 - Se `npm install` falhar por bloqueio de rede/política (ex.: `403 Forbidden`), rode em um ambiente com acesso ao registro npm.
 - Os vídeos da seção de projetos usam links remotos de exemplo e podem ser substituídos por assets locais em `src/assets`.
 
-
+python -m pip install uvicorn fastapipython -m pip install uvicorn fastapi
 npm.cmd run dev:api
 npm.cmd run dev
 

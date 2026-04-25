@@ -9,7 +9,6 @@ import { ProfileOneSection } from './sections/ProfileOneSection';
 import { SkillsOneSection } from './sections/SkillsOneSection';
 import { ProfileTwoSection } from './sections/ProfileTwoSection';
 import { SkillsTwoSection } from './sections/SkillsTwoSection';
-import { ProjectSliderSection } from './sections/ProjectSliderSection';
 import skillsOneAccessVideoSrc from './assets/skills/Acess-UI-UX.mp4';
 
 const sectionParticleExitDurationMs = 820;
@@ -49,7 +48,6 @@ const sectionNavBlockSelector = [
   '.hero-profile-guide-particle',
   '.hero-black-sphere',
   '.hero-agent-panel',
-  '.slider-original-root',
   '.video-overlay',
 ].join(', ');
 
@@ -64,7 +62,6 @@ const sectionWheelBlockSelector = [
   'select',
   '[contenteditable="true"]',
   '.hero-agent-panel',
-  '.slider-original-root',
   '.video-overlay',
 ].join(', ');
 
@@ -80,7 +77,10 @@ type SectionTransitionCustom = {
 type SkillGuideVisualState = 'idle' | 'morphing' | 'returning';
 
 const sectionTransitionEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const skillsOneVideoRevealSectionIndex = 2;
+const heroSectionIndex = 0;
+const skillsOneSectionIndex = 2;
+const skillsTwoSectionIndex = 4;
+const skillsOneVideoRevealSectionIndexes = new Set([skillsOneSectionIndex, skillsTwoSectionIndex]);
 const skillsOneVideoRevealScrollDistance = 3200;
 const skillsOneVideoElementExitThreshold = 0.5;
 const skillsOneVideoStripFeedbackStart = 0.22;
@@ -89,6 +89,12 @@ const skillsOneVideoQuickReturnDurationMs = 360;
 const skillsOneVideoQuickRematerializeDurationMs = 560;
 const skillsOneVideoRestoreDurationMs =
   skillsOneVideoQuickReturnDurationMs + skillsOneVideoQuickRematerializeDurationMs;
+const isSkillsVideoRevealSectionIndex = (index: number) => skillsOneVideoRevealSectionIndexes.has(index);
+const getLoopedSectionIndex = (index: number, directionValue: 1 | -1, totalSections: number) => {
+  if (index === skillsTwoSectionIndex && directionValue === 1) return heroSectionIndex;
+  if (index === heroSectionIndex && directionValue === -1) return skillsTwoSectionIndex;
+  return (index + directionValue + totalSections) % totalSections;
+};
 
 const isSharedProfileSectionIndex = (index: number) => index >= 1 && index <= 4;
 
@@ -204,7 +210,7 @@ type SkillAmbientContent = {
 };
 
 export default function App() {
-  const totalSections = 6;
+  const totalSections = 5;
   const [showIntro, setShowIntro] = useState(true);
   const [showMain, setShowMain] = useState(false);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
@@ -212,9 +218,10 @@ export default function App() {
 
   // Mantidos para compatibilidade com a HeroSection nova
   const [isVideoHovering] = useState(false);
-  const [isProjectCardVisible] = useState(false);
   const sectionTransitionLockRef = useRef<number | null>(null);
   const deferredSectionTransitionTimerRef = useRef<number | null>(null);
+  const navigateSectionsRef = useRef<((direction: 'next' | 'prev') => void) | null>(null);
+  const pendingSkillsVideoNavigationDirectionRef = useRef<'next' | 'prev' | null>(null);
   const wheelIntentRef = useRef(0);
   const isHeroTransitionInProgressRef = useRef(false);
   const activeSectionIndexRef = useRef(activeSectionIndex);
@@ -292,7 +299,7 @@ export default function App() {
         : null;
   const activeSkillImageItems = activeSkillAmbientContent?.images ?? [];
   const isSkillAmbientSection = activeSkillAmbientContent !== null;
-  const isSkillsOneVideoRevealSection = activeSectionIndex === skillsOneVideoRevealSectionIndex;
+  const isSkillsOneVideoRevealSection = isSkillsVideoRevealSectionIndex(activeSectionIndex);
   const isSkillsOneVideoElementExitActive =
     isSkillsOneVideoRevealSection && skillsOneVideoRevealProgress >= skillsOneVideoElementExitThreshold;
   const shouldKeepSkillStripVisibleForSkillsOneVideo =
@@ -351,9 +358,6 @@ export default function App() {
     !isSharedAgentPanelVisible &&
     (
       sharedProfileAmbientPhase === 'active' ||
-      sharedProfileAmbientPhase === 'controlsHiding' ||
-      sharedProfileAmbientPhase === 'dematerializing' ||
-      sharedProfileAmbientPhase === 'particleHold' ||
       shouldKeepSkillStripVisibleForSkillsOneVideo
     );
   const activeSkillParticleImageSrc = shouldShowSkillAmbient ? skillParticleImageSrc : null;
@@ -362,6 +366,9 @@ export default function App() {
     !shouldKeepSkillStripVisibleForSkillsOneVideo &&
     (
       isSectionParticleExitActive ||
+      sharedProfileAmbientPhase === 'controlsHiding' ||
+      sharedProfileAmbientPhase === 'dematerializing' ||
+      sharedProfileAmbientPhase === 'particleHold' ||
       sharedProfileAmbientPhase === 'particleExit' ||
       sharedProfileAmbientPhase === 'hidden'
     );
@@ -671,10 +678,15 @@ export default function App() {
     }, sharedProfileRematerializeDurationMs);
   }, [clearSharedProfileAmbientTimers]);
 
-  const startSkillsOneVideoRestoreSequence = useCallback(() => {
+  const startSkillsOneVideoRestoreSequence = useCallback((
+    options?: {
+      navigateAfterRestore?: 'next' | 'prev' | null;
+    },
+  ) => {
     const sequence = sharedProfileAmbientSequenceRef.current + 1;
 
     sharedProfileAmbientSequenceRef.current = sequence;
+    pendingSkillsVideoNavigationDirectionRef.current = options?.navigateAfterRestore ?? null;
     hasStartedSkillsOneVideoSearchExitRef.current = false;
     clearSkillHover();
     clearSkillsOneVideoRestoreAnimation();
@@ -718,6 +730,12 @@ export default function App() {
       setIsSharedProfileBioVisible(true);
       setSkillsOneVideoRestoreProgressValue(1);
       setSkillsOneVideoRestoringAfterRevealValue(false);
+      const pendingNavigationDirection = pendingSkillsVideoNavigationDirectionRef.current;
+      pendingSkillsVideoNavigationDirectionRef.current = null;
+
+      if (pendingNavigationDirection) {
+        navigateSectionsRef.current?.(pendingNavigationDirection);
+      }
       sharedProfileRematerializeTimerRef.current = null;
     }, skillsOneVideoRestoreDurationMs);
   }, [
@@ -730,9 +748,10 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (activeSectionIndex === skillsOneVideoRevealSectionIndex) return;
+    if (isSkillsVideoRevealSectionIndex(activeSectionIndex)) return;
     if (skillsOneVideoRevealProgressRef.current <= 0) return;
 
+    pendingSkillsVideoNavigationDirectionRef.current = null;
     hasStartedSkillsOneVideoSearchExitRef.current = false;
     clearSkillsOneVideoRestoreAnimation();
     setSkillsOneVideoRestoreProgressValue(1);
@@ -747,8 +766,9 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (activeSectionIndex === skillsOneVideoRevealSectionIndex) return;
+    if (isSkillsVideoRevealSectionIndex(activeSectionIndex)) return;
 
+    pendingSkillsVideoNavigationDirectionRef.current = null;
     hasStartedSkillsOneVideoSearchExitRef.current = false;
     clearSkillsOneVideoRestoreAnimation();
     setSkillsOneVideoRestoreProgressValue(1);
@@ -761,7 +781,7 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (activeSectionIndex !== skillsOneVideoRevealSectionIndex) return;
+    if (!isSkillsVideoRevealSectionIndex(activeSectionIndex)) return;
 
     if (skillsOneVideoRevealProgress < skillsOneVideoElementExitThreshold) {
       if (hasStartedSkillsOneVideoSearchExitRef.current) {
@@ -802,7 +822,7 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (activeSectionIndex !== skillsOneVideoRevealSectionIndex) return;
+    if (!isSkillsVideoRevealSectionIndex(activeSectionIndex)) return;
     if (skillsOneVideoRevealProgress <= 0) return;
 
     if (
@@ -922,7 +942,8 @@ export default function App() {
 
       const directionValue = direction === 'next' ? 1 : -1;
       const shouldWaitForParticleExit = isSharedProfileSectionIndex(activeSectionIndex);
-      const nextSectionIndex = (activeSectionIndex + directionValue + totalSections) % totalSections;
+      const nextSectionIndex = getLoopedSectionIndex(activeSectionIndex, directionValue, totalSections);
+
       const shouldReplayAmbientReturnAfterNavigation =
         shouldWaitForParticleExit &&
         isSharedProfileSectionIndex(nextSectionIndex) &&
@@ -971,10 +992,11 @@ export default function App() {
       totalSections,
     ],
   );
+  navigateSectionsRef.current = navigateSections;
 
   const handleSkillsOneVideoRevealWheel = useCallback(
     (deltaY: number) => {
-      const isRevealSection = activeSectionIndex === skillsOneVideoRevealSectionIndex;
+      const isRevealSection = isSkillsVideoRevealSectionIndex(activeSectionIndex);
       const currentProgress = skillsOneVideoRevealProgressRef.current;
       const isActive = currentProgress > 0;
 
@@ -988,7 +1010,7 @@ export default function App() {
       if (deltaY > 0) {
         if (currentProgress >= 1) {
           if (!isSkillsOneVideoHiddenAfterRevealRef.current) {
-            startSkillsOneVideoRestoreSequence();
+            startSkillsOneVideoRestoreSequence({ navigateAfterRestore: 'next' });
             return true;
           }
 
@@ -1014,6 +1036,7 @@ export default function App() {
         if (isSkillsOneVideoHiddenAfterRevealRef.current) {
           clearSkillsOneVideoRestoreAnimation();
           clearSharedProfileAmbientTimers();
+          pendingSkillsVideoNavigationDirectionRef.current = null;
           hasStartedSkillsOneVideoSearchExitRef.current = true;
           setSharedProfileAmbientPhase('hidden');
           setIsSharedProfileBioVisible(false);
@@ -1054,7 +1077,7 @@ export default function App() {
     if (!showMain || !isSharedProfileSection) return;
     if (isSectionParticleExitActive) return;
     if (
-      activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+      isSkillsVideoRevealSectionIndex(activeSectionIndex) &&
       skillsOneVideoRevealProgressRef.current >= skillsOneVideoElementExitThreshold
     ) {
       return;
@@ -1131,14 +1154,14 @@ export default function App() {
       }
 
       if (
-        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        isSkillsVideoRevealSectionIndex(activeSectionIndex) &&
         isSkillsOneVideoRestoringAfterRevealRef.current
       ) {
         return;
       }
 
       if (
-        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        isSkillsVideoRevealSectionIndex(activeSectionIndex) &&
         skillsOneVideoRevealProgressRef.current > 0 &&
         skillsOneVideoRevealProgressRef.current < 1
       ) {
@@ -1146,11 +1169,11 @@ export default function App() {
       }
 
       if (
-        activeSectionIndex === skillsOneVideoRevealSectionIndex &&
+        isSkillsVideoRevealSectionIndex(activeSectionIndex) &&
         skillsOneVideoRevealProgressRef.current >= 1 &&
         !isSkillsOneVideoHiddenAfterRevealRef.current
       ) {
-        startSkillsOneVideoRestoreSequence();
+        startSkillsOneVideoRestoreSequence({ navigateAfterRestore: 'next' });
         return;
       }
 
@@ -1260,7 +1283,6 @@ export default function App() {
           transitionTargetSampleIndex={1}
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
-          isProjectCardVisible={isProjectCardVisible}
         />
       ),
     },
@@ -1273,7 +1295,6 @@ export default function App() {
           isSectionParticleExitActive={isSectionParticleExitActive}
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
-          isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(1, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
@@ -1288,7 +1309,6 @@ export default function App() {
           isSectionParticleExitActive={isSectionParticleExitActive}
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
-          isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(2, isComplete)}
           particleImageTarget={activeSectionIndex === 2 ? activeSkillParticleImageSrc : null}
           particleDissolveProgress={skillsOneVideoProfileParticleDissolveProgress}
@@ -1306,7 +1326,6 @@ export default function App() {
           isSectionParticleExitActive={isSectionParticleExitActive}
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
-          isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(3, isComplete)}
           sharedProfileUiState={sharedProfileUiState}
         />
@@ -1321,21 +1340,11 @@ export default function App() {
           isSectionParticleExitActive={isSectionParticleExitActive}
           isVideoHovering={isVideoHovering}
           isMainVisible={showMain}
-          isProjectCardVisible={isProjectCardVisible}
           onProfileTypingCompleteChange={(isComplete) => handleSharedProfileTypingCompleteChange(4, isComplete)}
           particleImageTarget={activeSectionIndex === 4 ? activeSkillParticleImageSrc : null}
+          particleDissolveProgress={skillsOneVideoProfileParticleDissolveProgress}
           onParticleImageVisualStateChange={handleParticleImageVisualStateChange}
           sharedProfileUiState={sharedProfileUiState}
-        />
-      ),
-    },
-    {
-      key: 'projects',
-      element: (
-        <ProjectSliderSection
-          isMainVisible={showMain}
-          onReachEnd={() => navigateSections('next')}
-          onReachStart={() => navigateSections('prev')}
         />
       ),
     },

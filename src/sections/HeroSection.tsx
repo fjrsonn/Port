@@ -18,7 +18,6 @@ import { FaGithub, FaLinkedin, FaMicrophone, FaPaperPlane, FaSearch } from 'reac
 import { HeroAgentPanel, type HeroAgentTurn } from '../components/hero-agent/HeroAgentPanel';
 import { HeroParticlesAdvanced } from '../components/hero-particles/HeroParticlesAdvanced';
 import type { HeroTransitionPhase, ShapeName } from '../components/hero-particles/engine/types';
-import heroBackdropImageUrl from '../assets/hero/fjr-last-judgement.jpg';
 import heroWordmarkTextureUrl from '../assets/hero/fjr-last-judgement-wordmark-2.jpg';
 import { sendAgentMessage } from '../lib/agentApi';
 
@@ -47,7 +46,6 @@ export type HeroSectionProps = {
   isSectionParticleExitActive?: boolean;
   isVideoHovering?: boolean;
   isMainVisible?: boolean;
-  isProjectCardVisible?: boolean;
   particleImageTarget?: string | null;
   particleOpacity?: number;
   particleDissolveProgress?: number;
@@ -285,21 +283,30 @@ const heroWordmarkScrambleDurationMs = 560;
 const heroWordmarkIntroScrambleDelayMs = 1000;
 const heroWordmarkIntroScrambleStaggerMs = 220;
 const heroWordmarkDotPulseDurationMs = 3000;
-const heroWordmarkLettersFadeDurationMs = 680;
-const heroWordmarkDotShrinkDurationMs = 440;
+const heroWordmarkDotLiftDurationMs = 560;
+const heroWordmarkDotLiftHoldDurationMs = 2000;
 const heroWordmarkDotFlightDurationMs = 980;
+const heroWordmarkDotCenterHoldDurationMs = 1000;
 const heroWordmarkTextureImageWidth = 802;
 const heroWordmarkTextureImageHeight = 320;
 const heroWordmarkTextureZoom = 1.24;
 const heroWordmarkTextureFocusX = 0.5;
 const heroWordmarkTextureFocusY = 0.5;
 
-type HeroWordmarkSceneTransitionPhase = 'idle' | 'dotPulse' | 'lettersFade' | 'dotShrink' | 'dotFlight';
+type HeroWordmarkSceneTransitionPhase =
+  | 'idle'
+  | 'dotPulse'
+  | 'dotLift'
+  | 'dotLiftHold'
+  | 'dotFlight'
+  | 'dotCenterHold';
 
 type HeroWordmarkDotFlightMetrics = {
   deltaX: number;
   deltaY: number;
+  liftDeltaY: number;
   scale: number;
+  centerScale: number;
   sourceX: number;
   sourceY: number;
   sourceSize: number;
@@ -319,7 +326,6 @@ export function HeroSection({
   isSectionParticleExitActive = false,
   isVideoHovering = false,
   isMainVisible = true,
-  isProjectCardVisible = false,
   particleImageTarget = null,
   particleOpacity = 1,
   particleDissolveProgress = 0,
@@ -372,7 +378,9 @@ export function HeroSection({
   const [heroWordmarkDotFlightMetrics, setHeroWordmarkDotFlightMetrics] = useState<HeroWordmarkDotFlightMetrics>({
     deltaX: 0,
     deltaY: 0,
+    liftDeltaY: 0,
     scale: 1,
+    centerScale: 1,
     sourceX: 0,
     sourceY: 0,
     sourceSize: 0,
@@ -569,7 +577,9 @@ export function HeroSection({
       return {
         deltaX: 0,
         deltaY: 0,
+        liftDeltaY: 0,
         scale: 1,
+        centerScale: 1,
         sourceX: 0,
         sourceY: 0,
         sourceSize: 0,
@@ -580,8 +590,12 @@ export function HeroSection({
     const currentDotSizePx = Math.max(Math.min(dotRect.width, dotRect.height), 1);
     const dotCenterX = dotRect.left + (dotRect.width / 2);
     const dotCenterY = dotRect.bottom - (currentDotSizePx / 2);
+    const wordmarkRect = heroWordmarkInnerRef.current?.getBoundingClientRect();
+    const liftTargetY = wordmarkRect
+      ? wordmarkRect.top + (wordmarkRect.height / 2)
+      : (window.innerHeight / 2);
     const measurementHost = heroStageRef.current ?? heroRef.current ?? dotGlyph.parentElement;
-    let targetDotSizePx = 0;
+    let searchBarHeightPx = 0;
 
     if (measurementHost instanceof HTMLElement) {
       const measurementElement = document.createElement('div');
@@ -594,18 +608,23 @@ export function HeroSection({
       measurementElement.style.pointerEvents = 'none';
       measurementElement.style.visibility = 'hidden';
       measurementHost.appendChild(measurementElement);
-      targetDotSizePx = measurementElement.getBoundingClientRect().width * 0.2;
+      searchBarHeightPx = measurementElement.getBoundingClientRect().width;
       measurementHost.removeChild(measurementElement);
     }
 
-    if (!Number.isFinite(targetDotSizePx) || targetDotSizePx <= 0) {
-      targetDotSizePx = Math.max(12, Math.min(16, window.innerWidth * 0.0095));
+    if (!Number.isFinite(searchBarHeightPx) || searchBarHeightPx <= 0) {
+      searchBarHeightPx = Math.max(48, Math.min(60, window.innerWidth * 0.04));
     }
+
+    const centerTargetSizePx = Math.max(currentDotSizePx, searchBarHeightPx * 0.68);
+    const centerScale = Math.max(1, Math.min(2.35, centerTargetSizePx / currentDotSizePx));
 
     return {
       deltaX: (window.innerWidth / 2) - dotCenterX,
       deltaY: (window.innerHeight / 2) - dotCenterY,
-      scale: Math.max(0.026, Math.min(1, targetDotSizePx / currentDotSizePx)),
+      liftDeltaY: liftTargetY - dotCenterY,
+      scale: 1,
+      centerScale,
       sourceX: dotCenterX,
       sourceY: dotCenterY,
       sourceSize: currentDotSizePx,
@@ -857,7 +876,9 @@ export function HeroSection({
     setHeroWordmarkDotFlightMetrics({
       deltaX: 0,
       deltaY: 0,
+      liftDeltaY: 0,
       scale: 1,
+      centerScale: 1,
       sourceX: 0,
       sourceY: 0,
       sourceSize: 0,
@@ -899,17 +920,21 @@ export function HeroSection({
       await waitForHeroWordmarkSceneStep(heroWordmarkDotPulseDurationMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
-      setHeroWordmarkSceneTransitionPhase('lettersFade');
-      await waitForHeroWordmarkSceneStep(heroWordmarkLettersFadeDurationMs);
+      setHeroWordmarkDotFlightMetrics(resolveHeroWordmarkDotFlightMetrics());
+      setHeroWordmarkSceneTransitionPhase('dotLift');
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotLiftDurationMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
-      setHeroWordmarkDotFlightMetrics(resolveHeroWordmarkDotFlightMetrics());
-      setHeroWordmarkSceneTransitionPhase('dotShrink');
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotShrinkDurationMs);
+      setHeroWordmarkSceneTransitionPhase('dotLiftHold');
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotLiftHoldDurationMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
       setHeroWordmarkSceneTransitionPhase('dotFlight');
       await waitForHeroWordmarkSceneStep(heroWordmarkDotFlightDurationMs);
+      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
+
+      setHeroWordmarkSceneTransitionPhase('dotCenterHold');
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotCenterHoldDurationMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
       setForwardedHeroTransitionRequestId(requestId);
@@ -1155,10 +1180,9 @@ export function HeroSection({
   }, []);
 
   const revealDetails = useCallback(() => {
-    if (isProjectCardVisible) return;
     setShowDetails(true);
     scheduleDetailsAutoHide();
-  }, [isProjectCardVisible, scheduleDetailsAutoHide]);
+  }, [scheduleDetailsAutoHide]);
 
   useEffect(() => {
     if (!isSectionActive || hasScheduledIntroRef.current) return;
@@ -1251,7 +1275,7 @@ export function HeroSection({
       subtitleTypingTimerRef.current = window.setTimeout(typeNext, 58 + Math.random() * 48);
     };
 
-    subtitleTypingTimerRef.current = window.setTimeout(typeNext, 260);
+    subtitleTypingTimerRef.current = window.setTimeout(typeNext, 420);
 
     return () => {
       if (subtitleTypingTimerRef.current) {
@@ -1517,7 +1541,7 @@ export function HeroSection({
   }, [activeHeroBioLines, activeHeroBioRightLines, currentShape, hasProfileBioContent, hideFixedTitle, isSectionActive]);
 
   useEffect(() => {
-    if (!isSectionActive || currentShape !== 'fjr' || hideFixedTitle || isProjectCardVisible) return;
+    if (!isSectionActive || currentShape !== 'fjr' || hideFixedTitle) return;
 
     const bottomThreshold = 84;
     const onPointerMove = (event: MouseEvent) => {
@@ -1532,7 +1556,7 @@ export function HeroSection({
 
     window.addEventListener('mousemove', onPointerMove, { passive: true });
     return () => window.removeEventListener('mousemove', onPointerMove);
-  }, [currentShape, hideFixedTitle, isProjectCardVisible, isSectionActive, revealDetails]);
+  }, [currentShape, hideFixedTitle, isSectionActive, revealDetails]);
 
   const clearProfileAmbientHideTimer = useCallback(() => {
     if (profileAmbientHideTimerRef.current) {
@@ -2424,34 +2448,19 @@ export function HeroSection({
         >
           <div
             className={[
-              'hero-fjr-backdrop',
-              shouldShowHeroWordmark ? 'is-visible' : '',
-              shouldShowHeroWordmark && resolvedSampleIndex === 0 ? 'hero-fjr-backdrop--intro' : '',
-            ].filter(Boolean).join(' ')}
-            aria-hidden="true"
-          >
-            <div
-              className="hero-fjr-backdrop__image"
-              style={{
-                '--hero-fjr-backdrop-image': `url(${heroBackdropImageUrl})`,
-              } as CSSProperties}
-            />
-          </div>
-          <div
-            className={[
               'hero-fjr-wordmark',
               shouldShowHeroWordmark ? 'is-visible' : '',
               isHeroWordmarkGlowVisible ? 'hero-fjr-wordmark--glow-active' : '',
               isHeroWordmarkSceneTransitionActive ? 'hero-fjr-wordmark--transition-active' : '',
               heroWordmarkSceneTransitionPhase === 'dotPulse' ? 'hero-fjr-wordmark--transition-dot-pulse' : '',
-              heroWordmarkSceneTransitionPhase === 'lettersFade' ? 'hero-fjr-wordmark--transition-letters-fade' : '',
-              heroWordmarkSceneTransitionPhase === 'dotShrink' ? 'hero-fjr-wordmark--transition-dot-shrink' : '',
+              heroWordmarkSceneTransitionPhase === 'dotCenterHold' ? 'hero-fjr-wordmark--transition-dot-center-hold' : '',
               heroWordmarkSceneTransitionPhase === 'dotFlight' ? 'hero-fjr-wordmark--transition-dot-flight' : '',
               shouldShowHeroWordmark && resolvedSampleIndex === 0 ? 'hero-fjr-wordmark--intro' : '',
             ].filter(Boolean).join(' ')}
             style={{
               '--hero-fjr-dot-flight-x': `${heroWordmarkDotFlightMetrics.deltaX.toFixed(2)}px`,
               '--hero-fjr-dot-flight-y': `${heroWordmarkDotFlightMetrics.deltaY.toFixed(2)}px`,
+              '--hero-fjr-dot-lift-y': `${heroWordmarkDotFlightMetrics.liftDeltaY.toFixed(2)}px`,
               '--hero-fjr-dot-flight-scale': heroWordmarkDotFlightMetrics.scale.toFixed(4),
             } as CSSProperties}
             aria-hidden="true"
@@ -2501,8 +2510,10 @@ export function HeroSection({
                     'hero-fjr-wordmark__glyph',
                     character === '.' ? 'hero-fjr-wordmark__glyph--dot' : '',
                     character === '.' && (
-                      heroWordmarkSceneTransitionPhase === 'dotShrink' ||
-                      heroWordmarkSceneTransitionPhase === 'dotFlight'
+                      heroWordmarkSceneTransitionPhase === 'dotLift' ||
+                      heroWordmarkSceneTransitionPhase === 'dotLiftHold' ||
+                      heroWordmarkSceneTransitionPhase === 'dotFlight' ||
+                      heroWordmarkSceneTransitionPhase === 'dotCenterHold'
                     )
                       ? 'hero-fjr-wordmark__glyph--dot-flight-hidden'
                       : '',
@@ -2522,14 +2533,29 @@ export function HeroSection({
               ))}
             </div>
           </div>
-          {(heroWordmarkSceneTransitionPhase === 'dotShrink' || heroWordmarkSceneTransitionPhase === 'dotFlight') &&
+          {(
+            heroWordmarkSceneTransitionPhase === 'dotLift' ||
+            heroWordmarkSceneTransitionPhase === 'dotLiftHold' ||
+            heroWordmarkSceneTransitionPhase === 'dotFlight' ||
+            heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+          ) &&
             heroWordmarkDotFlightMetrics.sourceSize > 0 && (
             <div
               className={[
                 'hero-fjr-flight-particle-anchor',
-                heroWordmarkSceneTransitionPhase === 'dotShrink'
-                  ? 'hero-fjr-flight-particle-anchor--shrink'
-                  : 'hero-fjr-flight-particle-anchor--flight',
+                heroWordmarkSceneTransitionPhase === 'dotLift' ? 'hero-fjr-flight-particle-anchor--lift' : '',
+                heroWordmarkSceneTransitionPhase === 'dotLiftHold' ? 'hero-fjr-flight-particle-anchor--lift-hold' : '',
+                heroWordmarkSceneTransitionPhase === 'dotFlight' ? 'hero-fjr-flight-particle-anchor--flight' : '',
+                heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                  ? 'hero-fjr-flight-particle-anchor--center-hold'
+                  : '',
+                heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                  ? 'hero-fjr-flight-particle-anchor--center-expand'
+                  : '',
+                heroWordmarkSceneTransitionPhase === 'dotFlight' ||
+                heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                  ? 'hero-fjr-flight-particle-anchor--behind-wordmark'
+                  : '',
               ].filter(Boolean).join(' ')}
               style={{
                 '--hero-fjr-flight-source-x': `${heroWordmarkDotFlightMetrics.sourceX.toFixed(2)}px`,
@@ -2537,7 +2563,9 @@ export function HeroSection({
                 '--hero-fjr-flight-source-size': `${heroWordmarkDotFlightMetrics.sourceSize.toFixed(2)}px`,
                 '--hero-fjr-flight-delta-x': `${heroWordmarkDotFlightMetrics.deltaX.toFixed(2)}px`,
                 '--hero-fjr-flight-delta-y': `${heroWordmarkDotFlightMetrics.deltaY.toFixed(2)}px`,
+                '--hero-fjr-flight-lift-delta-y': `${heroWordmarkDotFlightMetrics.liftDeltaY.toFixed(2)}px`,
                 '--hero-fjr-flight-scale': heroWordmarkDotFlightMetrics.scale.toFixed(4),
+                '--hero-fjr-flight-center-scale': heroWordmarkDotFlightMetrics.centerScale.toFixed(4),
               } as CSSProperties}
               aria-hidden="true"
             >
@@ -2712,10 +2740,10 @@ export function HeroSection({
               <motion.p
                 key="hero-subtitle"
                 className="hero-subtitle"
-                initial={{ opacity: 0, filter: 'blur(6px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(6px)' }}
-                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, y: 16, scale: 0.985, filter: 'blur(10px)' }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: 10, scale: 0.992, filter: 'blur(8px)' }}
+                transition={{ duration: 0.56, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
               >
                 {typedSubtitle}
                 <span className="hero-subtitle-caret" aria-hidden="true">|</span>
@@ -2818,17 +2846,79 @@ export function HeroSection({
           !isProfileExitActive && (
           <motion.div
             className="social-icons"
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ duration: 1, ease: 'easeInOut' }}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={{
+              hidden: {
+                opacity: 0,
+                y: 22,
+                scale: 0.96,
+                filter: 'blur(10px)',
+              },
+              visible: {
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                filter: 'blur(0px)',
+                transition: {
+                  duration: 0.46,
+                  delay: 0.34,
+                  ease: [0.16, 1, 0.3, 1],
+                  staggerChildren: 0.07,
+                  delayChildren: 0.02,
+                },
+              },
+              exit: {
+                opacity: 0,
+                y: 16,
+                scale: 0.97,
+                filter: 'blur(8px)',
+                transition: {
+                  duration: 0.28,
+                  ease: [0.4, 0, 1, 1],
+                },
+              },
+            }}
           >
-            <a href="https://github.com/fjrsonn" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <motion.a
+              href="https://github.com/fjrsonn"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+              variants={{
+                hidden: { opacity: 0, y: 12, scale: 0.9, filter: 'blur(6px)' },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                  filter: 'blur(0px)',
+                  transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] },
+                },
+                exit: { opacity: 0, y: 8, scale: 0.94, filter: 'blur(4px)', transition: { duration: 0.24 } },
+              }}
+            >
               <FaGithub />
-            </a>
-            <a href="https://www.linkedin.com/in/flaviojuniorls" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            </motion.a>
+            <motion.a
+              href="https://www.linkedin.com/in/flaviojuniorls"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+              variants={{
+                hidden: { opacity: 0, y: 12, scale: 0.9, filter: 'blur(6px)' },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                  filter: 'blur(0px)',
+                  transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] },
+                },
+                exit: { opacity: 0, y: 8, scale: 0.94, filter: 'blur(4px)', transition: { duration: 0.24 } },
+              }}
+            >
               <FaLinkedin />
-            </a>
+            </motion.a>
           </motion.div>
         )}
       </AnimatePresence>
