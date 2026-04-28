@@ -61,6 +61,26 @@
     drop-shadow(0 0 44px rgba(255, 255, 255, 0.12))
     blur(0);
   transform: translate3d(-50%, -50%, 0) scale(1);
+  animation: hero-particle-solid-image-glow 3.6s ease-in-out infinite;
+}
+
+@keyframes hero-particle-solid-image-glow {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 12px rgba(255, 255, 255, 0.34))
+      drop-shadow(0 0 28px rgba(255, 255, 255, 0.2))
+      drop-shadow(0 0 44px rgba(255, 255, 255, 0.12))
+      blur(0);
+  }
+
+  50% {
+    filter:
+      drop-shadow(0 0 10px rgba(255, 255, 255, 0.28))
+      drop-shadow(0 0 24px rgba(255, 255, 255, 0.17))
+      drop-shadow(0 0 38px rgba(255, 255, 255, 0.1))
+      blur(0);
+  }
 }
 
 @media (max-width: 720px) {

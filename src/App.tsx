@@ -9,13 +9,14 @@ import { ProfileOneSection } from './sections/ProfileOneSection';
 import { SkillsOneSection } from './sections/SkillsOneSection';
 import { ProfileTwoSection } from './sections/ProfileTwoSection';
 import { SkillsTwoSection } from './sections/SkillsTwoSection';
-import skillsOneAccessVideoSrc from './assets/skills/Acess-UI-UX.mp4';
 
 const sectionParticleExitDurationMs = 820;
 const sectionTransitionBaseDurationMs = 520;
 const sectionTransitionLockMs = sectionTransitionBaseDurationMs + 80;
 const deferredSectionTransitionLockMs =
   sectionParticleExitDurationMs + sectionTransitionBaseDurationMs + 120;
+const sectionFrameTransitionEnterDurationMs = 780;
+const sectionFrameTransitionExitDurationMs = 320;
 const wheelIntentThreshold = 72;
 const sharedProfileIdleTimeoutMs = 10000;
 const sharedProfileControlsHideDurationMs = 240;
@@ -74,13 +75,26 @@ type SectionTransitionCustom = {
   direction: 1 | -1;
 };
 
+type SectionFrameEntryDirection = 'bottom' | 'top';
+type SectionFrameExitDirection = 'up' | 'down';
+
+type PendingSectionFrameTransition = {
+  key: number;
+  direction: 'next' | 'prev';
+  stage: 1 | 2;
+  entryDirection: SectionFrameEntryDirection;
+  isExiting: boolean;
+  exitDirection: SectionFrameExitDirection | null;
+};
+
 type SkillGuideVisualState = 'idle' | 'morphing' | 'returning';
 
 const sectionTransitionEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const heroSectionIndex = 0;
 const skillsOneSectionIndex = 2;
+const profileTwoSectionIndex = 3;
 const skillsTwoSectionIndex = 4;
-const skillsOneVideoRevealSectionIndexes = new Set([skillsOneSectionIndex, skillsTwoSectionIndex]);
+const skillsOneVideoRevealSectionIndexes = new Set<number>();
 const skillsOneVideoRevealScrollDistance = 3200;
 const skillsOneVideoElementExitThreshold = 0.5;
 const skillsOneVideoStripFeedbackStart = 0.22;
@@ -95,6 +109,14 @@ const getLoopedSectionIndex = (index: number, directionValue: 1 | -1, totalSecti
   if (index === heroSectionIndex && directionValue === -1) return skillsTwoSectionIndex;
   return (index + directionValue + totalSections) % totalSections;
 };
+const shouldTriggerSectionFrameTransition = (
+  currentSectionIndex: number,
+  nextSectionIndex: number,
+  directionValue: 1 | -1,
+) => directionValue === 1 && (
+  (currentSectionIndex === skillsOneSectionIndex && nextSectionIndex === profileTwoSectionIndex) ||
+  (currentSectionIndex === skillsTwoSectionIndex && nextSectionIndex === heroSectionIndex)
+);
 
 const isSharedProfileSectionIndex = (index: number) => index >= 1 && index <= 4;
 
@@ -220,7 +242,9 @@ export default function App() {
   const [isVideoHovering] = useState(false);
   const sectionTransitionLockRef = useRef<number | null>(null);
   const deferredSectionTransitionTimerRef = useRef<number | null>(null);
-  const navigateSectionsRef = useRef<((direction: 'next' | 'prev') => void) | null>(null);
+  const navigateSectionsRef = useRef<((direction: 'next' | 'prev', options?: {
+    skipSectionFrameTransition?: boolean;
+  }) => void) | null>(null);
   const pendingSkillsVideoNavigationDirectionRef = useRef<'next' | 'prev' | null>(null);
   const wheelIntentRef = useRef(0);
   const isHeroTransitionInProgressRef = useRef(false);
@@ -255,6 +279,7 @@ export default function App() {
   const [isSharedProfileTypingComplete, setIsSharedProfileTypingComplete] = useState(false);
   const [isSharedProfileBioVisible, setIsSharedProfileBioVisible] = useState(true);
   const [isSectionParticleExitActive, setIsSectionParticleExitActive] = useState(false);
+  const [pendingSectionFrameTransition, setPendingSectionFrameTransition] = useState<PendingSectionFrameTransition | null>(null);
   const [skillGuideVisualState, setSkillGuideVisualState] = useState<SkillGuideVisualState>('idle');
   const [skillParticleImageSrc, setSkillParticleImageSrc] = useState<string | null>(null);
   const [activeSkillImageKey, setActiveSkillImageKey] = useState<string | null>(null);
@@ -267,6 +292,11 @@ export default function App() {
   const isSkillsOneVideoRestoringAfterRevealRef = useRef(false);
   const skillsOneVideoRestoreProgressRef = useRef(1);
   const skillsOneVideoRestoreRafRef = useRef<number | null>(null);
+  const sectionFrameTransitionSequenceRef = useRef(0);
+  const sectionFrameTransitionTimerRef = useRef<number | null>(null);
+  const isSectionFrameTransitionAnimatingRef = useRef(false);
+  const sectionFrameRectRef = useRef<HTMLDivElement | null>(null);
+  const pendingSectionFrameTransitionRef = useRef<PendingSectionFrameTransition | null>(null);
   const hasStartedSkillsOneVideoSearchExitRef = useRef(false);
   const skillHoverLabelRef = useRef<string | null>(null);
   const skillHoverKeyRef = useRef<string | null>(null);
@@ -278,6 +308,23 @@ export default function App() {
     isSharedProfileSection &&
     !isSharedAgentPanelDismissed &&
     sharedAgentTurns.length > 0;
+  pendingSectionFrameTransitionRef.current = pendingSectionFrameTransition;
+
+  useEffect(() => {
+    const rootStyle = document.documentElement.style;
+
+    const syncViewportMetrics = () => {
+      rootStyle.setProperty('--app-viewport-width', `${window.innerWidth}px`);
+      rootStyle.setProperty('--app-viewport-height', `${window.innerHeight}px`);
+    };
+
+    syncViewportMetrics();
+    window.addEventListener('resize', syncViewportMetrics);
+
+    return () => {
+      window.removeEventListener('resize', syncViewportMetrics);
+    };
+  }, []);
 
   activeSectionIndexRef.current = activeSectionIndex;
 
@@ -335,9 +382,6 @@ export default function App() {
   const skillsOneVideoGuideParticleOpacity = clamp(1 - skillsOneVideoGuideDissolveProgress, 0, 1);
   const skillsOneVideoGuideParticleScale = clamp(1 - (skillsOneVideoGuideDissolveProgress * 0.78), 0.22, 1);
   const skillsOneVideoGuideParticleBlur = `${(skillsOneVideoGuideDissolveProgress * 7).toFixed(2)}px`;
-  const skillsOneVideoOpacityProgress = isSkillsOneVideoHiddenAfterReveal
-    ? 0
-    : smoothstep(skillsOneVideoRevealProgress);
   const skillsOneVideoStripFeedbackProgress = isSkillsOneVideoRevealSection && !isSkillsOneVideoHiddenAfterReveal
     ? smoothstep(
         (skillsOneVideoRevealProgress - skillsOneVideoStripFeedbackStart) /
@@ -350,6 +394,8 @@ export default function App() {
     '--hero-profile-guide-video-dissolve-scale': skillsOneVideoGuideParticleScale.toFixed(3),
     '--hero-profile-guide-video-dissolve-blur': skillsOneVideoGuideParticleBlur,
   } as CSSProperties;
+  const shouldKeepSkillAmbientVisibleForSectionFrame =
+    pendingSectionFrameTransition !== null && isSkillAmbientSection;
   const shouldShowSkillAmbient =
     showMain &&
     isSkillAmbientSection &&
@@ -358,11 +404,13 @@ export default function App() {
     !isSharedAgentPanelVisible &&
     (
       sharedProfileAmbientPhase === 'active' ||
-      shouldKeepSkillStripVisibleForSkillsOneVideo
+      shouldKeepSkillStripVisibleForSkillsOneVideo ||
+      shouldKeepSkillAmbientVisibleForSectionFrame
     );
   const activeSkillParticleImageSrc = shouldShowSkillAmbient ? skillParticleImageSrc : null;
   const shouldSinkSkillAmbient =
     isSkillAmbientSection &&
+    !shouldKeepSkillAmbientVisibleForSectionFrame &&
     !shouldKeepSkillStripVisibleForSkillsOneVideo &&
     (
       isSectionParticleExitActive ||
@@ -461,8 +509,9 @@ export default function App() {
   );
 
   const handleSkillStripPointerLeave = useCallback(() => {
+    if (pendingSectionFrameTransition) return;
     clearSkillHover();
-  }, [clearSkillHover]);
+  }, [clearSkillHover, pendingSectionFrameTransition]);
 
   const handleSkillImagePointerEnter = useCallback((label: string, itemKey: string, src: string) => {
     setSkillHoverItem(label, itemKey, src);
@@ -527,6 +576,9 @@ export default function App() {
       if (sectionTransitionLockRef.current !== null) {
         window.clearTimeout(sectionTransitionLockRef.current);
       }
+      if (sectionFrameTransitionTimerRef.current !== null) {
+        window.clearTimeout(sectionFrameTransitionTimerRef.current);
+      }
       if (deferredSectionTransitionTimerRef.current !== null) {
         window.clearTimeout(deferredSectionTransitionTimerRef.current);
       }
@@ -556,6 +608,117 @@ export default function App() {
       }
     };
   }, []);
+
+  const clearSectionFrameTransitionTimer = useCallback(() => {
+    if (sectionFrameTransitionTimerRef.current !== null) {
+      window.clearTimeout(sectionFrameTransitionTimerRef.current);
+      sectionFrameTransitionTimerRef.current = null;
+    }
+  }, []);
+
+  const queueSectionFrameTransitionStep = useCallback((callback: () => void, delayMs: number) => {
+    clearSectionFrameTransitionTimer();
+    sectionFrameTransitionTimerRef.current = window.setTimeout(() => {
+      sectionFrameTransitionTimerRef.current = null;
+      callback();
+    }, delayMs);
+  }, [clearSectionFrameTransitionTimer]);
+
+  const openSectionFrameTransition = useCallback((direction: 'next' | 'prev') => {
+    const transitionKey = sectionFrameTransitionSequenceRef.current + 1;
+    sectionFrameTransitionSequenceRef.current = transitionKey;
+    isSectionFrameTransitionAnimatingRef.current = true;
+    setPendingSectionFrameTransition({
+      key: transitionKey,
+      direction,
+      stage: 1,
+      entryDirection: 'bottom',
+      isExiting: false,
+      exitDirection: null,
+    });
+    queueSectionFrameTransitionStep(() => {
+      isSectionFrameTransitionAnimatingRef.current = false;
+    }, sectionFrameTransitionEnterDurationMs);
+  }, [queueSectionFrameTransitionStep]);
+
+  const advanceSectionFrameTransition = useCallback(() => {
+    const currentTransition = pendingSectionFrameTransitionRef.current;
+    if (!currentTransition || isSectionFrameTransitionAnimatingRef.current) return false;
+
+    isSectionFrameTransitionAnimatingRef.current = true;
+    setPendingSectionFrameTransition({
+      ...currentTransition,
+      isExiting: true,
+      exitDirection: 'up',
+    });
+
+    queueSectionFrameTransitionStep(() => {
+      const latestTransition = pendingSectionFrameTransitionRef.current ?? currentTransition;
+
+      if (currentTransition.stage === 1) {
+        const nextTransitionKey = sectionFrameTransitionSequenceRef.current + 1;
+        sectionFrameTransitionSequenceRef.current = nextTransitionKey;
+        setPendingSectionFrameTransition({
+          key: nextTransitionKey,
+          direction: latestTransition.direction,
+          stage: 2,
+          entryDirection: 'bottom',
+          isExiting: false,
+          exitDirection: null,
+        });
+
+        queueSectionFrameTransitionStep(() => {
+          isSectionFrameTransitionAnimatingRef.current = false;
+        }, sectionFrameTransitionEnterDurationMs);
+        return;
+      }
+
+      setPendingSectionFrameTransition(null);
+      isSectionFrameTransitionAnimatingRef.current = false;
+      navigateSectionsRef.current?.(latestTransition.direction, { skipSectionFrameTransition: true });
+    }, sectionFrameTransitionExitDurationMs);
+
+    return true;
+  }, [queueSectionFrameTransitionStep]);
+
+  const reverseSectionFrameTransition = useCallback(() => {
+    const currentTransition = pendingSectionFrameTransitionRef.current;
+    if (!currentTransition || isSectionFrameTransitionAnimatingRef.current) return false;
+
+    isSectionFrameTransitionAnimatingRef.current = true;
+    setPendingSectionFrameTransition({
+      ...currentTransition,
+      isExiting: true,
+      exitDirection: 'down',
+    });
+
+    queueSectionFrameTransitionStep(() => {
+      const latestTransition = pendingSectionFrameTransitionRef.current ?? currentTransition;
+
+      if (currentTransition.stage === 2) {
+        const nextTransitionKey = sectionFrameTransitionSequenceRef.current + 1;
+        sectionFrameTransitionSequenceRef.current = nextTransitionKey;
+        setPendingSectionFrameTransition({
+          key: nextTransitionKey,
+          direction: latestTransition.direction,
+          stage: 1,
+          entryDirection: 'top',
+          isExiting: false,
+          exitDirection: null,
+        });
+
+        queueSectionFrameTransitionStep(() => {
+          isSectionFrameTransitionAnimatingRef.current = false;
+        }, sectionFrameTransitionEnterDurationMs);
+        return;
+      }
+
+      setPendingSectionFrameTransition(null);
+      isSectionFrameTransitionAnimatingRef.current = false;
+    }, sectionFrameTransitionExitDurationMs);
+
+    return true;
+  }, [queueSectionFrameTransitionStep]);
 
   const clearSharedProfileAmbientTimers = useCallback(() => {
     if (sharedProfileIdleTimerRef.current !== null) {
@@ -919,7 +1082,7 @@ export default function App() {
     }
 
     if (sharedProfileAmbientPhase === 'active') {
-      setSharedProfileAmbientActive(true);
+      setSharedProfileAmbientActive(!shouldKeepSkillAmbientVisibleForSectionFrame);
     }
   }, [
     clearSharedProfileAmbientTimers,
@@ -931,18 +1094,42 @@ export default function App() {
     activeSectionIndex,
     isSkillsOneVideoElementExitActive,
     skillsOneVideoRevealProgress,
+    shouldKeepSkillAmbientVisibleForSectionFrame,
     showMain,
     sharedProfileAmbientPhase,
     startSharedProfileAmbientReturn,
   ]);
 
+  useEffect(() => {
+    if (!shouldKeepSkillAmbientVisibleForSectionFrame) return;
+    if (!isSharedProfileTypingComplete || isSectionParticleExitActive) return;
+    setSharedProfileAmbientActive(false);
+  }, [
+    isSectionParticleExitActive,
+    isSharedProfileTypingComplete,
+    setSharedProfileAmbientActive,
+    shouldKeepSkillAmbientVisibleForSectionFrame,
+  ]);
+
   const navigateSections = useCallback(
-    (direction: 'next' | 'prev') => {
+    (
+      direction: 'next' | 'prev',
+      options?: {
+        skipSectionFrameTransition?: boolean;
+      },
+    ) => {
       if (!showMain || sectionTransitionLockRef.current !== null) return;
 
       const directionValue = direction === 'next' ? 1 : -1;
       const shouldWaitForParticleExit = isSharedProfileSectionIndex(activeSectionIndex);
       const nextSectionIndex = getLoopedSectionIndex(activeSectionIndex, directionValue, totalSections);
+      const shouldStartSectionFrameTransition =
+        !options?.skipSectionFrameTransition &&
+        shouldTriggerSectionFrameTransition(
+          activeSectionIndex,
+          nextSectionIndex,
+          directionValue,
+        );
 
       const shouldReplayAmbientReturnAfterNavigation =
         shouldWaitForParticleExit &&
@@ -958,6 +1145,12 @@ export default function App() {
         }
         setActiveSectionIndex(nextSectionIndex);
       };
+
+      if (shouldStartSectionFrameTransition) {
+        wheelIntentRef.current = 0;
+        openSectionFrameTransition(direction);
+        return;
+      }
 
       wheelIntentRef.current = 0;
       sectionTransitionLockRef.current = window.setTimeout(() => {
@@ -987,6 +1180,7 @@ export default function App() {
     [
       activeSectionIndex,
       clearSharedProfileAmbientTimers,
+      openSectionFrameTransition,
       sharedProfileAmbientPhase,
       showMain,
       totalSections,
@@ -1146,6 +1340,25 @@ export default function App() {
   const handleMainClick = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
       if (!showMain || event.defaultPrevented) return;
+      if (pendingSectionFrameTransition) {
+        if (isSectionFrameTransitionAnimatingRef.current) return;
+        const frameElement = sectionFrameRectRef.current;
+
+        if (frameElement) {
+          const rect = frameElement.getBoundingClientRect();
+          const isInsideFrame =
+            event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom;
+
+          if (!isInsideFrame) {
+            advanceSectionFrameTransition();
+          }
+        }
+
+        return;
+      }
       if (isNavigationBlockedTarget(event.target)) return;
 
       if (activeSectionIndex === 0 && !isHeroTransitionInProgress) {
@@ -1182,8 +1395,10 @@ export default function App() {
     },
     [
       activeSectionIndex,
+      advanceSectionFrameTransition,
       isHeroTransitionInProgress,
       navigateSections,
+      pendingSectionFrameTransition,
       showMain,
       startHeroForwardTransition,
       startSkillsOneVideoRestoreSequence,
@@ -1193,6 +1408,24 @@ export default function App() {
   const handleMainWheel = useCallback(
     (event: ReactWheelEvent<HTMLElement>) => {
       if (!showMain) return;
+      if (pendingSectionFrameTransition) {
+        if (isSectionFrameTransitionAnimatingRef.current) return;
+        wheelIntentRef.current += event.deltaY;
+
+        if (Math.abs(wheelIntentRef.current) < wheelIntentThreshold) {
+          return;
+        }
+
+        const direction = wheelIntentRef.current > 0 ? 'next' : 'prev';
+        wheelIntentRef.current = 0;
+
+        if (direction === pendingSectionFrameTransition.direction) {
+          advanceSectionFrameTransition();
+        } else {
+          reverseSectionFrameTransition();
+        }
+        return;
+      }
       if (isWheelNavigationBlockedTarget(event.target)) return;
 
       if (handleSkillsOneVideoRevealWheel(event.deltaY)) {
@@ -1218,15 +1451,20 @@ export default function App() {
     },
     [
       activeSectionIndex,
+      advanceSectionFrameTransition,
       handleSkillsOneVideoRevealWheel,
       isHeroTransitionInProgress,
       navigateSections,
+      pendingSectionFrameTransition,
+      reverseSectionFrameTransition,
       showMain,
       startHeroForwardTransition,
     ],
   );
 
   const handleMainPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (pendingSectionFrameTransition) return;
+
     if (shouldShowSkillAmbient) {
       skillStripPointerRef.current = {
         x: event.clientX,
@@ -1239,6 +1477,7 @@ export default function App() {
     registerSharedProfileInteraction();
   }, [
     isSharedProfileSection,
+    pendingSectionFrameTransition,
     registerSharedProfileInteraction,
     shouldShowSkillAmbient,
     showMain,
@@ -1246,19 +1485,25 @@ export default function App() {
   ]);
 
   const handleMainPointerLeave = useCallback(() => {
+    if (pendingSectionFrameTransition) return;
     clearSkillHover();
-  }, [clearSkillHover]);
+  }, [clearSkillHover, pendingSectionFrameTransition]);
 
   const handleMainKeyDown = useCallback(() => {
+    if (pendingSectionFrameTransition) return;
     if (!showMain || !isSharedProfileSection) return;
     registerSharedProfileInteraction();
-  }, [isSharedProfileSection, registerSharedProfileInteraction, showMain]);
+  }, [isSharedProfileSection, pendingSectionFrameTransition, registerSharedProfileInteraction, showMain]);
 
   const handleParticleImageVisualStateChange = useCallback((state: SkillGuideVisualState) => {
     setSkillGuideVisualState(state);
   }, []);
   const activeHeroTransitionRequestId =
     activeSectionIndex === 0 && isHeroTransitionInProgress ? heroTransitionRequestId : 0;
+  const shouldShowFloatingSkillImage =
+    pendingSectionFrameTransition !== null &&
+    skillGuideVisualState === 'morphing' &&
+    activeSkillParticleImageSrc !== null;
 
   const sections = [
     {
@@ -1356,19 +1601,12 @@ export default function App() {
   const showSharedProfileOverlay =
     isSharedProfileSection ||
     (activeSectionIndex === 0 && isHeroTransitionInProgress);
-  const skillsOneVideoRevealStyle = {
-    '--skills-one-video-opacity': skillsOneVideoOpacityProgress.toFixed(3),
-  } as CSSProperties;
   const mainViewportStyle = isSkillsOneVideoRevealSection
     ? {
         '--skills-one-video-progress': skillsOneVideoRevealProgress.toFixed(3),
         '--skills-one-video-strip-feedback': skillsOneVideoStripFeedbackProgress.toFixed(3),
       } as CSSProperties
     : undefined;
-  const skillsOneVideoBackgroundClassName = [
-    'skills-one-video-background',
-    isSkillsOneVideoHiddenAfterReveal ? 'skills-one-video-background--hidden' : '',
-  ].filter(Boolean).join(' ');
   const mainViewportClassName = [
     'main-content__viewport',
     activeSkillAmbientContent ? 'main-content__viewport--skill-layout' : '',
@@ -1389,24 +1627,6 @@ export default function App() {
         onWheel={handleMainWheel}
       >
         <div className={mainViewportClassName} style={mainViewportStyle}>
-          {isSkillsOneVideoRevealSection && (
-            <div
-              className={skillsOneVideoBackgroundClassName}
-              style={skillsOneVideoRevealStyle}
-              aria-hidden="true"
-            >
-              <video
-                className="skills-one-video-background__media"
-                src={skillsOneAccessVideoSrc}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="auto"
-              />
-            </div>
-          )}
-
           {activeSkillAmbientContent && (
             <div className="main-content__skill-layer">
               {activeSkillImageItems.length > 0 && (
@@ -1417,7 +1637,6 @@ export default function App() {
                     shouldShowSkillAmbient ? 'hero-skill-image-strip--visible' : '',
                     shouldSinkSkillAmbient ? 'hero-skill-image-strip--sink' : '',
                   ].filter(Boolean).join(' ')}
-                  onClick={(event) => event.stopPropagation()}
                   onPointerLeave={handleSkillStripPointerLeave}
                   onPointerMove={handleSkillStripPointerMove}
                   aria-hidden="true"
@@ -1497,6 +1716,51 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {pendingSectionFrameTransition !== null && (
+            <div className="main-content__section-frame-transition" aria-hidden="true">
+              <motion.div
+                key={`section-frame-panel-${pendingSectionFrameTransition.key}`}
+                ref={sectionFrameRectRef}
+                className="main-content__section-frame"
+                initial={{
+                  y: pendingSectionFrameTransition.entryDirection === 'bottom' ? '112%' : '-112%',
+                  filter: 'blur(16px)',
+                  opacity: 1,
+                }}
+                animate={
+                  pendingSectionFrameTransition.isExiting
+                    ? {
+                        y: pendingSectionFrameTransition.exitDirection === 'up' ? '-112%' : '112%',
+                        opacity: 0,
+                        filter: 'blur(10px)',
+                        transition: {
+                          duration: sectionFrameTransitionExitDurationMs / 1000,
+                          ease: sectionTransitionEase,
+                        },
+                      }
+                    : {
+                        y: '0%',
+                        opacity: 1,
+                        filter: 'blur(0px)',
+                        transition: {
+                          duration: sectionFrameTransitionEnterDurationMs / 1000,
+                          ease: sectionTransitionEase,
+                        },
+                      }
+                }
+              />
+            </div>
+          )}
+
+          {shouldShowFloatingSkillImage && (
+            <img
+              className="hero-particle-solid-image is-visible main-content__floating-skill-image"
+              src={activeSkillParticleImageSrc ?? undefined}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
 
         </div>
       </main>

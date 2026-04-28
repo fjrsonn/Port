@@ -112,6 +112,8 @@ const rotatingSearchPrompts = [
 const searchIntroMessage = 'Olá, Sejam Bem vindos!';
 
 const profileGuideMoveDurationMs = 340;
+const resolvedSearchIntroMessage = searchIntroMessage.length > 0 ? 'Ol\u00e1!' : searchIntroMessage;
+const searchIntroTypingStepMs = 168;
 const profileGuideProfileCount = 4;
 const bioHoverGlowExitDelayMs = 3000;
 
@@ -282,11 +284,11 @@ const heroWordmarkInteractiveIndexes = [0, 1, 2] as const;
 const heroWordmarkScrambleDurationMs = 560;
 const heroWordmarkIntroScrambleDelayMs = 1000;
 const heroWordmarkIntroScrambleStaggerMs = 220;
-const heroWordmarkDotPulseDurationMs = 3000;
-const heroWordmarkDotLiftDurationMs = 560;
-const heroWordmarkDotLiftHoldDurationMs = 2000;
-const heroWordmarkDotFlightDurationMs = 980;
-const heroWordmarkDotCenterHoldDurationMs = 1000;
+const heroWordmarkDotCenterParticleRevealDelayMs = 680;
+const heroWordmarkDotCenterParticleStageDurationMs = 3000;
+const heroWordmarkDotCenterParticleIntroDurationMs = 1400;
+const heroWordmarkDotCenterParticleDriftDurationMs =
+  heroWordmarkDotCenterParticleStageDurationMs - heroWordmarkDotCenterParticleIntroDurationMs;
 const heroWordmarkTextureImageWidth = 802;
 const heroWordmarkTextureImageHeight = 320;
 const heroWordmarkTextureZoom = 1.24;
@@ -375,6 +377,7 @@ export function HeroSection({
   const [hasHeroWordmarkIntroCompleted, setHasHeroWordmarkIntroCompleted] = useState(resolvedSampleIndex !== 0);
   const [heroWordmarkSceneTransitionPhase, setHeroWordmarkSceneTransitionPhase] =
     useState<HeroWordmarkSceneTransitionPhase>('idle');
+  const [isHeroWordmarkCenterParticleVisible, setIsHeroWordmarkCenterParticleVisible] = useState(false);
   const [heroWordmarkDotFlightMetrics, setHeroWordmarkDotFlightMetrics] = useState<HeroWordmarkDotFlightMetrics>({
     deltaX: 0,
     deltaY: 0,
@@ -482,10 +485,22 @@ export function HeroSection({
     currentShape === 'fjr' &&
     particleTransitionPhase === 'idle' &&
     !hasHeroWordmarkTransitionBeenHandedOff;
+  const shouldRenderHeroWordmarkCenterParticle =
+    heroWordmarkDotFlightMetrics.sourceSize > 0 &&
+    (
+      heroWordmarkSceneTransitionPhase === 'dotLift' ||
+      heroWordmarkSceneTransitionPhase === 'dotLiftHold' ||
+      heroWordmarkSceneTransitionPhase === 'dotFlight' ||
+      (heroWordmarkSceneTransitionPhase === 'dotCenterHold' && isHeroWordmarkCenterParticleVisible)
+    );
   const shouldHideHeroParticleStage = resolvedSampleIndex === 0;
   const shouldSkipStageMotionIntro = resolvedSampleIndex === 0 || resolvedSampleIndex === 2;
   const initialParticleRevealDelayMs = 0;
   const shouldShowSearchBar = shouldRenderEmbeddedSearchUi && (currentShape === 'profile' || isParticleSceneActive);
+  const shouldShowSocialIcons =
+    resolvedSampleIndex === 0 ||
+    resolvedSampleIndex === 1 ||
+    resolvedSampleIndex === 3;
   const isSearchBarElasticReady =
     shouldRenderEmbeddedSearchUi &&
     currentShape === 'profile' &&
@@ -519,6 +534,7 @@ export function HeroSection({
   } as CSSProperties;
   const activeSearchPrompt = rotatingSearchPrompts[activeSearchPromptIndex] ?? rotatingSearchPrompts[0];
   const shouldShowSearchIntroText = searchIntroDisplayText.length > 0;
+  const shouldCenterSearchIntroField = shouldShowSearchIntroText && searchQuery.trim().length === 0;
   const agentPanelRoute =
     [...agentTurns].reverse().find((turn) => turn.route !== null)?.route ?? null;
   const effectiveProfileBioVisible =
@@ -873,6 +889,7 @@ export function HeroSection({
     heroWordmarkSceneSequenceRef.current += 1;
     clearHeroWordmarkSceneTimers();
     setHeroWordmarkSceneTransitionPhase('idle');
+    setIsHeroWordmarkCenterParticleVisible(false);
     setHeroWordmarkDotFlightMetrics({
       deltaX: 0,
       deltaY: 0,
@@ -912,29 +929,18 @@ export function HeroSection({
     setActiveHeroWordmarkGlyphIndex(null);
     setIsHeroWordmarkGlowVisible(false);
     setIsHeroWordmarkScrambleReady(false);
-    setHeroWordmarkSceneTransitionPhase('dotPulse');
+    setIsHeroWordmarkCenterParticleVisible(false);
+    setHeroWordmarkDotFlightMetrics(resolveHeroWordmarkDotFlightMetrics());
+    setHeroWordmarkSceneTransitionPhase('dotCenterHold');
 
     const sequenceId = heroWordmarkSceneSequenceRef.current;
 
     void (async () => {
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotPulseDurationMs);
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotCenterParticleRevealDelayMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
-      setHeroWordmarkDotFlightMetrics(resolveHeroWordmarkDotFlightMetrics());
-      setHeroWordmarkSceneTransitionPhase('dotLift');
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotLiftDurationMs);
-      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
-
-      setHeroWordmarkSceneTransitionPhase('dotLiftHold');
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotLiftHoldDurationMs);
-      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
-
-      setHeroWordmarkSceneTransitionPhase('dotFlight');
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotFlightDurationMs);
-      if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
-
-      setHeroWordmarkSceneTransitionPhase('dotCenterHold');
-      await waitForHeroWordmarkSceneStep(heroWordmarkDotCenterHoldDurationMs);
+      setIsHeroWordmarkCenterParticleVisible(true);
+      await waitForHeroWordmarkSceneStep(heroWordmarkDotCenterParticleStageDurationMs);
       if (sequenceId !== heroWordmarkSceneSequenceRef.current) return;
 
       setForwardedHeroTransitionRequestId(requestId);
@@ -1921,12 +1927,12 @@ export function HeroSection({
     let nextIndex = 0;
     const typeNextCharacter = () => {
       nextIndex += 1;
-      const nextText = searchIntroMessage.slice(0, nextIndex);
+      const nextText = resolvedSearchIntroMessage.slice(0, nextIndex);
       searchIntroTextRef.current = nextText;
       setSearchIntroDisplayText(nextText);
 
-      if (nextIndex < searchIntroMessage.length) {
-        searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, 72);
+      if (nextIndex < resolvedSearchIntroMessage.length) {
+        searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, searchIntroTypingStepMs);
         return;
       }
 
@@ -1942,7 +1948,7 @@ export function HeroSection({
 
     clearSearchIntroTypingTimer();
 
-    let nextText = searchIntroTextRef.current || searchIntroMessage;
+    let nextText = searchIntroTextRef.current || resolvedSearchIntroMessage;
     if (!nextText) {
       searchIntroModeRef.current = 'idle';
       setSearchIntroDisplayText('');
@@ -2509,14 +2515,6 @@ export function HeroSection({
                   className={[
                     'hero-fjr-wordmark__glyph',
                     character === '.' ? 'hero-fjr-wordmark__glyph--dot' : '',
-                    character === '.' && (
-                      heroWordmarkSceneTransitionPhase === 'dotLift' ||
-                      heroWordmarkSceneTransitionPhase === 'dotLiftHold' ||
-                      heroWordmarkSceneTransitionPhase === 'dotFlight' ||
-                      heroWordmarkSceneTransitionPhase === 'dotCenterHold'
-                    )
-                      ? 'hero-fjr-wordmark__glyph--dot-flight-hidden'
-                      : '',
                     activeHeroWordmarkGlyphIndex === index ? 'hero-fjr-wordmark__glyph--active' : '',
                   ].filter(Boolean).join(' ')}
                 >
@@ -2533,13 +2531,7 @@ export function HeroSection({
               ))}
             </div>
           </div>
-          {(
-            heroWordmarkSceneTransitionPhase === 'dotLift' ||
-            heroWordmarkSceneTransitionPhase === 'dotLiftHold' ||
-            heroWordmarkSceneTransitionPhase === 'dotFlight' ||
-            heroWordmarkSceneTransitionPhase === 'dotCenterHold'
-          ) &&
-            heroWordmarkDotFlightMetrics.sourceSize > 0 && (
+          {shouldRenderHeroWordmarkCenterParticle && (
             <div
               className={[
                 'hero-fjr-flight-particle-anchor',
@@ -2552,8 +2544,7 @@ export function HeroSection({
                 heroWordmarkSceneTransitionPhase === 'dotCenterHold'
                   ? 'hero-fjr-flight-particle-anchor--center-expand'
                   : '',
-                heroWordmarkSceneTransitionPhase === 'dotFlight' ||
-                heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                heroWordmarkSceneTransitionPhase === 'dotFlight'
                   ? 'hero-fjr-flight-particle-anchor--behind-wordmark'
                   : '',
               ].filter(Boolean).join(' ')}
@@ -2566,10 +2557,34 @@ export function HeroSection({
                 '--hero-fjr-flight-lift-delta-y': `${heroWordmarkDotFlightMetrics.liftDeltaY.toFixed(2)}px`,
                 '--hero-fjr-flight-scale': heroWordmarkDotFlightMetrics.scale.toFixed(4),
                 '--hero-fjr-flight-center-scale': heroWordmarkDotFlightMetrics.centerScale.toFixed(4),
+                '--hero-fjr-flight-center-scale-start': `${Math.max(
+                  0.16,
+                  heroWordmarkDotFlightMetrics.centerScale * 0.14,
+                ).toFixed(4)}`,
+                '--hero-fjr-flight-center-scale-half': `${(heroWordmarkDotFlightMetrics.centerScale * 0.5).toFixed(4)}`,
+                '--hero-fjr-flight-center-stage-duration': `${heroWordmarkDotCenterParticleStageDurationMs}ms`,
+                '--hero-fjr-flight-center-intro-duration': `${heroWordmarkDotCenterParticleIntroDurationMs}ms`,
+                '--hero-fjr-flight-center-drift-duration': `${heroWordmarkDotCenterParticleDriftDurationMs}ms`,
               } as CSSProperties}
               aria-hidden="true"
             >
-              <div className="hero-fjr-flight-particle" />
+              <div
+                className={[
+                  'hero-fjr-flight-particle-orbit',
+                  heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                    ? 'hero-fjr-flight-particle-orbit--center-drift'
+                    : '',
+                ].filter(Boolean).join(' ')}
+              >
+                <div
+                  className={[
+                    'hero-fjr-flight-particle',
+                    heroWordmarkSceneTransitionPhase === 'dotCenterHold'
+                      ? 'hero-fjr-flight-particle--center-stage'
+                      : '',
+                  ].filter(Boolean).join(' ')}
+                />
+              </div>
             </div>
           )}
 
@@ -2674,10 +2689,19 @@ export function HeroSection({
                   </button>
                 </div>
 
-                <form className="hero-search-scene__field" onSubmit={handleSearchSubmit}>
+                <form
+                  className={[
+                    'hero-search-scene__field',
+                    shouldCenterSearchIntroField ? 'hero-search-scene__field--intro' : '',
+                  ].filter(Boolean).join(' ')}
+                  onSubmit={handleSearchSubmit}
+                >
                   <input
                     ref={searchInputRef}
-                    className="hero-search-scene__field-input"
+                    className={[
+                      'hero-search-scene__field-input',
+                      shouldCenterSearchIntroField ? 'hero-search-scene__field-input--intro' : '',
+                    ].filter(Boolean).join(' ')}
                     type="text"
                     value={searchQuery}
                     onChange={handleSearchInputChange}
@@ -2840,6 +2864,7 @@ export function HeroSection({
 
       <AnimatePresence>
         {showDetails &&
+          shouldShowSocialIcons &&
           !shouldHideFixedTitle &&
           !isParticleSceneActive &&
           !isHeroWordmarkSceneTransitionActive &&

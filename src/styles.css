@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@100;200;300;400;600;700&display=swap');
 
 :root {
+  --app-viewport-width: 100vw;
+  --app-viewport-height: 100dvh;
   font-family: 'Alexandria', sans-serif;
   color: #fff;
   background: #111;
@@ -71,14 +73,18 @@ body::-webkit-scrollbar {
 }
 
 .main-content__viewport {
-  --viewport-height: 100dvh;
-  --hero-composition-scale: min(100vw, calc(var(--viewport-height) * 1.5));
+  --viewport-width: var(--app-viewport-width, 100vw);
+  --viewport-height: var(--app-viewport-height, 100dvh);
+  --hero-composition-scale: min(var(--viewport-width), calc(var(--viewport-height) * 1.5));
+  --hero-composition-left: max(0px, calc((var(--viewport-width) - var(--hero-composition-scale)) * 0.5));
+  --hero-composition-right: var(--hero-composition-left);
   --hero-fjr-wordmark-size: clamp(7rem, calc(var(--hero-composition-scale) * 0.235), 18rem);
   --search-bar-width: clamp(20rem, calc(var(--hero-composition-scale) * 0.6), 42rem);
   --search-bar-height: clamp(3rem, calc(var(--hero-composition-scale) * 0.052), 3.75rem);
   --search-bar-half-height: calc(var(--search-bar-height) * 0.5);
-  --search-drop-y: calc(clamp(16rem, 39dvh, 23rem) + clamp(1.7rem, 3.2dvh, 2.4rem));
-  --search-active-y: var(--search-drop-y);
+  --search-bar-offset-y: clamp(0.48rem, calc(var(--hero-composition-scale) * 0.012), 0.92rem);
+  --search-drop-y: calc(clamp(16rem, calc(var(--viewport-height) * 0.39), 23rem) + clamp(1.7rem, calc(var(--viewport-height) * 0.032), 2.4rem));
+  --search-active-y: calc(var(--search-drop-y) + var(--search-bar-offset-y));
   --skill-image-strip-item-width: clamp(6.5rem, calc(var(--hero-composition-scale) * 0.158), 11.5rem);
   --skill-image-strip-item-height: clamp(3.9rem, calc(var(--hero-composition-scale) * 0.091), 6.6rem);
   --skill-image-strip-bottom-gap: clamp(0.72rem, calc(var(--hero-composition-scale) * 0.018), 1.3rem);
@@ -94,17 +100,18 @@ body::-webkit-scrollbar {
   --search-ticker-visual-top: calc(50% + var(--search-drop-y) - var(--search-bar-half-height) - var(--search-bar-bottom-gap) - var(--search-ticker-word-visual-height));
   --profile-bio-reference-gap: max(var(--search-ticker-glow-space), var(--search-bar-bottom-gap));
   --skill-heading-size: clamp(3.15rem, calc(var(--hero-composition-scale) * 0.072), 5.8rem);
+  --section-frame-gap: clamp(1.9rem, calc(var(--hero-composition-scale) * 0.061), 5.8rem);
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: var(--viewport-width);
+  height: var(--viewport-height);
   min-height: var(--viewport-height);
   overflow: hidden;
   background: #111;
 }
 
 .main-content__viewport--skill-layout {
-  --search-active-y: var(--skill-image-strip-default-y);
-  --skill-image-strip-y: calc(var(--search-drop-y) + 0.1rem);
+  --search-active-y: calc(var(--skill-image-strip-default-y) + var(--search-bar-offset-y));
+  --skill-image-strip-y: calc(var(--search-drop-y) + 1.7rem);
 }
 
 .main-content__guide-layer {
@@ -117,7 +124,7 @@ body::-webkit-scrollbar {
 .main-content__skill-layer {
   position: absolute;
   inset: 0;
-  z-index: auto;
+  z-index: 15;
   overflow: visible;
   pointer-events: none;
 }
@@ -310,6 +317,32 @@ body::-webkit-scrollbar {
   pointer-events: none;
 }
 
+.main-content__section-frame-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  pointer-events: auto;
+}
+
+.main-content__section-frame {
+  position: absolute;
+  inset: var(--section-frame-gap);
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.28),
+    0 24px 38px rgba(0, 0, 0, 0.3),
+    0 58px 138px rgba(0, 0, 0, 0.62),
+    0 0 190px 54px rgba(0, 0, 0, 0.36);
+  will-change: transform, opacity, filter;
+}
+
+.main-content__floating-skill-image {
+  z-index: 16;
+  pointer-events: none;
+}
+
 .skills-one-video-background {
   --skills-one-video-opacity: 0;
   position: absolute;
@@ -337,8 +370,8 @@ body::-webkit-scrollbar {
 
 .hero-section {
   position: relative;
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -579,8 +612,8 @@ body::-webkit-scrollbar {
 }
 
 .hero-fjr-wordmark--transition-dot-pulse .hero-fjr-wordmark__glyph--dot::after,
-.hero-fjr-wordmark--transition-dot-center-hold .hero-fjr-wordmark__glyph--dot::after,
-.hero-fjr-wordmark--transition-dot-shrink .hero-fjr-wordmark__glyph--dot::after,
+.hero-fjr-wordmark--transition-dot-center-hold .hero-fjr-wordmark__glyph::after,
+.hero-fjr-wordmark--transition-dot-shrink .hero-fjr-wordmark__glyph::after,
 .hero-fjr-wordmark--transition-dot-flight .hero-fjr-wordmark__glyph--dot::after {
   opacity: 0.9;
   filter: blur(0.8px);
@@ -591,22 +624,10 @@ body::-webkit-scrollbar {
   animation: hero-fjr-wordmark-dot-glow 1.18s ease-in-out infinite;
 }
 
-.hero-fjr-wordmark--transition-dot-center-hold .hero-fjr-wordmark__glyph:not(.hero-fjr-wordmark__glyph--dot),
-.hero-fjr-wordmark--transition-dot-shrink .hero-fjr-wordmark__glyph:not(.hero-fjr-wordmark__glyph--dot) {
+.hero-fjr-wordmark--transition-dot-center-hold .hero-fjr-wordmark__glyph,
+.hero-fjr-wordmark--transition-dot-shrink .hero-fjr-wordmark__glyph {
   opacity: 0;
   filter: blur(4px);
-}
-
-.hero-fjr-wordmark__glyph--dot-flight-hidden,
-.hero-fjr-wordmark__glyph--dot-flight-hidden::before,
-.hero-fjr-wordmark__glyph--dot-flight-hidden::after {
-  visibility: hidden !important;
-  opacity: 0 !important;
-}
-
-.hero-fjr-wordmark__glyph--dot-flight-hidden .hero-fjr-wordmark__glyph-face,
-.hero-fjr-wordmark__glyph--dot-flight-hidden .hero-fjr-wordmark__glyph-char {
-  opacity: 0 !important;
 }
 
 .hero-fjr-wordmark--transition-dot-flight .hero-fjr-wordmark__glyph--dot {
@@ -630,6 +651,9 @@ body::-webkit-scrollbar {
   transform-origin: center;
   pointer-events: none;
   z-index: 8;
+  opacity: 1;
+  filter: none;
+  will-change: transform, opacity, filter;
 }
 
 .hero-fjr-flight-particle-anchor--lift {
@@ -663,11 +687,29 @@ body::-webkit-scrollbar {
 }
 
 .hero-fjr-flight-particle-anchor--center-expand {
-  animation: hero-fjr-flight-particle-center-expand 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation:
+    hero-fjr-flight-particle-center-expand
+    var(--hero-fjr-flight-center-intro-duration, 1400ms)
+    cubic-bezier(0.16, 1, 0.3, 1)
+    both;
 }
 
 .hero-fjr-flight-particle-anchor--behind-wordmark {
   z-index: 1;
+}
+
+.hero-fjr-flight-particle-orbit {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-fjr-flight-particle-orbit--center-drift {
+  animation:
+    hero-fjr-flight-particle-center-drift
+    var(--hero-fjr-flight-center-drift-duration, 1600ms)
+    cubic-bezier(0.33, 0, 0.16, 1)
+    var(--hero-fjr-flight-center-intro-duration, 1400ms)
+    both;
 }
 
 .hero-fjr-flight-particle {
@@ -682,6 +724,16 @@ body::-webkit-scrollbar {
     0 9px 16px rgba(0, 0, 0, 0.26);
 }
 
+.hero-fjr-flight-particle--center-stage {
+  transform: scale(1);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.98),
+    0 0 14px rgba(0, 0, 0, 0.84),
+    0 0 30px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(255, 255, 255, 0.14),
+    0 12px 18px rgba(0, 0, 0, 0.28);
+}
+
 .hero-fjr-flight-particle::after {
   content: '';
   position: absolute;
@@ -693,6 +745,21 @@ body::-webkit-scrollbar {
     0 0 20px rgba(255, 255, 255, 0.62),
     0 0 34px rgba(255, 255, 255, 0.22);
   animation: hero-fjr-wordmark-dot-glow 1.18s ease-in-out infinite;
+}
+
+.hero-fjr-flight-particle--center-stage::after {
+  opacity: 0.7;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 0.96),
+    0 0 24px rgba(255, 255, 255, 0.68),
+    0 0 38px rgba(255, 255, 255, 0.24),
+    0 0 54px rgba(255, 255, 255, 0.12);
+  animation:
+    hero-fjr-flight-particle-center-glow
+    1.48s
+    ease-in-out
+    var(--hero-fjr-flight-center-intro-duration, 1400ms)
+    infinite;
 }
 
 .hero-subtitle-reveal--particles {
@@ -721,17 +788,17 @@ body::-webkit-scrollbar {
 .hero-profile-guide-particle-layer {
   --hero-profile-guide-size: 0.52rem;
   --hero-profile-guide-halo-size: 1.9rem;
-  --hero-profile-guide-profile-1-x: calc(50% + clamp(1.8rem, 3.8vmin, 3.4rem));
-  --hero-profile-guide-profile-1-y: clamp(24%, 27.5%, 30%);
-  --hero-profile-guide-profile-2-x: calc(50% + clamp(18rem, 24vmin, 18rem));
-  --hero-profile-guide-profile-2-y: clamp(34%, 38%, 42%);
-  --hero-profile-guide-profile-3-x: calc(50% + clamp(1rem, 2.6vmin, 2.4rem));
-  --hero-profile-guide-profile-3-y: clamp(29%, 31.6%, 35%);
-  --hero-profile-guide-profile-4-x: calc(50% + clamp(8rem, 10.5vmin, 8rem));
-  --hero-profile-guide-profile-4-y: clamp(42%, 46%, 50%);
+  --hero-profile-guide-profile-1-x: calc(var(--hero-composition-left) + (var(--hero-composition-scale) * 0.531));
+  --hero-profile-guide-profile-1-y: 27.5%;
+  --hero-profile-guide-profile-2-x: calc(var(--hero-composition-left) + (var(--hero-composition-scale) * 0.805));
+  --hero-profile-guide-profile-2-y: 38%;
+  --hero-profile-guide-profile-3-x: calc(var(--hero-composition-left) + (var(--hero-composition-scale) * 0.52));
+  --hero-profile-guide-profile-3-y: 31.6%;
+  --hero-profile-guide-profile-4-x: calc(var(--hero-composition-left) + (var(--hero-composition-scale) * 0.642));
+  --hero-profile-guide-profile-4-y: 46%;
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -1140,6 +1207,10 @@ body::-webkit-scrollbar {
   transform: translateY(calc(-50% + 0.3rem));
 }
 
+.hero-search-scene__field--intro {
+  justify-content: center;
+}
+
 .hero-search-scene__field-input {
   width: 100%;
   min-width: 0;
@@ -1153,6 +1224,10 @@ body::-webkit-scrollbar {
   padding: 0;
   caret-color: rgba(16, 17, 18, 0.92);
   touch-action: auto;
+}
+
+.hero-search-scene__field-input--intro {
+  text-align: center;
 }
 
 .hero-search-scene__field-input::placeholder {
@@ -1529,8 +1604,8 @@ body::-webkit-scrollbar {
   position: absolute;
   left: 50%;
   bottom: calc(50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap));
-  width: min(calc(var(--search-bar-width) + 4rem), calc(100vw - 2.25rem));
-  max-height: calc(100dvh - (50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap)) - var(--agent-panel-gap));
+  width: min(calc(var(--search-bar-width) + 4rem), calc(var(--viewport-width) - 2.25rem));
+  max-height: calc(var(--viewport-height) - (50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap)) - var(--agent-panel-gap));
   padding: 1.05rem var(--agent-panel-inline-padding) 1rem;
   display: flex;
   flex-direction: column;
@@ -1742,16 +1817,22 @@ body::-webkit-scrollbar {
 }
 
 .hero-profile-bio-stack {
-  --profile-bio-stack-inset: clamp(1.2rem, 4vw, 4rem);
+  --profile-bio-stack-inline-inset: clamp(0.14rem, 0.42vw, 0.42rem);
+  --profile-bio-stack-block-inset: clamp(0.72rem, 2.35vw, 2.2rem);
+  --profile-bio-stack-inline-edge-gap: max(env(safe-area-inset-left, 0px), var(--profile-bio-stack-block-inset));
   position: absolute;
-  left: var(--profile-bio-stack-inset);
-  top: var(--profile-bio-stack-inset);
+  left: var(--profile-bio-stack-inline-edge-gap);
+  top: var(--profile-bio-stack-block-inset);
   z-index: 6;
   display: flex;
   flex-direction: column;
   gap: clamp(1.1rem, 3vh, 2rem);
-  width: min(48vw, 720px);
-  max-height: calc(100dvh - var(--profile-bio-stack-inset) - 2rem);
+  width: min(
+    calc(var(--hero-composition-scale) * 0.48),
+    720px,
+    calc(var(--viewport-width) - (var(--profile-bio-stack-inline-edge-gap) * 2))
+  );
+  max-height: calc(var(--viewport-height) - (var(--profile-bio-stack-block-inset) * 2));
   overflow: hidden;
   pointer-events: none;
 }
@@ -1819,8 +1900,9 @@ body::-webkit-scrollbar {
 
 .social-icons {
   position: absolute;
-  right: 2.2rem;
-  bottom: 2.8rem;
+  left: auto;
+  right: max(env(safe-area-inset-right, 0px), clamp(0.72rem, 2.35vw, 2.2rem));
+  bottom: clamp(1.6rem, calc(var(--viewport-height) * 0.038), 2.8rem);
   display: flex;
   gap: 1.25rem;
   z-index: 5;
@@ -1843,12 +1925,14 @@ body::-webkit-scrollbar {
 
 @media (max-width: 768px) {
   .main-content__viewport {
-    --hero-composition-scale: min(100vw, calc(var(--viewport-height) * 1.14));
+    --hero-composition-scale: min(var(--viewport-width), calc(var(--viewport-height) * 1.14));
+    --hero-composition-left: max(0px, calc((var(--viewport-width) - var(--hero-composition-scale)) * 0.5));
+    --hero-composition-right: var(--hero-composition-left);
     --hero-fjr-wordmark-size: clamp(4.8rem, calc(var(--hero-composition-scale) * 0.265), 7.4rem);
     --search-bar-width: min(calc(100% - 1.5rem), 30rem);
     --search-bar-height: clamp(2.9rem, calc(var(--hero-composition-scale) * 0.07), 3.2rem);
     --search-bar-half-height: calc(var(--search-bar-height) * 0.5);
-    --search-drop-y: calc(clamp(11.5rem, 42dvh, 18rem) + 1.4rem);
+    --search-drop-y: calc(clamp(11.5rem, calc(var(--viewport-height) * 0.42), 18rem) + 1.4rem);
     --skill-image-strip-item-width: clamp(6.1rem, calc(var(--hero-composition-scale) * 0.185), 7.8rem);
     --skill-image-strip-item-height: clamp(3.8rem, calc(var(--hero-composition-scale) * 0.11), 4.65rem);
     --skill-image-strip-bottom-gap: 0.74rem;
@@ -1861,6 +1945,7 @@ body::-webkit-scrollbar {
     --search-ticker-visual-top: calc(50% + var(--search-drop-y) - var(--search-bar-half-height) - var(--search-bar-bottom-gap) - var(--search-ticker-word-visual-height));
     --profile-bio-reference-gap: max(var(--search-ticker-glow-space), var(--search-bar-bottom-gap));
     --skill-heading-size: 3.15rem;
+    --section-frame-gap: clamp(1.28rem, calc(var(--hero-composition-scale) * 0.061), 2.25rem);
   }
 
   .hero-title-wrapper--particles {
@@ -1938,22 +2023,14 @@ body::-webkit-scrollbar {
   .hero-profile-guide-particle-layer {
     --hero-profile-guide-size: 0.48rem;
     --hero-profile-guide-halo-size: 1.65rem;
-    --hero-profile-guide-profile-1-x: calc(50% + clamp(1rem, 2.2vmin, 1.8rem));
-    --hero-profile-guide-profile-1-y: 28%;
-    --hero-profile-guide-profile-2-x: calc(50% + clamp(6rem, 16vmin, 8.5rem));
-    --hero-profile-guide-profile-2-y: 39%;
-    --hero-profile-guide-profile-3-x: calc(50% + clamp(0.7rem, 1.5vmin, 1.4rem));
-    --hero-profile-guide-profile-3-y: 33%;
-    --hero-profile-guide-profile-4-x: calc(50% + clamp(3.1rem, 7.8vmin, 4.8rem));
-    --hero-profile-guide-profile-4-y: 47%;
   }
 
   .hero-agent-panel {
     --agent-panel-gap: 0.95rem;
     --agent-panel-inline-padding: 0.9rem;
     bottom: calc(50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap));
-    width: min(calc(var(--search-bar-width) + 1rem), 94vw);
-    max-height: calc(100dvh - (50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap)) - var(--agent-panel-gap));
+    width: min(calc(var(--search-bar-width) + 1rem), calc(var(--viewport-width) - 1.5rem));
+    max-height: calc(var(--viewport-height) - (50% - var(--search-active-y, var(--search-drop-y)) + var(--search-bar-height) + var(--agent-panel-gap)) - var(--agent-panel-gap));
     padding: 0.88rem var(--agent-panel-inline-padding) 0.84rem;
   }
 
@@ -1975,14 +2052,15 @@ body::-webkit-scrollbar {
   }
 
   .hero-profile-bio-stack {
-    --profile-bio-stack-inset: 1.2rem;
-    width: min(90vw, 420px);
-    left: 50%;
-    top: var(--profile-bio-stack-inset);
+    --profile-bio-stack-inline-inset: 0.22rem;
+    --profile-bio-stack-block-inset: 0.72rem;
+    width: min(calc(var(--viewport-width) - (var(--profile-bio-stack-inline-edge-gap) * 2)), 420px);
+    left: var(--profile-bio-stack-inline-edge-gap);
+    top: var(--profile-bio-stack-block-inset);
     bottom: auto;
     gap: 0.85rem;
-    max-height: calc(100dvh - var(--profile-bio-stack-inset) - 1.35rem);
-    transform: translateX(-50%);
+    max-height: calc(var(--viewport-height) - (var(--profile-bio-stack-block-inset) * 2));
+    transform: none;
   }
 
   .hero-profile-bio--lower {
@@ -1997,7 +2075,8 @@ body::-webkit-scrollbar {
   }
 
   .social-icons {
-    right: 1.4rem;
+    left: auto;
+    right: max(env(safe-area-inset-right, 0px), 0.72rem);
     bottom: 2.1rem;
   }
 }
@@ -2209,20 +2288,92 @@ body::-webkit-scrollbar {
 
 @keyframes hero-fjr-flight-particle-center-expand {
   0% {
+    opacity: 0;
+    filter: blur(22px) brightness(1.36);
     transform:
       translate(
         calc(-50% + var(--hero-fjr-flight-delta-x, 0px)),
         calc(-50% + var(--hero-fjr-flight-delta-y, 0px))
       )
-      scale(var(--hero-fjr-flight-scale, 1));
+      scale(var(--hero-fjr-flight-center-scale-start, 0.16));
+  }
+  24% {
+    opacity: 0.36;
+    filter: blur(16px) brightness(1.3);
+    transform:
+      translate(
+        calc(-50% + var(--hero-fjr-flight-delta-x, 0px) + 0.06rem),
+        calc(-50% + var(--hero-fjr-flight-delta-y, 0px) - 0.08rem)
+      )
+      scale(calc(var(--hero-fjr-flight-center-scale-start, 0.16) * 1.55));
+  }
+  68% {
+    opacity: 0.78;
+    filter: blur(9px) brightness(1.18);
+    transform:
+      translate(
+        calc(-50% + var(--hero-fjr-flight-delta-x, 0px) + 0.18rem),
+        calc(-50% + var(--hero-fjr-flight-delta-y, 0px) - 0.12rem)
+      )
+      scale(var(--hero-fjr-flight-center-scale-half, 0.5));
+  }
+  88% {
+    opacity: 1;
+    filter: blur(2px) brightness(1.06);
+    transform:
+      translate(
+        calc(-50% + var(--hero-fjr-flight-delta-x, 0px) + 0.08rem),
+        calc(-50% + var(--hero-fjr-flight-delta-y, 0px) + 0.02rem)
+      )
+      scale(var(--hero-fjr-flight-center-scale, var(--hero-fjr-flight-scale, 1)));
   }
   100% {
+    opacity: 1;
+    filter: blur(0) brightness(1);
     transform:
       translate(
         calc(-50% + var(--hero-fjr-flight-delta-x, 0px)),
         calc(-50% + var(--hero-fjr-flight-delta-y, 0px))
       )
       scale(var(--hero-fjr-flight-center-scale, var(--hero-fjr-flight-scale, 1)));
+  }
+}
+
+@keyframes hero-fjr-flight-particle-center-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(0.1rem, -0.12rem, 0);
+  }
+  44% {
+    transform: translate3d(0.18rem, 0.02rem, 0);
+  }
+  72% {
+    transform: translate3d(-0.12rem, 0.1rem, 0);
+  }
+  100% {
+    transform: translate3d(-0.05rem, -0.04rem, 0);
+  }
+}
+
+@keyframes hero-fjr-flight-particle-center-glow {
+  0%,
+  100% {
+    opacity: 0.52;
+    box-shadow:
+      0 0 9px rgba(255, 255, 255, 0.88),
+      0 0 20px rgba(255, 255, 255, 0.5),
+      0 0 34px rgba(255, 255, 255, 0.18),
+      0 0 48px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    opacity: 0.98;
+    box-shadow:
+      0 0 14px rgba(255, 255, 255, 1),
+      0 0 28px rgba(255, 255, 255, 0.72),
+      0 0 44px rgba(255, 255, 255, 0.3),
+      0 0 62px rgba(255, 255, 255, 0.14);
   }
 }
 

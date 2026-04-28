@@ -78,7 +78,8 @@ const rotatingSearchPrompts = [
   'Quais sao os projetos do Flavio Jr.?',
 ] as const;
 
-const searchIntroMessage = 'Ola, Sejam Bem vindos!';
+const searchIntroMessage = 'Ol\u00e1!';
+const searchIntroTypingStepMs = 168;
 const profileGuideMoveDurationMs = 340;
 
 const getElasticDragOffset = (delta: number, limit: number) => {
@@ -147,6 +148,7 @@ export function SharedProfileSearchOverlay({
     '--hero-profile-guide-move-duration': `${profileGuideMoveDurationMs}ms`,
   } as CSSProperties;
   const shouldShowSearchIntroText = searchIntroDisplayText.length > 0;
+  const shouldCenterSearchIntroField = shouldShowSearchIntroText && searchQuery.trim().length === 0;
   const isAmbientActive = ambientPhase === 'active';
   const isSearchInteractionReady = isReady && isAmbientActive;
   const searchSceneClassName = [
@@ -200,7 +202,7 @@ export function SharedProfileSearchOverlay({
       setSearchIntroDisplayText(nextText);
 
       if (nextIndex < searchIntroMessage.length) {
-        searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, 72);
+        searchIntroTypingTimerRef.current = window.setTimeout(typeNextCharacter, searchIntroTypingStepMs);
         return;
       }
 
@@ -827,10 +829,19 @@ export function SharedProfileSearchOverlay({
               </button>
             </div>
 
-            <form className="hero-search-scene__field" onSubmit={handleSearchSubmit}>
+            <form
+              className={[
+                'hero-search-scene__field',
+                shouldCenterSearchIntroField ? 'hero-search-scene__field--intro' : '',
+              ].filter(Boolean).join(' ')}
+              onSubmit={handleSearchSubmit}
+            >
               <input
                 ref={searchInputRef}
-                className="hero-search-scene__field-input"
+                className={[
+                  'hero-search-scene__field-input',
+                  shouldCenterSearchIntroField ? 'hero-search-scene__field-input--intro' : '',
+                ].filter(Boolean).join(' ')}
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchInputChange}
